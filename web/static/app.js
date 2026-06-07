@@ -1524,9 +1524,23 @@ function closeDirectoryPicker() {
   $('directoryOverlay').setAttribute('aria-hidden', 'true');
 }
 
+function isValidDirectoryResponse(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return false;
+  if (typeof data.path !== 'string') return false;
+  if (data.parent !== undefined && data.parent !== null && typeof data.parent !== 'string') return false;
+  if (!Array.isArray(data.entries) || data.entries.length > 1000) return false;
+  for (const entry of data.entries) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return false;
+    if (typeof entry.name !== 'string' || !entry.name) return false;
+    if (typeof entry.path !== 'string' || !entry.path) return false;
+  }
+  return true;
+}
+
 async function loadDirectory(path = '') {
   const qs = path ? `?path=${encodeURIComponent(path)}` : '';
   const data = await api(`/api/fs/dirs${qs}`);
+  if (!isValidDirectoryResponse(data)) throw new Error('Invalid directory response');
   currentDirectoryPath = data.path || '';
   $('directoryPath').textContent = currentDirectoryPath;
   $('parentDirectoryBtn').disabled = !data.parent;
