@@ -250,7 +250,10 @@ func (s *Server) getDingTalkSessionTask(key string) string {
 func verifyDingTalkIncomingSignature(r *http.Request) error {
 	secret := strings.TrimSpace(firstNonEmpty(os.Getenv("AUTO_GARDENER_DINGTALK_INCOMING_SECRET"), os.Getenv("AUTO_GARDENER_DINGTALK_APP_SECRET")))
 	if secret == "" {
-		return nil
+		if os.Getenv("AUTO_GARDENER_DINGTALK_ALLOW_UNSIGNED") == "1" {
+			return nil
+		}
+		return errors.New("未配置钉钉签名 secret，拒绝未签名请求")
 	}
 	timestamp := strings.TrimSpace(firstNonEmpty(r.Header.Get("timestamp"), r.Header.Get("Timestamp"), r.URL.Query().Get("timestamp")))
 	signature := strings.TrimSpace(firstNonEmpty(r.Header.Get("sign"), r.Header.Get("Sign"), r.URL.Query().Get("sign")))

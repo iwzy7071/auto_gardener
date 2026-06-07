@@ -47,11 +47,22 @@ func TestDingTalkSignedWebhook(t *testing.T) {
 	}
 }
 
-func TestNoDingTalkSecretSkipsVerify(t *testing.T) {
+func TestNoDingTalkSecretRejectsUnsignedRequest(t *testing.T) {
 	_ = os.Unsetenv("AUTO_GARDENER_DINGTALK_INCOMING_SECRET")
 	_ = os.Unsetenv("AUTO_GARDENER_DINGTALK_APP_SECRET")
+	_ = os.Unsetenv("AUTO_GARDENER_DINGTALK_ALLOW_UNSIGNED")
+	req := httptest.NewRequest("POST", "/api/dingtalk/robot", nil)
+	if err := verifyDingTalkIncomingSignature(req); err == nil {
+		t.Fatal("unsigned DingTalk request accepted without secret")
+	}
+}
+
+func TestNoDingTalkSecretAllowsExplicitUnsignedDevMode(t *testing.T) {
+	_ = os.Unsetenv("AUTO_GARDENER_DINGTALK_INCOMING_SECRET")
+	_ = os.Unsetenv("AUTO_GARDENER_DINGTALK_APP_SECRET")
+	t.Setenv("AUTO_GARDENER_DINGTALK_ALLOW_UNSIGNED", "1")
 	req := httptest.NewRequest("POST", "/api/dingtalk/robot", nil)
 	if err := verifyDingTalkIncomingSignature(req); err != nil {
-		t.Fatalf("verification should be skipped without secret: %v", err)
+		t.Fatalf("explicit unsigned dev mode should skip verification: %v", err)
 	}
 }
