@@ -693,8 +693,18 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
+const maxAPIErrorMessageRunes = 1000
+
+func limitAPIErrorMessage(msg string) string {
+	chars := []rune(strings.TrimSpace(msg))
+	if len(chars) <= maxAPIErrorMessageRunes {
+		return string(chars)
+	}
+	return string(chars[:maxAPIErrorMessageRunes]) + "…"
+}
+
 func writeError(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, map[string]string{"error": msg})
+	writeJSON(w, status, map[string]string{"error": limitAPIErrorMessage(msg)})
 }
 
 func logRequests(next http.Handler) http.Handler {
