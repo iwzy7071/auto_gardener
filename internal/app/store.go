@@ -14,6 +14,8 @@ import (
 
 var ErrNotFound = errors.New("not found")
 
+const maxStoredMessages = 200
+
 type taskDiskCompat struct {
 	Task
 	LegacyWave            int `json:"wave,omitempty"`
@@ -332,6 +334,7 @@ func (s *Store) UpdateTask(id string, fn func(*Task)) (*Task, error) {
 		return nil, ErrNotFound
 	}
 	fn(t)
+	trimStoredMessages(t)
 	t.UpdatedAt = time.Now()
 	if err := s.persistTaskLocked(t); err != nil {
 		return nil, err
@@ -480,6 +483,13 @@ func (s *Store) persistTaskLocked(t *Task) error {
 		}
 	}
 	return nil
+}
+
+func trimStoredMessages(t *Task) {
+	if t == nil || len(t.Messages) <= maxStoredMessages {
+		return
+	}
+	t.Messages = t.Messages[len(t.Messages)-maxStoredMessages:]
 }
 
 func cloneTask(t *Task) *Task {
