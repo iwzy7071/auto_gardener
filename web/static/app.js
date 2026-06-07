@@ -963,6 +963,12 @@ function renderTreeStatus(task) {
   });
 }
 
+const MAX_RENDERED_FILE_ERROR_CHARS = 300;
+function renderedFileErrorMessage(err) {
+  const chars = Array.from(String(err?.message || err || ''));
+  return chars.length > MAX_RENDERED_FILE_ERROR_CHARS ? chars.slice(0, MAX_RENDERED_FILE_ERROR_CHARS).join('') + '…' : chars.join('');
+}
+
 function resetFileViewerForTask(taskId) {
   state.fileViewerToken++;
   state.previewToken++;
@@ -1105,9 +1111,10 @@ async function renderFileViewer(task) {
     await previewFile(task.id, selected, token);
   } catch (err) {
     if (!isActiveFileRender(task.id, token)) return;
-    fileSelect.innerHTML = `<option value="">${t('openFailed')}${escapeHTML(err.message)}</option>`;
+    const message = renderedFileErrorMessage(err);
+    fileSelect.innerHTML = `<option value="">${t('openFailed')}${escapeHTML(message)}</option>`;
     fileSelect.disabled = true;
-    preview.textContent = `${t('openFailed')}${err.message}`;
+    preview.textContent = `${t('openFailed')}${message}`;
   }
 }
 
@@ -1151,7 +1158,7 @@ async function previewFile(taskId, path, renderToken = 0) {
   } catch (err) {
     if (state.activeTaskId !== taskId || previewToken !== state.previewToken || (renderToken && renderToken !== state.fileViewerToken)) return;
     preview.className = 'file-preview plain-preview';
-    preview.textContent = `${t('fileTooLarge')}：${err.message}`;
+    preview.textContent = `${t('fileTooLarge')}：${renderedFileErrorMessage(err)}`;
   }
 }
 
