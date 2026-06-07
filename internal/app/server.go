@@ -34,6 +34,8 @@ type Server struct {
 	httpClient       *http.Client
 }
 
+const maxStaticRequestPathLength = 4096
+
 func NewServer(store *Store, orchestrator *Orchestrator, staticDir string, events *EventHub) *Server {
 	return &Server{store: store, orchestrator: orchestrator, staticDir: staticDir, events: events, dingTalkSessions: make(map[string]string), httpClient: &http.Client{Timeout: 10 * time.Second}}
 }
@@ -76,6 +78,10 @@ func (s *Server) handleUsage(w http.ResponseWriter, r *http.Request) {
 func (s *Server) serveStaticApp(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	if len(r.URL.Path) > maxStaticRequestPathLength {
+		http.NotFound(w, r)
 		return
 	}
 	path := filepath.Clean(strings.TrimPrefix(r.URL.Path, "/"))
