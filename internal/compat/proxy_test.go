@@ -54,3 +54,14 @@ func TestNormalizeChatMessagesMergesSystem(t *testing.T) {
 		t.Fatalf("unexpected second message: %#v", got[1])
 	}
 }
+
+func TestValidateToolChoiceSizeRejectsLargeToolChoice(t *testing.T) {
+	tooLarge := []byte(`"` + strings.Repeat("a", maxCompatToolChoiceBytes+1) + `"`)
+	if err := validateToolChoiceSize(tooLarge); err == nil {
+		t.Fatal("validateToolChoiceSize accepted large tool choice")
+	}
+	boundary := []byte(`"` + strings.Repeat("a", maxCompatToolChoiceBytes-2) + `"`)
+	if err := validateToolChoiceSize(boundary); err != nil {
+		t.Fatalf("validateToolChoiceSize rejected boundary value: %v", err)
+	}
+}

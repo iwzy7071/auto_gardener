@@ -19,6 +19,8 @@ type Proxy struct {
 	client  *http.Client
 }
 
+const maxCompatToolChoiceBytes = 16 * 1024
+
 type providerSpec struct {
 	Name                 string
 	BaseURL              string
@@ -83,6 +85,10 @@ func (p *Proxy) handle(w http.ResponseWriter, r *http.Request) {
 		writeProxyError(w, http.StatusBadRequest, "invalid responses request")
 		return
 	}
+	if err := validateToolChoiceSize(req.ToolChoice); err != nil {
+		writeProxyError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	if err := p.forwardChatStream(w, r, spec, token, req); err != nil {
 		log.Printf("compat proxy %s error: %v", spec.Name, err)
 	}
@@ -101,7 +107,7 @@ type responseRequest struct {
 	Instructions      string          `json:"instructions"`
 	Input             json.RawMessage `json:"input"`
 	Tools             []responseTool  `json:"tools,omitempty"`
-	ToolChoice        any             `json:"tool_choice,omitempty"`
+	ToolChoice        json.RawMessage `json:"tool_choice,omitempty"`
 	ParallelToolCalls bool            `json:"parallel_tool_calls,omitempty"`
 	Temperature       *float64        `json:"temperature,omitempty"`
 	TopP              *float64        `json:"top_p,omitempty"`
@@ -171,7 +177,7 @@ func (p *Proxy) forwardChatStream(w http.ResponseWriter, r *http.Request, spec p
 	if spec.SupportsStreamUsage {
 		chatReq.StreamOptions = map[string]bool{"include_usage": true}
 	}
-	if req.ToolChoice != nil {
+	if len(req.ToolChoice) > 0 {
 		chatReq.ToolChoice = req.ToolChoice
 	}
 	if len(req.Tools) > 0 && spec.SupportsParallelTool {
@@ -262,6 +268,13 @@ type responseInputItem struct {
 	Name      string          `json:"name,omitempty"`
 	Arguments string          `json:"arguments,omitempty"`
 	Output    string          `json:"output,omitempty"`
+}
+
+func validateToolChoiceSize(raw json.RawMessage) error {
+	if len(raw) > maxCompatToolChoiceBytes {
+		return fmt.Errorf("tool choice too large; maximum is %d bytes", maxCompatToolChoiceBytes)
+	}
+	return nil
 }
 
 func contentText(raw json.RawMessage) string {
