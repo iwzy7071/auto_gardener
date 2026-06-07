@@ -32,3 +32,23 @@ func TestWithGoalEnvelope(t *testing.T) {
 		}
 	}
 }
+
+func TestModelProviderNameLengthLimit(t *testing.T) {
+	model := ModelConfig{
+		ProviderID:   "custom",
+		ProviderName: strings.Repeat("a", maxModelProviderNameLength+1),
+		Model:        "model",
+		BaseURL:      "https://example.test/v1",
+		EnvKey:       "CUSTOM_API_KEY",
+	}
+	args := strings.Join(appendModelArgs(nil, model), "\n")
+	if strings.Contains(args, ".name=") {
+		t.Fatalf("appendModelArgs accepted oversized provider name in:\n%s", args)
+	}
+
+	model.ProviderName = strings.Repeat("a", maxModelProviderNameLength)
+	args = strings.Join(appendModelArgs(nil, model), "\n")
+	if !strings.Contains(args, ".name=") {
+		t.Fatalf("appendModelArgs rejected boundary provider name in:\n%s", args)
+	}
+}
