@@ -78,6 +78,10 @@ func (p *Proxy) handle(w http.ResponseWriter, r *http.Request) {
 		writeProxyError(w, http.StatusUnauthorized, "missing provider token")
 		return
 	}
+	if len(token) > maxProviderTokenChars {
+		writeProxyError(w, http.StatusBadRequest, "provider token too long")
+		return
+	}
 	var req responseRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeProxyError(w, http.StatusBadRequest, "invalid responses request")
@@ -87,6 +91,8 @@ func (p *Proxy) handle(w http.ResponseWriter, r *http.Request) {
 		log.Printf("compat proxy %s error: %v", spec.Name, err)
 	}
 }
+
+const maxProviderTokenChars = 8192
 
 func bearerToken(header string) string {
 	header = strings.TrimSpace(header)
