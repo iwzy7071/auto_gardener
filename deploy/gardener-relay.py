@@ -19,6 +19,8 @@ RELAY_PUBLIC_BASE_URL = os.environ.get('GARDENER_RELAY_PUBLIC_BASE_URL', f'http:
 PACKAGE_URL = os.environ.get('GARDENER_RELAY_WINDOWS_PACKAGE_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/Gardener-Windows.zip')
 INSTALL_SCRIPT_URL = os.environ.get('GARDENER_RELAY_WINDOWS_INSTALL_SCRIPT_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/install-gardener.ps1')
 MAC_INSTALL_SCRIPT_URL = os.environ.get('GARDENER_RELAY_MAC_INSTALL_SCRIPT_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/install-gardener-macos.sh')
+MAX_PROVISION_BYTES = 1024 * 1024
+
 MAC_PACKAGE_URLS = {
     'arm64': os.environ.get('GARDENER_RELAY_MAC_ARM64_PACKAGE_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/Gardener-macOS-arm64.tar.gz'),
     'amd64': os.environ.get('GARDENER_RELAY_MAC_AMD64_PACKAGE_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/Gardener-macOS-amd64.tar.gz'),
@@ -328,7 +330,10 @@ def show_user(args):
             if args.with_provision:
                 if not out.get('provisionPath') or not Path(out['provisionPath']).exists():
                     raise SystemExit('error: this user has no provision file; rotate/reset the user to create one')
-                out['provision'] = json.loads(Path(out['provisionPath']).read_text())
+                provision_path = Path(out['provisionPath'])
+                if provision_path.stat().st_size > MAX_PROVISION_BYTES:
+                    raise SystemExit('error: provision file is too large')
+                out['provision'] = json.loads(provision_path.read_text())
             if out.get('setupKey'):
                 require_relay_configured()
                 out['installCommand'] = install_command(out['setupKey'])
