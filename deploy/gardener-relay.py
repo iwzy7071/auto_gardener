@@ -166,8 +166,15 @@ remotePort = {remote_port}
 def set_nginx_readable(path):
     try:
         import grp
-        gid = grp.getgrnam('nginx').gr_gid
-        os.chown(path, 0, gid)
+        gid = None
+        for group in ('nginx', 'www-data'):
+            try:
+                gid = grp.getgrnam(group).gr_gid
+                break
+            except KeyError:
+                continue
+        if gid is not None:
+            os.chown(path, 0, gid)
     except Exception:
         pass
 
@@ -205,8 +212,10 @@ def write_provision(instance, password, setup_key=None):
     }
     path = provision_dir / 'gardener.provision.json'
     path.write_text(json.dumps(provision, ensure_ascii=False, indent=2) + '\n')
-    os.chmod(provision_dir, 0o755)
-    os.chmod(path, 0o644)
+    set_nginx_readable(provision_dir)
+    set_nginx_readable(path)
+    os.chmod(provision_dir, 0o750)
+    os.chmod(path, 0o640)
     return setup_key, path
 
 
