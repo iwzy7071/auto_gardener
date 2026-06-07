@@ -9,6 +9,19 @@ NGINX_DIR = Path('/etc/nginx/conf.d')
 FRPS_CONF = Path('/etc/frp/frps.toml')
 DOWNLOAD_ROOT = Path('/srv/gardener-downloads/public')
 PROVISION_ROOT = DOWNLOAD_ROOT / 'provision'
+
+
+def bounded_int_env(name, default, min_value, max_value):
+    raw = os.environ.get(name, str(default)).strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        raise SystemExit(f'error: {name} must be an integer')
+    if value < min_value or value > max_value:
+        raise SystemExit(f'error: {name} must be between {min_value} and {max_value}')
+    return value
+
+
 SERVER_ADDR = os.environ.get('GARDENER_RELAY_SERVER_ADDR', 'YOUR_RELAY_SERVER')
 FRPS_PORT = int(os.environ.get('GARDENER_RELAY_FRPS_PORT', '27000'))
 PUBLIC_START = int(os.environ.get('GARDENER_RELAY_PUBLIC_START', '28081'))
@@ -23,6 +36,7 @@ MAC_PACKAGE_URLS = {
     'arm64': os.environ.get('GARDENER_RELAY_MAC_ARM64_PACKAGE_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/Gardener-macOS-arm64.tar.gz'),
     'amd64': os.environ.get('GARDENER_RELAY_MAC_AMD64_PACKAGE_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/Gardener-macOS-amd64.tar.gz'),
 }
+MAX_USERS = bounded_int_env('GARDENER_RELAY_MAX_USERS', 100, 1, 500)
 
 
 def require_relay_configured():
@@ -233,6 +247,8 @@ def add_user(args):
     data = load_state()
     if any(i['user'] == user for i in data['instances']):
         raise SystemExit(f'error: user {user} already exists')
+    if len(data['instances']) >= MAX_USERS:
+        raise SystemExit(f'error: relay user limit reached ({MAX_USERS})')
     proxy_name = f'gardener-{relay_id_for_user(user)}'
     if any(i.get('proxyName') == proxy_name for i in data['instances']):
         raise SystemExit(f'error: proxy name {proxy_name} already exists; choose another user name')
