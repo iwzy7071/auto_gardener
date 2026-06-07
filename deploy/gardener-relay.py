@@ -317,6 +317,19 @@ def list_users(args):
         print(f'{i["user"]:<18} {i["url"]:<32} {i["remotePort"]:<7} {i["proxyName"]:<18} {online:<9} {setup}')
 
 
+def safe_provision_path(instance):
+    setup_key = sanitize_setup_key(str(instance.get('setupKey', '')))
+    raw_path = str(instance.get('provisionPath', '')).strip()
+    if not raw_path:
+        raise SystemExit('error: this user has no provision file; rotate/reset the user to create one')
+    expected = (PROVISION_ROOT / setup_key / 'gardener.provision.json').resolve()
+    actual = Path(raw_path).resolve()
+    root = PROVISION_ROOT.resolve()
+    if actual != expected or (actual != root and root not in actual.parents):
+        raise SystemExit('error: provision path is outside the managed provision directory')
+    return actual
+
+
 def show_user(args):
     user = sanitize_user(args.user)
     data = load_state()
@@ -326,9 +339,10 @@ def show_user(args):
             if args.with_frpc:
                 out['frpc'] = (USERS / user / 'frpc.toml').read_text()
             if args.with_provision:
-                if not out.get('provisionPath') or not Path(out['provisionPath']).exists():
+                provision_path = safe_provision_path(out)
+                if not provision_path.exists():
                     raise SystemExit('error: this user has no provision file; rotate/reset the user to create one')
-                out['provision'] = json.loads(Path(out['provisionPath']).read_text())
+                out['provision'] = json.loads(provision_path.read_text())
             if out.get('setupKey'):
                 require_relay_configured()
                 out['installCommand'] = install_command(out['setupKey'])
