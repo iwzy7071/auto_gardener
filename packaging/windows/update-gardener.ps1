@@ -5,6 +5,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$PackageMaxBytes = 1GB
 
 function Test-GardenerAdmin {
   try {
@@ -54,6 +55,9 @@ $Backup = Join-Path $InstallDir ("backup-" + (Get-Date -Format "yyyyMMdd-HHmmss"
 New-Item -ItemType Directory -Force -Path $Temp, $Extract | Out-Null
 Write-Host "Downloading $PackageUrl" -ForegroundColor Green
 Invoke-WebRequest -Uri $PackageUrl -OutFile $Zip
+if ((Get-Item $Zip).Length -gt $PackageMaxBytes) {
+  throw "Gardener package archive is too large."
+}
 Unblock-GardenerPath -Path $Zip
 Expand-Archive -Path $Zip -DestinationPath $Extract -Force
 Unblock-GardenerPath -Path $Extract
