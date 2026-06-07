@@ -183,11 +183,18 @@ function normalizeSettingsCompatibility() {
   state.settings.cliEngine = compatibleCLIEngineValue(state.settings.cliEngine || 'codex', state.settings.modelMode || 'default');
 }
 
+function defaultClientSettings() {
+  return { defaultWorkspace: '', showSavePath: false, showWorkRecord: false, logLevel: 'quiet', language: 'zh-CN', cliEngine: 'codex', modelMode: 'default', minimaxToken: '', kimiToken: '' };
+}
+
 function loadSettings() {
+  const defaults = defaultClientSettings();
   try {
-    return { defaultWorkspace: '', showSavePath: false, showWorkRecord: false, logLevel: 'quiet', language: 'zh-CN', cliEngine: 'codex', modelMode: 'default', minimaxToken: '', kimiToken: '', ...JSON.parse(localStorage.getItem('autoGardenerSettings') || '{}') };
+    const parsed = JSON.parse(localStorage.getItem('autoGardenerSettings') || '{}');
+    const stored = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    return { ...defaults, ...stored };
   } catch {
-    return { defaultWorkspace: '', showSavePath: false, showWorkRecord: false, logLevel: 'quiet', language: 'zh-CN', cliEngine: 'codex', modelMode: 'default', minimaxToken: '', kimiToken: '' };
+    return defaults;
   }
 }
 
