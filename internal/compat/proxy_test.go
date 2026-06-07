@@ -1,6 +1,7 @@
 package compat
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -52,5 +53,21 @@ func TestNormalizeChatMessagesMergesSystem(t *testing.T) {
 	}
 	if got[1].Role != "user" {
 		t.Fatalf("unexpected second message: %#v", got[1])
+	}
+}
+
+func TestValidateInputItemCountRejectsTooManyItems(t *testing.T) {
+	items := make([]string, maxCompatInputItems+1)
+	for i := range items {
+		items[i] = `{"type":"message","role":"user","content":"hi"}`
+	}
+	raw := json.RawMessage(`[` + strings.Join(items, ",") + `]`)
+	if err := validateInputItemCount(raw); err == nil {
+		t.Fatal("validateInputItemCount accepted too many items")
+	}
+	items = items[:maxCompatInputItems]
+	raw = json.RawMessage(`[` + strings.Join(items, ",") + `]`)
+	if err := validateInputItemCount(raw); err != nil {
+		t.Fatalf("validateInputItemCount rejected boundary value: %v", err)
 	}
 }

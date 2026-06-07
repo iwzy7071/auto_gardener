@@ -19,6 +19,8 @@ type Proxy struct {
 	client  *http.Client
 }
 
+const maxCompatInputItems = 1024
+
 type providerSpec struct {
 	Name                 string
 	BaseURL              string
@@ -81,6 +83,10 @@ func (p *Proxy) handle(w http.ResponseWriter, r *http.Request) {
 	var req responseRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeProxyError(w, http.StatusBadRequest, "invalid responses request")
+		return
+	}
+	if err := validateInputItemCount(req.Input); err != nil {
+		writeProxyError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if err := p.forwardChatStream(w, r, spec, token, req); err != nil {
@@ -262,6 +268,20 @@ type responseInputItem struct {
 	Name      string          `json:"name,omitempty"`
 	Arguments string          `json:"arguments,omitempty"`
 	Output    string          `json:"output,omitempty"`
+}
+
+func validateInputItemCount(raw json.RawMessage) error {
+	if len(raw) == 0 || raw[0] != '[' {
+		return nil
+	}
+	var items []json.RawMessage
+	if err := json.Unmarshal(raw, &items); err != nil {
+		return nil
+	}
+	if len(items) > maxCompatInputItems {
+		return fmt.Errorf("too many input items; maximum is %d", maxCompatInputItems)
+	}
+	return nil
 }
 
 func contentText(raw json.RawMessage) string {
