@@ -51,6 +51,11 @@ $Zip = Join-Path $Temp "Gardener-Windows.zip"
 $Extract = Join-Path $Temp "extract"
 $Backup = Join-Path $InstallDir ("backup-" + (Get-Date -Format "yyyyMMdd-HHmmss"))
 
+trap {
+  Remove-Item -Path $Temp -Recurse -Force -ErrorAction SilentlyContinue
+  throw
+}
+
 New-Item -ItemType Directory -Force -Path $Temp, $Extract | Out-Null
 Write-Host "Downloading $PackageUrl" -ForegroundColor Green
 Invoke-WebRequest -Uri $PackageUrl -OutFile $Zip
