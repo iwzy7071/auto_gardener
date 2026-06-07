@@ -15,6 +15,15 @@ $FrpcConfig = Join-Path $Root "frpc.toml"
 $FrpcOutLog = Join-Path $Root "frpc.out.log"
 $FrpcErrLog = Join-Path $Root "frpc.err.log"
 
+
+function Convert-GardenerPowerIndex([string]$Value) {
+  try {
+    return [Convert]::ToInt64($Value, 16)
+  } catch {
+    return [Int64]::MaxValue
+  }
+}
+
 function Show-GardenerPowerWarning {
   try {
     $bad = @()
@@ -24,13 +33,13 @@ function Show-GardenerPowerWarning {
       $out = powercfg /query SCHEME_CURRENT SUB_SLEEP $alias 2>$null | Out-String
       $ac = [regex]::Match($out, 'Current AC Power Setting Index:\s*0x([0-9a-fA-F]+)')
       $dc = [regex]::Match($out, 'Current DC Power Setting Index:\s*0x([0-9a-fA-F]+)')
-      if ($ac.Success -and ([Convert]::ToInt64($ac.Groups[1].Value,16) -gt 0)) { $bad += "AC $label timeout is not Never" }
-      if ($dc.Success -and ([Convert]::ToInt64($dc.Groups[1].Value,16) -gt 0)) { $bad += "Battery $label timeout is not Never" }
+      if ($ac.Success -and ((Convert-GardenerPowerIndex $ac.Groups[1].Value) -gt 0)) { $bad += "AC $label timeout is not Never" }
+      if ($dc.Success -and ((Convert-GardenerPowerIndex $dc.Groups[1].Value) -gt 0)) { $bad += "Battery $label timeout is not Never" }
     }
     $lid = powercfg /query SCHEME_CURRENT SUB_BUTTONS LIDACTION 2>$null | Out-String
     $lac = [regex]::Match($lid, 'Current AC Power Setting Index:\s*0x([0-9a-fA-F]+)')
     $ldc = [regex]::Match($lid, 'Current DC Power Setting Index:\s*0x([0-9a-fA-F]+)')
-    if (($lac.Success -and ([Convert]::ToInt64($lac.Groups[1].Value,16) -ne 0)) -or ($ldc.Success -and ([Convert]::ToInt64($ldc.Groups[1].Value,16) -ne 0))) { $bad += "lid close action may sleep/hibernate/shutdown" }
+    if (($lac.Success -and ((Convert-GardenerPowerIndex $lac.Groups[1].Value) -ne 0)) -or ($ldc.Success -and ((Convert-GardenerPowerIndex $ldc.Groups[1].Value) -ne 0))) { $bad += "lid close action may sleep/hibernate/shutdown" }
     if ($bad.Count -gt 0) {
       Write-Host ""
       Write-Host "WARNING: Gardener remote access requires this computer to stay awake, online, and powered on." -ForegroundColor Yellow
