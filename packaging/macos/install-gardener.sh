@@ -6,6 +6,7 @@ INSTALL_DIR="$HOME/Applications/Gardener"
 SETUP_KEY=""
 PROVISION_URL=""
 START_AFTER_INSTALL=1
+PROVISION_JSON_MAX_BYTES=$((64 * 1024))
 
 usage() {
   cat <<EOF
@@ -58,6 +59,11 @@ PROVISION_JSON="$TMP/provision.json"
 if [[ -n "$PROVISION_URL" ]]; then
   echo "Loading Gardener relay provision: $PROVISION_URL"
   curl -fsSL --connect-timeout 20 --max-time 120 "$PROVISION_URL" -o "$PROVISION_JSON"
+  provision_size="$(wc -c < "$PROVISION_JSON" | tr -d '[:space:]')"
+  if [[ "$provision_size" -gt "$PROVISION_JSON_MAX_BYTES" ]]; then
+    echo "Relay provision JSON is too large." >&2
+    exit 1
+  fi
 fi
 
 if [[ -s "$PROVISION_JSON" ]]; then
