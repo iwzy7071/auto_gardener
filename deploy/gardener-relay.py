@@ -301,11 +301,23 @@ def remove_user(args):
     print(f'removed {user}')
 
 
+def redacted_list_state(data):
+    out = {'instances': []}
+    for item in data.get('instances', []):
+        redacted = dict(item)
+        if redacted.get('setupKey'):
+            redacted['setupKey'] = '<redacted>'
+        if redacted.get('provisionPath'):
+            redacted['provisionPath'] = '<redacted>'
+        out['instances'].append(redacted)
+    return out
+
+
 def list_users(args):
     data = load_state()
     rows = data['instances']
     if args.json:
-        print(json.dumps(data, ensure_ascii=False, indent=2))
+        print(json.dumps(redacted_list_state(data), ensure_ascii=False, indent=2))
         return
     if not rows:
         print('no users')
@@ -313,7 +325,7 @@ def list_users(args):
     print(f'USER{"":14} URL{"":27} REMOTE  PROXY              STATUS    SETUP')
     for i in rows:
         online = 'online' if port_listening(int(i['remotePort']), '127.0.0.1') else 'offline'
-        setup = i.get('setupKey', '-')
+        setup = 'present' if i.get('setupKey') else '-'
         print(f'{i["user"]:<18} {i["url"]:<32} {i["remotePort"]:<7} {i["proxyName"]:<18} {online:<9} {setup}')
 
 
