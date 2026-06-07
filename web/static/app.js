@@ -49,11 +49,41 @@ async function api(path, options = {}) {
   return res.json();
 }
 
+const MAX_FETCH_TEXT_BYTES = 6 * 1024 * 1024;
+
 async function fetchText(path) {
   const res = await fetch(path);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const buf = await res.arrayBuffer();
+  const length = Number(res.headers.get('Content-Length') || 0);
+  if (Number.isFinite(length) && length > MAX_FETCH_TEXT_BYTES) throw new Error(t('fileTooLarge'));
+  const buf = await readLimitedTextResponse(res);
   return decodeTextBuffer(buf);
+}
+
+async function readLimitedTextResponse(res) {
+  if (!res.body || !res.body.getReader) {
+    const buf = await res.arrayBuffer();
+    if (buf.byteLength > MAX_FETCH_TEXT_BYTES) throw new Error(t('fileTooLarge'));
+    return buf;
+  }
+  const reader = res.body.getReader();
+  const chunks = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+    total += value.byteLength;
+    if (total > MAX_FETCH_TEXT_BYTES) {
+      try { await reader.cancel(); } catch {}
+      throw new Error(t('fileTooLarge'));
+    }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(total);
+  let offset = 0;
+  chunks.forEach(chunk => { out.set(chunk, offset); offset += chunk.byteLength; });
+  return out.buffer;
 }
 
 function decodeTextBuffer(buf) {
