@@ -62,9 +62,29 @@ func getenv(key, defaultValue string) string {
 	return defaultValue
 }
 
+func safeConfiguredStaticDir(p string) (string, bool) {
+	p = strings.TrimSpace(p)
+	if p == "" || p == "." || p == ".." || strings.Contains(p, ".."+string(os.PathSeparator)) || strings.HasPrefix(p, ".."+string(os.PathSeparator)) {
+		return "", false
+	}
+	abs, err := filepath.Abs(filepath.Clean(p))
+	if err != nil {
+		return "", false
+	}
+	if abs == filepath.Clean(string(os.PathSeparator)) {
+		return "", false
+	}
+	if st, err := os.Stat(filepath.Join(abs, "index.html")); err != nil || st.IsDir() {
+		return "", false
+	}
+	return abs, true
+}
+
 func defaultStaticDir() string {
 	if v := strings.TrimSpace(os.Getenv("AUTO_GARDENER_STATIC")); v != "" {
-		return v
+		if safe, ok := safeConfiguredStaticDir(v); ok {
+			return safe
+		}
 	}
 	candidates := []string{"web/static"}
 	if exe, err := os.Executable(); err == nil && exe != "" {
