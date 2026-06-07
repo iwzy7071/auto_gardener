@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -13,6 +14,8 @@ import (
 )
 
 var ErrNotFound = errors.New("not found")
+
+const maxProgressLogLoadBytes int64 = 256 * 1024
 
 type taskDiskCompat struct {
 	Task
@@ -648,7 +651,7 @@ func appendFile(path, s string) error {
 }
 
 func readProgress(path string) []string {
-	b, err := os.ReadFile(path)
+	b, err := readTailFile(path, maxProgressLogLoadBytes)
 	if err != nil {
 		return nil
 	}
@@ -660,7 +663,7 @@ func readProgress(path string) []string {
 }
 
 func readGardenerProgress(path string) []string {
-	b, err := os.ReadFile(path)
+	b, err := readTailFile(path, maxProgressLogLoadBytes)
 	if err != nil {
 		return nil
 	}
@@ -690,6 +693,41 @@ func readGardenerProgress(path string) []string {
 		return out[len(out)-80:]
 	}
 	return out
+}
+
+func readTailFile(path string, maxBytes int64) ([]byte, error) {
+	if maxBytes <= 0 {
+		return nil, nil
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	start := int64(0)
+	truncated := info.Size() > maxBytes
+	if truncated {
+		start = info.Size() - maxBytes
+	}
+	if _, err := f.Seek(start, io.SeekStart); err != nil {
+		return nil, err
+	}
+	b, err := io.ReadAll(io.LimitReader(f, maxBytes))
+	if err != nil {
+		return nil, err
+	}
+	if truncated {
+		if i := strings.IndexByte(string(b), '\n'); i >= 0 {
+			b = b[i+1:]
+		} else {
+			b = nil
+		}
+	}
+	return b, nil
 }
 
 func stringsSplitLines(s string) []string {
