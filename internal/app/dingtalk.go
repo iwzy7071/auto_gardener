@@ -310,10 +310,20 @@ func (s *Server) sendDingTalkReply(sessionWebhook, content string) error {
 	return nil
 }
 
+const maxDingTalkReplyRunes = 3500
+
+func limitDingTalkReplyContent(content string) string {
+	chars := []rune(strings.TrimSpace(content))
+	if len(chars) <= maxDingTalkReplyRunes {
+		return string(chars)
+	}
+	return string(chars[:maxDingTalkReplyRunes]) + "…"
+}
+
 func dingTalkTextPayload(content string) dingTalkTextResponse {
 	var payload dingTalkTextResponse
 	payload.MsgType = "text"
-	payload.Text.Content = content
+	payload.Text.Content = limitDingTalkReplyContent(content)
 	return payload
 }
 
