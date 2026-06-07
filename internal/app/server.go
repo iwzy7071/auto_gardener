@@ -32,6 +32,9 @@ type Server struct {
 	dingTalkMu       sync.Mutex
 	dingTalkSessions map[string]string
 	httpClient       *http.Client
+	powerMu          sync.Mutex
+	powerStatus      PowerStatus
+	powerCheckedAt   time.Time
 }
 
 func NewServer(store *Store, orchestrator *Orchestrator, staticDir string, events *EventHub) *Server {
@@ -51,6 +54,21 @@ func (s *Server) Routes() http.Handler {
 	return logRequests(mux)
 }
 
+const powerStatusCacheTTL = 30 * time.Second
+
+func (s *Server) cachedPowerStatus() PowerStatus {
+	now := time.Now()
+	s.powerMu.Lock()
+	defer s.powerMu.Unlock()
+	if !s.powerCheckedAt.IsZero() && now.Sub(s.powerCheckedAt) < powerStatusCacheTTL {
+		return s.powerStatus
+	}
+	ps := CheckPowerStatus()
+	s.powerStatus = ps
+	s.powerCheckedAt = time.Now()
+	return ps
+}
+
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -61,7 +79,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 		"version": Version,
 		"dataDir": s.store.DataDir(),
 		"time":    time.Now().Format(time.RFC3339),
-		"power":   CheckPowerStatus(),
+		"power":   s.cachedPowerStatus(),
 	})
 }
 
