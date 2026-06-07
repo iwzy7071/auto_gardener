@@ -4,6 +4,20 @@ VERSION="${VERSION:-dev}"
 OUT_DIR="${OUT_DIR:-dist}"
 PKG_DIR="$OUT_DIR/Gardener-Windows"
 ZIP_PATH="$OUT_DIR/Gardener-Windows.zip"
+MAX_FRPC_EXE_BYTES=$((64 * 1024 * 1024))
+
+file_size() {
+  stat -c %s "$1" 2>/dev/null || stat -f %z "$1"
+}
+
+FRPC_EXE_SIZE=""
+if [[ -n "${FRPC_EXE:-}" && -f "$FRPC_EXE" ]]; then
+  FRPC_EXE_SIZE="$(file_size "$FRPC_EXE")"
+  if [[ ! "$FRPC_EXE_SIZE" =~ ^[0-9]+$ ]] || (( FRPC_EXE_SIZE <= 0 || FRPC_EXE_SIZE > MAX_FRPC_EXE_BYTES )); then
+    echo "FRPC_EXE must be a non-empty file no larger than 64 MiB" >&2
+    exit 1
+  fi
+fi
 
 rm -rf "$PKG_DIR" "$ZIP_PATH"
 mkdir -p "$PKG_DIR/web"
