@@ -822,8 +822,9 @@ func (o *Orchestrator) treeGoalSpec(task *Task, tr *Tree) codex.GoalSpec {
 		return codex.GoalSpec{}
 	}
 	goalPath := strings.TrimSpace(tr.GoalPath)
-	if goalPath == "" {
-		goalPath = o.treeGoalPath(task.ID, tr.ID)
+	defaultGoalPath := o.treeGoalPath(task.ID, tr.ID)
+	if goalPath == "" || !pathWithinRoot(filepath.Dir(defaultGoalPath), goalPath) {
+		goalPath = defaultGoalPath
 	}
 	criteria := []string{
 		"只完成本子任务目标，不越界处理其他子任务职责。",
@@ -989,6 +990,25 @@ func (o *Orchestrator) writeFruit(task *Task, tr *Tree, output string, runErr er
 由 Gardener 读取本报告和验证报告后决定是否派出新的子任务修复或继续。
 `, tr.ID, task.ID, task.Title, tr.Name, start.Format(time.RFC3339), end.Format(time.RFC3339), task.WorkspacePath, taskWorkDir(task), strings.Join(tr.Scope, ", "), tr.IsValidation, tr.Objective, strings.TrimSpace(output), errText, codex.Truncate(output, 1200))
 	return path, os.WriteFile(path, []byte(body), 0644)
+}
+
+func pathWithinRoot(root, path string) bool {
+	if strings.TrimSpace(root) == "" || strings.TrimSpace(path) == "" {
+		return false
+	}
+	rootAbs, err := filepath.Abs(filepath.Clean(root))
+	if err != nil {
+		return false
+	}
+	pathAbs, err := filepath.Abs(filepath.Clean(path))
+	if err != nil {
+		return false
+	}
+	if pathAbs == rootAbs {
+		return true
+	}
+	rel, err := filepath.Rel(rootAbs, pathAbs)
+	return err == nil && rel != "." && !strings.HasPrefix(rel, "..") && !filepath.IsAbs(rel)
 }
 
 func taskWorkDir(t *Task) string {
