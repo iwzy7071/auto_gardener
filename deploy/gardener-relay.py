@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import argparse, base64, crypt, json, os, re, secrets, shutil, socket, string, subprocess, sys, time
+import argparse, base64, crypt, json, os, re, secrets, shlex, shutil, socket, string, subprocess, sys, time
 from pathlib import Path
 
 ROOT = Path('/etc/gardener-relay')
@@ -217,7 +217,10 @@ def install_command(setup_key):
 
 
 def mac_install_command(setup_key):
-    return f'curl -fsSL {MAC_INSTALL_SCRIPT_URL} -o install-gardener-macos.sh && bash install-gardener-macos.sh --relay-base-url {RELAY_PUBLIC_BASE_URL} --setup-key {setup_key}'
+    script_url = shlex.quote(MAC_INSTALL_SCRIPT_URL)
+    relay_base_url = shlex.quote(RELAY_PUBLIC_BASE_URL)
+    safe_setup_key = shlex.quote(setup_key)
+    return f'curl -fsSL {script_url} -o install-gardener-macos.sh && bash install-gardener-macos.sh --relay-base-url {relay_base_url} --setup-key {safe_setup_key}'
 
 
 def reload_nginx():
