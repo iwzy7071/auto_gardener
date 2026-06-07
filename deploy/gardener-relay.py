@@ -107,7 +107,9 @@ def read_frp_token():
     for line in text.splitlines():
         line = line.strip()
         if line.startswith('auth.token'):
-            return line.split('=', 1)[1].strip().strip('"')
+            if '=' not in line:
+                raise SystemExit('error: malformed auth.token in /etc/frp/frps.toml')
+            return line.split('=', 1)[1].strip().strip('\"')
     raise SystemExit('error: cannot find auth.token in /etc/frp/frps.toml')
 
 
