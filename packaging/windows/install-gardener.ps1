@@ -29,6 +29,25 @@ function ConvertTo-PlainJson($Value) {
   return ($Value | ConvertTo-Json -Depth 10)
 }
 
+function Assert-GardenerProvision($Value) {
+  if (-not $Value) { throw "Provision is empty or invalid." }
+  if (($Value.PSObject.Properties.Name -contains "schemaVersion") -and ([string]$Value.schemaVersion -ne "1")) {
+    throw "Provision schemaVersion is not supported."
+  }
+  foreach ($Name in @("frpcToml", "publicUrl", "webUsername", "webPassword")) {
+    $Property = $Value.PSObject.Properties[$Name]
+    if (-not $Property -or $null -eq $Property.Value -or $Property.Value -isnot [string] -or [string]::IsNullOrWhiteSpace($Property.Value)) {
+      throw "Provision is missing required string field: $Name"
+    }
+  }
+  foreach ($Name in @("packageUrl", "installScriptUrl", "macInstallScriptUrl")) {
+    $Property = $Value.PSObject.Properties[$Name]
+    if ($Property -and $null -ne $Property.Value -and $Property.Value -isnot [string]) {
+      throw "Provision field must be a string: $Name"
+    }
+  }
+}
+
 function Test-GardenerAdmin {
   try {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -80,6 +99,7 @@ if (-not $ProvisionUrl -and $SetupKey) {
 if ($ProvisionUrl) {
   Write-Host "Loading Gardener relay provision..." -ForegroundColor Green
   $Provision = Invoke-RestMethod -Uri $ProvisionUrl
+  Assert-GardenerProvision $Provision
   if ($User -and $Provision.user -and ($User.ToLowerInvariant() -ne [string]($Provision.user).ToLowerInvariant())) {
     throw "Provision user mismatch: expected $User but got $($Provision.user)"
   }
