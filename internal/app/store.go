@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -13,6 +14,8 @@ import (
 )
 
 var ErrNotFound = errors.New("not found")
+
+const maxStartupLogReadBytes int64 = 1024 * 1024
 
 type taskDiskCompat struct {
 	Task
@@ -237,7 +240,7 @@ func normalizeTreeForestFields(tr *Tree, legacyWave int) {
 }
 
 func hasLegacyInterruptedRun(logPath string) bool {
-	data, err := os.ReadFile(logPath)
+	data, err := readLogTail(logPath, maxStartupLogReadBytes)
 	if err != nil {
 		return false
 	}
@@ -648,7 +651,7 @@ func appendFile(path, s string) error {
 }
 
 func readProgress(path string) []string {
-	b, err := os.ReadFile(path)
+	b, err := readLogTail(path, maxStartupLogReadBytes)
 	if err != nil {
 		return nil
 	}
@@ -660,7 +663,7 @@ func readProgress(path string) []string {
 }
 
 func readGardenerProgress(path string) []string {
-	b, err := os.ReadFile(path)
+	b, err := readLogTail(path, maxStartupLogReadBytes)
 	if err != nil {
 		return nil
 	}
@@ -690,6 +693,29 @@ func readGardenerProgress(path string) []string {
 		return out[len(out)-80:]
 	}
 	return out
+}
+
+func readLogTail(path string, maxBytes int64) ([]byte, error) {
+	if maxBytes <= 0 {
+		return nil, nil
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	start := int64(0)
+	if info.Size() > maxBytes {
+		start = info.Size() - maxBytes
+	}
+	if _, err := f.Seek(start, io.SeekStart); err != nil {
+		return nil, err
+	}
+	return io.ReadAll(io.LimitReader(f, maxBytes))
 }
 
 func stringsSplitLines(s string) []string {
