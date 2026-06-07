@@ -138,7 +138,6 @@ if ($Provision) {
     user = [string]$Provision.user
     publicUrl = [string]$Provision.publicUrl
     webUsername = [string]$Provision.webUsername
-    webPassword = [string]$Provision.webPassword
     provisionUrl = [string]$ProvisionUrl
     installedAt = (Get-Date).ToString("o")
   }
@@ -172,6 +171,6 @@ Write-Host "Gardener installed to $InstallDir" -ForegroundColor Green
 if ($Provision) {
   Write-Host "Remote URL: $($Provision.publicUrl)" -ForegroundColor Cyan
   Write-Host "Login user: $($Provision.webUsername)" -ForegroundColor Cyan
-  Write-Host "Login password: $($Provision.webPassword)" -ForegroundColor Cyan
+  Write-Host "Login password: provided by the relay administrator" -ForegroundColor Cyan
 }
 if ($StartAfterInstall) { Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$StartScript`"" }

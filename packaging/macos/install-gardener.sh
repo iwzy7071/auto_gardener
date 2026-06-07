@@ -146,7 +146,6 @@ relay={
   'user': j.get('user',''),
   'publicUrl': j.get('publicUrl',''),
   'webUsername': j.get('webUsername',''),
-  'webPassword': j.get('webPassword',''),
   'provisionUrl': provision_url,
   'installedAt': datetime.datetime.now(datetime.timezone.utc).isoformat(),
 }
@@ -234,7 +233,6 @@ fi
 local_url="http://127.0.0.1:8080"
 public_url=""
 web_user=""
-web_pass=""
 if [[ -f "$INSTALL_DIR/gardener.relay.json" ]]; then
   public_url="$(python3 - "$INSTALL_DIR/gardener.relay.json" <<'PY'
 import json,sys
@@ -246,18 +244,14 @@ import json,sys
 j=json.load(open(sys.argv[1])); print(j.get('webUsername',''))
 PY
 )"
-  web_pass="$(python3 - "$INSTALL_DIR/gardener.relay.json" <<'PY'
-import json,sys
-j=json.load(open(sys.argv[1])); print(j.get('webPassword',''))
-PY
-)"
 fi
 
 echo "Gardener installed."
 echo "Local URL:  $local_url"
 if [[ -n "$public_url" ]]; then
   echo "Remote URL: $public_url"
-  echo "Login:      $web_user / $web_pass"
+  echo "Login user: $web_user"
+  echo "Password:   provided by the relay administrator"
 fi
 if [[ "$START_AFTER_INSTALL" == "1" ]]; then
   sleep 2

@@ -12,7 +12,7 @@ After installation, double click Gardener. It will:
 3. Open your assigned remote URL
 4. Keep the PowerShell window alive; if gardener.exe exits unexpectedly, start-gardener.ps1 will restart it automatically.
 
-The remote URL requires the username/password shown during installation and saved in gardener.relay.json.
+The remote URL requires the username saved in gardener.relay.json and the password provided by the relay administrator.
 
 Local-only start
 
