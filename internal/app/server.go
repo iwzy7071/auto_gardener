@@ -560,6 +560,10 @@ func (s *Server) serveWorkspaceFile(w http.ResponseWriter, r *http.Request, task
 		return
 	}
 	if r.URL.Query().Get("download") == "1" {
+		if isHiddenWorkspacePath(rel) {
+			writeError(w, http.StatusForbidden, "文件不可下载")
+			return
+		}
 		w.Header().Set("Content-Disposition", "attachment; filename="+filepath.Base(abs))
 		http.ServeFile(w, r, abs)
 		return
@@ -630,6 +634,10 @@ func matchingTreeIDs(rel string, matchers map[string][]string) []string {
 	}
 	sort.Strings(ids)
 	return ids
+}
+
+func isHiddenWorkspacePath(rel string) bool {
+	return strings.HasPrefix(filepath.Base(rel), ".")
 }
 
 func isHiddenOrNoiseFile(rel string) bool {
