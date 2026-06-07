@@ -14,6 +14,7 @@ $FrpcExe = Join-Path $Root "frpc.exe"
 $FrpcConfig = Join-Path $Root "frpc.toml"
 $FrpcOutLog = Join-Path $Root "frpc.out.log"
 $FrpcErrLog = Join-Path $Root "frpc.err.log"
+$RelayConfigMaxBytes = 64KB
 
 function Show-GardenerPowerWarning {
   try {
@@ -71,10 +72,13 @@ $openUrl = $localUrl
 $Relay = $null
 if (Test-Path $RelayJson) {
   try {
+    if ((Get-Item $RelayJson).Length -gt $RelayConfigMaxBytes) {
+      throw "relay config is too large"
+    }
     $Relay = Get-Content $RelayJson -Raw | ConvertFrom-Json
     if ($Relay.publicUrl) { $openUrl = [string]$Relay.publicUrl }
   } catch {
-    Write-Host "Warning: cannot parse gardener.relay.json: $_" -ForegroundColor Yellow
+    Write-Host "Warning: cannot parse gardener.relay.json" -ForegroundColor Yellow
   }
 }
 
