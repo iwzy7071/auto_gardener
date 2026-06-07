@@ -42,13 +42,20 @@ func Start() (*Proxy, error) {
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", p.handle)
-	p.server = &http.Server{Handler: mux}
+	p.server = newProxyServer(mux)
 	go func() {
 		if err := p.server.Serve(ln); err != nil && err != http.ErrServerClosed {
 			log.Printf("compat proxy stopped: %v", err)
 		}
 	}()
 	return p, nil
+}
+
+func newProxyServer(handler http.Handler) *http.Server {
+	return &http.Server{
+		Handler:     handler,
+		IdleTimeout: 60 * time.Second,
+	}
 }
 
 func (p *Proxy) BaseURL() string {
