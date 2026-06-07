@@ -34,6 +34,8 @@ type Server struct {
 	httpClient       *http.Client
 }
 
+const maxTaskSubroutePathLength = 4096
+
 func NewServer(store *Store, orchestrator *Orchestrator, staticDir string, events *EventHub) *Server {
 	return &Server{store: store, orchestrator: orchestrator, staticDir: staticDir, events: events, dingTalkSessions: make(map[string]string), httpClient: &http.Client{Timeout: 10 * time.Second}}
 }
@@ -228,6 +230,10 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleTaskSubroutes(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/api/tasks/")
+	if len(path) > maxTaskSubroutePathLength {
+		writeError(w, http.StatusBadRequest, "任务路径过长")
+		return
+	}
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	if len(parts) == 0 || parts[0] == "" {
 		writeError(w, http.StatusNotFound, "not found")
