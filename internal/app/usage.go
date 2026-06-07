@@ -18,6 +18,8 @@ import (
 
 const pricingNote = "仅统计底层 CLI token 消耗和使用模型；界面不展示费用估算。"
 
+const maxParsedUsageTokens int64 = 1_000_000_000_000
+
 type usageLogEvent struct {
 	Time       time.Time `json:"time"`
 	TaskID     string    `json:"taskId"`
@@ -246,8 +248,11 @@ func consumeUsageLine(st *usageStreamState, line string, when time.Time, taskID 
 		return TokenUsageRecord{}, false
 	}
 	if st.expectTotalTokens && isMostlyNumber(line) {
-		n := parseNumber(line)
+		n, ok := parseNumber(line)
 		st.expectTotalTokens = false
+		if !ok {
+			return TokenUsageRecord{}, false
+		}
 		return buildUsageRecord(st, taskID, n, when), true
 	}
 	return TokenUsageRecord{}, false
@@ -471,19 +476,32 @@ func parseTokenDetailLine(line string) (string, int64, bool) {
 		if p.kind == "cached_input" && !strings.Contains(lower, "token") {
 			continue
 		}
-		return p.kind, parseNumber(num), true
+		n, ok := parseNumber(num)
+		if !ok {
+			return "", 0, false
+		}
+		return p.kind, n, true
 	}
 	return "", 0, false
 }
 
-func parseNumber(s string) int64 {
+func parseNumber(s string) (int64, bool) {
 	cleaned := strings.NewReplacer(",", "", " ", "", "\t", "").Replace(strings.TrimSpace(s))
-	if strings.Contains(cleaned, ".") {
-		f, _ := strconv.ParseFloat(cleaned, 64)
-		return int64(f)
+	if cleaned == "" {
+		return 0, false
 	}
-	n, _ := strconv.ParseInt(cleaned, 10, 64)
-	return n
+	if strings.Contains(cleaned, ".") {
+		f, err := strconv.ParseFloat(cleaned, 64)
+		if err != nil || f < 0 || f > float64(maxParsedUsageTokens) {
+			return 0, false
+		}
+		return int64(f), true
+	}
+	n, err := strconv.ParseInt(cleaned, 10, 64)
+	if err != nil || n < 0 || n > maxParsedUsageTokens {
+		return 0, false
+	}
+	return n, true
 }
 
 func newStableUsageID(parts ...string) string {
