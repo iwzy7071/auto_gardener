@@ -32,3 +32,16 @@ func TestWithGoalEnvelope(t *testing.T) {
 		}
 	}
 }
+
+func TestClaudeModelNameLengthLimit(t *testing.T) {
+	args := appendClaudeModelArg(nil, strings.Repeat("a", maxClaudeModelNameLength+1))
+	if len(args) != 0 {
+		t.Fatalf("appendClaudeModelArg accepted oversized model name: %#v", args)
+	}
+
+	model := strings.Repeat("a", maxClaudeModelNameLength)
+	args = appendClaudeModelArg(nil, model)
+	if len(args) != 2 || args[0] != "--model" || args[1] != model {
+		t.Fatalf("appendClaudeModelArg rejected boundary model name: %#v", args)
+	}
+}

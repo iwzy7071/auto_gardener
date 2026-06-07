@@ -62,6 +62,8 @@ type ShellRunner struct {
 	ClaudeCommand string
 }
 
+const maxClaudeModelNameLength = 128
+
 func NewRunnerFromEnv() Runner {
 	if strings.EqualFold(strings.TrimSpace(os.Getenv("AUTO_GARDENER_RUNNER")), "mock") {
 		r := NewMockRunnerFromEnv()
@@ -235,9 +237,7 @@ func (r ShellRunner) runClaude(ctx context.Context, req RunRequest) RunResult {
 		"--output-format", "text",
 		"--permission-mode", "bypassPermissions",
 	}
-	if model := strings.TrimSpace(os.Getenv("AUTO_GARDENER_CLAUDE_MODEL")); model != "" {
-		args = append(args, "--model", model)
-	}
+	args = appendClaudeModelArg(args, os.Getenv("AUTO_GARDENER_CLAUDE_MODEL"))
 	cmd := exec.CommandContext(ctx, command, args...)
 	cmd.Dir = req.WorkDir
 	cmd.Env = appendClaudeEnv(env, req.Model)
@@ -331,6 +331,14 @@ func appendModelArgs(args []string, model ModelConfig) []string {
 	args = append(args, "-c", prefix+"wire_api="+tomlString(wireAPI))
 	args = append(args, "-c", prefix+"requires_openai_auth=false")
 	return args
+}
+
+func appendClaudeModelArg(args []string, model string) []string {
+	model = strings.TrimSpace(model)
+	if model == "" || len([]rune(model)) > maxClaudeModelNameLength {
+		return args
+	}
+	return append(args, "--model", model)
 }
 
 func appendModelEnv(env []string, model ModelConfig) []string {
