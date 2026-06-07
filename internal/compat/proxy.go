@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -38,7 +39,7 @@ func Start() (*Proxy, error) {
 	}
 	p := &Proxy{
 		baseURL: "http://" + ln.Addr().String(),
-		client:  &http.Client{Timeout: 0},
+		client:  newCompatHTTPClient(),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", p.handle)
@@ -49,6 +50,28 @@ func Start() (*Proxy, error) {
 		}
 	}()
 	return p, nil
+}
+
+func newCompatHTTPClient() *http.Client {
+	return &http.Client{
+		Timeout: 0,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) == 0 {
+				return nil
+			}
+			if !sameRedirectHost(req.URL, via[0].URL) {
+				return fmt.Errorf("refusing cross-host provider redirect from %s to %s", via[0].URL.Host, req.URL.Host)
+			}
+			return nil
+		},
+	}
+}
+
+func sameRedirectHost(a, b *url.URL) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	return strings.EqualFold(a.Host, b.Host)
 }
 
 func (p *Proxy) BaseURL() string {
