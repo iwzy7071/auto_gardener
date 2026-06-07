@@ -79,7 +79,7 @@ if (-not $ProvisionUrl -and $SetupKey) {
 
 if ($ProvisionUrl) {
   Write-Host "Loading Gardener relay provision..." -ForegroundColor Green
-  $Provision = Invoke-RestMethod -Uri $ProvisionUrl
+  $Provision = Invoke-RestMethod -Uri $ProvisionUrl -TimeoutSec 120
   if ($User -and $Provision.user -and ($User.ToLowerInvariant() -ne [string]($Provision.user).ToLowerInvariant())) {
     throw "Provision user mismatch: expected $User but got $($Provision.user)"
   }
