@@ -517,7 +517,7 @@ func (s *Server) listWorkspaceFiles(w http.ResponseWriter, r *http.Request, task
 			return nil
 		}
 		rel = filepath.ToSlash(rel)
-		if isHiddenOrNoiseFile(rel) {
+		if isHiddenOrNoiseFile(rel) || isSensitiveWorkspaceFile(rel) {
 			return nil
 		}
 		treeIDs := matchingTreeIDs(rel, matches)
@@ -546,6 +546,10 @@ func (s *Server) serveWorkspaceFile(w http.ResponseWriter, r *http.Request, task
 	rel = filepath.Clean(strings.TrimPrefix(rel, "/"))
 	if rel == "." || strings.HasPrefix(rel, "..") || filepath.IsAbs(rel) {
 		writeError(w, http.StatusBadRequest, "文件路径非法")
+		return
+	}
+	if isSensitiveWorkspaceFile(rel) {
+		writeError(w, http.StatusForbidden, "敏感文件不允许通过工作区预览或下载")
 		return
 	}
 	path := filepath.Join(root, rel)
@@ -634,7 +638,7 @@ func matchingTreeIDs(rel string, matchers map[string][]string) []string {
 
 func isHiddenOrNoiseFile(rel string) bool {
 	base := filepath.Base(rel)
-	if strings.HasPrefix(base, ".") && base != ".env" {
+	if strings.HasPrefix(base, ".") {
 		return true
 	}
 	lower := strings.ToLower(base)
@@ -642,6 +646,18 @@ func isHiddenOrNoiseFile(rel string) bool {
 		return true
 	}
 	return strings.HasSuffix(lower, ".tmp") || strings.HasSuffix(lower, ".temp") || strings.HasSuffix(lower, ".part") || strings.HasSuffix(lower, ".crdownload") || strings.HasSuffix(lower, ".log") || strings.HasSuffix(lower, ".bak")
+}
+
+func isSensitiveWorkspaceFile(rel string) bool {
+	base := strings.ToLower(filepath.Base(rel))
+	if base == ".env" || strings.HasPrefix(base, ".env.") {
+		return true
+	}
+	switch base {
+	case ".npmrc", ".pypirc", ".netrc", "id_rsa", "id_dsa", "id_ecdsa", "id_ed25519":
+		return true
+	}
+	return strings.HasSuffix(base, ".pem") || strings.HasSuffix(base, ".key")
 }
 
 func containsString(items []string, target string) bool {
