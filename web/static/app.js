@@ -672,7 +672,7 @@ async function commitTitleEdit() {
     upsertTask(data.task);
     renderTask(data.task);
   } catch(err) {
-    alert((t('renameFailed') || 'Rename failed: ') + err.message);
+    alert((t('renameFailed') || 'Rename failed: ') + renderedRenameTaskErrorMessage(err));
     $('renameTaskBtn').disabled = false;
     input.focus();
   }
@@ -1510,6 +1510,11 @@ function humanizeText(s) {
 }
 function escapeHTML(s) { return String(s || '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
 
+const MAX_RENDERED_RENAME_TASK_ERROR_CHARS = 300;
+function renderedRenameTaskErrorMessage(err) {
+  const chars = Array.from(String(err?.message || err || ''));
+  return chars.length > MAX_RENDERED_RENAME_TASK_ERROR_CHARS ? chars.slice(0, MAX_RENDERED_RENAME_TASK_ERROR_CHARS).join('') + '…' : chars.join('');
+}
 
 let currentDirectoryPath = '';
 
