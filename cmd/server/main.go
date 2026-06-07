@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"auto_gardener/internal/app"
 	"auto_gardener/internal/codex"
@@ -40,8 +41,17 @@ func main() {
 	if power := app.CheckPowerStatus(); !power.OK {
 		log.Printf("power warning: remote access requires this computer to stay awake and powered on; %s", app.PowerWarningsText(power))
 	}
-	if err := http.ListenAndServe(addr, server.Routes()); err != nil {
+	httpServer := newHTTPServer(addr, server.Routes())
+	if err := httpServer.ListenAndServe(); err != nil {
 		log.Fatal(err)
+	}
+}
+
+func newHTTPServer(addr string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:        addr,
+		Handler:     handler,
+		IdleTimeout: 60 * time.Second,
 	}
 }
 
