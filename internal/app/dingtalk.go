@@ -247,6 +247,11 @@ func (s *Server) getDingTalkSessionTask(key string) string {
 	return s.dingTalkSessions[key]
 }
 
+const (
+	maxDingTalkTimestampChars = 32
+	maxDingTalkSignatureChars = 1024
+)
+
 func verifyDingTalkIncomingSignature(r *http.Request) error {
 	secret := strings.TrimSpace(firstNonEmpty(os.Getenv("AUTO_GARDENER_DINGTALK_INCOMING_SECRET"), os.Getenv("AUTO_GARDENER_DINGTALK_APP_SECRET")))
 	if secret == "" {
@@ -256,6 +261,9 @@ func verifyDingTalkIncomingSignature(r *http.Request) error {
 	signature := strings.TrimSpace(firstNonEmpty(r.Header.Get("sign"), r.Header.Get("Sign"), r.URL.Query().Get("sign")))
 	if timestamp == "" || signature == "" {
 		return errors.New("缺少钉钉签名 header：timestamp/sign")
+	}
+	if len(timestamp) > maxDingTalkTimestampChars || len(signature) > maxDingTalkSignatureChars {
+		return errors.New("钉钉签名 header 过长")
 	}
 	if ms, err := strconv.ParseInt(timestamp, 10, 64); err == nil && ms > 0 {
 		if age := time.Since(time.UnixMilli(ms)); age > time.Hour || age < -time.Hour {
