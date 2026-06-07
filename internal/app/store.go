@@ -14,6 +14,8 @@ import (
 
 var ErrNotFound = errors.New("not found")
 
+const maxJSONStateFileBytes int64 = 10 * 1024 * 1024
+
 type taskDiskCompat struct {
 	Task
 	LegacyWave            int `json:"wave,omitempty"`
@@ -546,6 +548,13 @@ func writeRecoveryFruit(path string, task *Task, tr *Tree, when time.Time) error
 }
 
 func readJSON(path string, v any) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	if info.Size() > maxJSONStateFileBytes {
+		return fmt.Errorf("JSON state file too large")
+	}
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return err
