@@ -80,6 +80,17 @@ if (-not $ProvisionUrl -and $SetupKey) {
 if ($ProvisionUrl) {
   Write-Host "Loading Gardener relay provision..." -ForegroundColor Green
   $Provision = Invoke-RestMethod -Uri $ProvisionUrl
+  if (-not $Provision.expiresAt) {
+    throw "Provision is missing expiresAt; ask the relay administrator for a fresh setup key."
+  }
+  try {
+    $ProvisionExpiresAt = [DateTimeOffset]::Parse([string]$Provision.expiresAt)
+  } catch {
+    throw "Provision has an invalid expiresAt; ask the relay administrator for a fresh setup key."
+  }
+  if ($ProvisionExpiresAt -le [DateTimeOffset]::UtcNow) {
+    throw "Provision has expired; ask the relay administrator for a fresh setup key."
+  }
   if ($User -and $Provision.user -and ($User.ToLowerInvariant() -ne [string]($Provision.user).ToLowerInvariant())) {
     throw "Provision user mismatch: expected $User but got $($Provision.user)"
   }

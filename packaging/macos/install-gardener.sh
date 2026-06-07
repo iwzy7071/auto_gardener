@@ -62,8 +62,18 @@ fi
 
 if [[ -s "$PROVISION_JSON" ]]; then
   package_from_provision="$(python3 - "$PROVISION_JSON" "$pkg_arch" <<'PY'
-import json, sys
+import datetime, json, sys
 j=json.load(open(sys.argv[1]))
+expires_at=j.get('expiresAt')
+if not expires_at:
+    raise SystemExit('Provision is missing expiresAt; ask the relay administrator for a fresh setup key.')
+expires_at=expires_at.replace('Z', '+00:00')
+try:
+    expires=datetime.datetime.fromisoformat(expires_at)
+except ValueError:
+    raise SystemExit('Provision has an invalid expiresAt; ask the relay administrator for a fresh setup key.')
+if expires <= datetime.datetime.now(datetime.timezone.utc):
+    raise SystemExit('Provision has expired; ask the relay administrator for a fresh setup key.')
 arch=sys.argv[2]
 urls=j.get('macPackageUrls') or {}
 print(urls.get(arch) or j.get('macPackageUrl') or '')

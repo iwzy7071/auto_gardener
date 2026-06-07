@@ -15,6 +15,7 @@ PUBLIC_START = int(os.environ.get('GARDENER_RELAY_PUBLIC_START', '28081'))
 PUBLIC_END = int(os.environ.get('GARDENER_RELAY_PUBLIC_END', '28100'))
 REMOTE_START = int(os.environ.get('GARDENER_RELAY_REMOTE_START', '18081'))
 REMOTE_END = int(os.environ.get('GARDENER_RELAY_REMOTE_END', '18100'))
+PROVISION_TTL_SECONDS = int(os.environ.get('GARDENER_RELAY_PROVISION_TTL_SECONDS', '86400'))
 RELAY_PUBLIC_BASE_URL = os.environ.get('GARDENER_RELAY_PUBLIC_BASE_URL', f'http://{SERVER_ADDR}')
 PACKAGE_URL = os.environ.get('GARDENER_RELAY_WINDOWS_PACKAGE_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/Gardener-Windows.zip')
 INSTALL_SCRIPT_URL = os.environ.get('GARDENER_RELAY_WINDOWS_INSTALL_SCRIPT_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/install-gardener.ps1')
@@ -200,7 +201,8 @@ def write_provision(instance, password, setup_key=None):
         'macInstallScriptUrl': MAC_INSTALL_SCRIPT_URL,
         'macPackageUrls': MAC_PACKAGE_URLS,
         'frpcToml': (USERS / instance['user'] / 'frpc.toml').read_text(),
-        'createdAt': time.strftime('%Y-%m-%dT%H:%M:%S%z'),
+        'createdAt': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+        'expiresAt': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(time.time() + PROVISION_TTL_SECONDS)),
         'note': 'Treat this setup key as a secret. Anyone with this URL can configure this Gardener relay client.',
     }
     path = provision_dir / 'gardener.provision.json'
