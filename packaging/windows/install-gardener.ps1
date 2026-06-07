@@ -139,7 +139,6 @@ if ($Provision) {
     publicUrl = [string]$Provision.publicUrl
     webUsername = [string]$Provision.webUsername
     webPassword = [string]$Provision.webPassword
-    provisionUrl = [string]$ProvisionUrl
     installedAt = (Get-Date).ToString("o")
   }
   [IO.File]::WriteAllText((Join-Path $InstallDir "gardener.relay.json"), (ConvertTo-PlainJson $RelayConfig), [Text.UTF8Encoding]::new($false))

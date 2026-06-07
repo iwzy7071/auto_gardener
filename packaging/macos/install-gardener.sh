@@ -135,9 +135,9 @@ chmod +x "$INSTALL_DIR/gardener" "$INSTALL_DIR/frpc" "$INSTALL_DIR/start-gardene
 
 if [[ -s "$PROVISION_JSON" ]]; then
   echo "Writing relay configuration..."
-  python3 - "$PROVISION_JSON" "$INSTALL_DIR" "$PROVISION_URL" <<'PY'
+  python3 - "$PROVISION_JSON" "$INSTALL_DIR" <<'PY'
 import json, pathlib, sys, datetime
-provision_path, install_dir, provision_url = sys.argv[1:4]
+provision_path, install_dir = sys.argv[1:3]
 j=json.load(open(provision_path))
 root=pathlib.Path(install_dir)
 (root/'frpc.toml').write_text(j['frpcToml'], encoding='utf-8')
@@ -147,7 +147,6 @@ relay={
   'publicUrl': j.get('publicUrl',''),
   'webUsername': j.get('webUsername',''),
   'webPassword': j.get('webPassword',''),
-  'provisionUrl': provision_url,
   'installedAt': datetime.datetime.now(datetime.timezone.utc).isoformat(),
 }
 (root/'gardener.relay.json').write_text(json.dumps(relay, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
