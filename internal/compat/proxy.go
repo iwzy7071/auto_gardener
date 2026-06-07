@@ -19,6 +19,8 @@ type Proxy struct {
 	client  *http.Client
 }
 
+const maxCompatStreamToolCalls = 128
+
 type providerSpec struct {
 	Name                 string
 	BaseURL              string
@@ -401,6 +403,9 @@ func streamChatAsResponses(w http.ResponseWriter, body io.Reader, model string) 
 			for _, tc := range choice.Delta.ToolCalls {
 				call := toolCalls[tc.Index]
 				if call == nil {
+					if len(toolCalls) >= maxCompatStreamToolCalls {
+						return fmt.Errorf("too many streamed tool calls; maximum is %d", maxCompatStreamToolCalls)
+					}
 					call = &pendingToolCall{ID: tc.ID, ItemID: firstNonEmpty(tc.ID, fmt.Sprintf("call_%d_%d", time.Now().UnixNano(), tc.Index)), Name: tc.Function.Name}
 					toolCalls[tc.Index] = call
 				}

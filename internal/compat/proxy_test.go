@@ -1,6 +1,7 @@
 package compat
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -52,5 +53,36 @@ func TestNormalizeChatMessagesMergesSystem(t *testing.T) {
 	}
 	if got[1].Role != "user" {
 		t.Fatalf("unexpected second message: %#v", got[1])
+	}
+}
+
+func TestStreamChatAsResponsesRejectsTooManyToolCalls(t *testing.T) {
+	var calls []any
+	for i := 0; i <= maxCompatStreamToolCalls; i++ {
+		calls = append(calls, map[string]any{
+			"index": i,
+			"id":    "call",
+			"type":  "function",
+			"function": map[string]any{
+				"name":      "lookup",
+				"arguments": "{}",
+			},
+		})
+	}
+	chunk, err := json.Marshal(map[string]any{
+		"choices": []any{map[string]any{
+			"delta": map[string]any{"tool_calls": calls},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("marshal chunk: %v", err)
+	}
+	rr := httptest.NewRecorder()
+	err = streamChatAsResponses(rr, strings.NewReader("data: "+string(chunk)+"\n\n"), "model")
+	if err == nil {
+		t.Fatal("streamChatAsResponses accepted too many tool calls")
+	}
+	if !strings.Contains(err.Error(), "too many streamed tool calls") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
