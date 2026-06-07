@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -36,6 +37,9 @@ func main() {
 	log.Printf("codex command: %s", getenv("AUTO_GARDENER_CODEX_CMD", "codex"))
 	log.Printf("claude command: %s", getenv("AUTO_GARDENER_CLAUDE_CMD", "claude"))
 	log.Printf("compat proxy: %s", proxy.BaseURL())
+	if isExternalBind(addr) && os.Getenv("AUTO_GARDENER_ALLOW_EXTERNAL_BIND") != "1" {
+		log.Fatalf("refusing to listen on non-loopback address %q without AUTO_GARDENER_ALLOW_EXTERNAL_BIND=1", addr)
+	}
 	if power := app.CheckPowerStatus(); !power.OK {
 		log.Printf("power warning: remote access requires this computer to stay awake and powered on; %s", app.PowerWarningsText(power))
 	}
@@ -79,4 +83,30 @@ func defaultStaticDir() string {
 		}
 	}
 	return "web/static"
+}
+
+func isExternalBind(addr string) bool {
+	addr = strings.TrimSpace(addr)
+	if addr == "" {
+		return false
+	}
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		if strings.HasPrefix(addr, ":") {
+			host = ""
+		} else {
+			host = addr
+		}
+	}
+	host = strings.Trim(strings.ToLower(strings.TrimSpace(host)), "[]")
+	if host == "localhost" || host == "127.0.0.1" || host == "::1" {
+		return false
+	}
+	if host == "" {
+		return true
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return !ip.IsLoopback()
+	}
+	return true
 }
