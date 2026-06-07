@@ -1586,6 +1586,10 @@ $('createTaskBtn').onclick = async () => {
   catch (err) { alert(err.message); } finally { $('createTaskBtn').disabled = false; }
 };
 if ($('toggleOverviewBtn')) $('toggleOverviewBtn').onclick = toggleOverviewCollapsed;
+function isValidSendMessageTaskPayload(task) {
+  return !!task && typeof task === 'object' && typeof task.id === 'string' && task.id.trim() !== '';
+}
+
 $('sendMessageBtn').onclick = async () => {
   const input = $('messageInput');
   const content = input.value.trim();
@@ -1607,6 +1611,7 @@ $('sendMessageBtn').onclick = async () => {
   }
   try {
     const data = await api(`/api/tasks/${taskId}/messages`, { method:'POST', body: JSON.stringify({ content }) });
+    if (!isValidSendMessageTaskPayload(data.task)) throw new Error('Invalid task response');
     upsertTask(data.task);
     if (state.activeTaskId === taskId) renderTask(data.task, { skipFileViewer: true });
   } catch(err){
