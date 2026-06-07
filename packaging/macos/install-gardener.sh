@@ -5,6 +5,7 @@ RELAY_BASE_URL="${GARDENER_RELAY_BASE_URL:-}"
 INSTALL_DIR="$HOME/Applications/Gardener"
 SETUP_KEY=""
 PROVISION_URL=""
+PACKAGE_SHA256="${GARDENER_PACKAGE_SHA256:-}"
 START_AFTER_INSTALL=1
 
 usage() {
@@ -17,6 +18,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --setup-key|-k) SETUP_KEY="${2:-}"; shift 2 ;;
     --provision-url) PROVISION_URL="${2:-}"; shift 2 ;;
+    --package-sha256) PACKAGE_SHA256="${2:-}"; shift 2 ;;
     --relay-base-url) RELAY_BASE_URL="${2:-}"; shift 2 ;;
     --install-dir) INSTALL_DIR="${2:-}"; shift 2 ;;
     --start|--start-after-install) START_AFTER_INSTALL=1; shift ;;
@@ -52,6 +54,21 @@ CLAUDE_CMD="$(PATH="$INSTALL_PATH" command -v claude || true)"
 
 TMP="$(mktemp -d)"
 cleanup(){ rm -rf "$TMP"; }
+
+verify_package_sha256() {
+  local file="$1" expected="${2:-}"
+  if [[ -z "$expected" ]]; then
+    if [[ "${GARDENER_ALLOW_UNVERIFIED_PACKAGE:-0}" == "1" ]]; then return 0; fi
+    echo "Package SHA256 is required. Set GARDENER_ALLOW_UNVERIFIED_PACKAGE=1 only for local testing." >&2
+    exit 1
+  fi
+  local actual
+  actual="$(shasum -a 256 "$file" | awk '{print $1}')"
+  if [[ "${actual,,}" != "${expected,,}" ]]; then
+    echo "Package SHA256 mismatch: expected $expected but got $actual" >&2
+    exit 1
+  fi
+}
 trap cleanup EXIT
 
 PROVISION_JSON="$TMP/provision.json"
@@ -70,6 +87,15 @@ print(urls.get(arch) or j.get('macPackageUrl') or '')
 PY
 )"
   if [[ -n "$package_from_provision" ]]; then PACKAGE_URL="$package_from_provision"; fi
+  checksum_from_provision="$(python3 - "$PROVISION_JSON" "$pkg_arch" <<'PYCHECKSUM'
+import json, sys
+j=json.load(open(sys.argv[1]))
+arch=sys.argv[2]
+checksums=j.get('macPackageSha256s') or {}
+print(checksums.get(arch) or j.get('macPackageSha256') or '')
+PYCHECKSUM
+)"
+  if [[ -z "$PACKAGE_SHA256" && -n "$checksum_from_provision" ]]; then PACKAGE_SHA256="$checksum_from_provision"; fi
 fi
 
 check_power_warning() {
@@ -109,6 +135,7 @@ mkdir -p "$INSTALL_DIR"
 
 echo "Downloading package: $PACKAGE_URL"
 curl -fL --connect-timeout 20 --max-time 300 "$PACKAGE_URL" -o "$TMP/gardener.tar.gz"
+verify_package_sha256 "$TMP/gardener.tar.gz" "$PACKAGE_SHA256"
 mkdir -p "$TMP/extract"
 tar -xzf "$TMP/gardener.tar.gz" -C "$TMP/extract"
 SRC="$(find "$TMP/extract" -maxdepth 1 -type d -name 'Gardener-macOS-*' | head -n 1)"

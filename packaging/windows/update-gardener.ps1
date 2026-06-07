@@ -1,10 +1,24 @@
 param(
   [Parameter(Mandatory=$true)] [string]$PackageUrl,
+  [string]$PackageSha256,
   [string]$InstallDir = (Split-Path -Parent $MyInvocation.MyCommand.Path),
   [switch]$Restart
 )
 
 $ErrorActionPreference = "Stop"
+
+
+function Assert-GardenerPackageSha256([string]$Path, [string]$ExpectedSha256) {
+  if ([string]::IsNullOrWhiteSpace($ExpectedSha256)) {
+    if ($env:GARDENER_ALLOW_UNVERIFIED_PACKAGE -eq "1") { return }
+    throw "Package SHA256 is required. Set GARDENER_ALLOW_UNVERIFIED_PACKAGE=1 only for local testing."
+  }
+  $actual = (Get-FileHash -Algorithm SHA256 -Path $Path).Hash.ToLowerInvariant()
+  $expected = $ExpectedSha256.Trim().ToLowerInvariant()
+  if ($actual -ne $expected) {
+    throw "Package SHA256 mismatch: expected $expected but got $actual"
+  }
+}
 
 function Test-GardenerAdmin {
   try {
@@ -54,6 +68,7 @@ $Backup = Join-Path $InstallDir ("backup-" + (Get-Date -Format "yyyyMMdd-HHmmss"
 New-Item -ItemType Directory -Force -Path $Temp, $Extract | Out-Null
 Write-Host "Downloading $PackageUrl" -ForegroundColor Green
 Invoke-WebRequest -Uri $PackageUrl -OutFile $Zip
+Assert-GardenerPackageSha256 -Path $Zip -ExpectedSha256 $PackageSha256
 Unblock-GardenerPath -Path $Zip
 Expand-Archive -Path $Zip -DestinationPath $Extract -Force
 Unblock-GardenerPath -Path $Extract

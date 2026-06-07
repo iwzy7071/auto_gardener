@@ -1,5 +1,6 @@
 param(
   [string]$PackageUrl,
+  [string]$PackageSha256,
   [string]$InstallDir = "$env:LOCALAPPDATA\Gardener",
   [string]$RelayBaseUrl,
   [string]$SetupKey,
@@ -84,6 +85,7 @@ if ($ProvisionUrl) {
     throw "Provision user mismatch: expected $User but got $($Provision.user)"
   }
   if (-not $PackageUrl -and $Provision.packageUrl) { $PackageUrl = [string]$Provision.packageUrl }
+  if (-not $PackageSha256 -and $Provision.packageSha256) { $PackageSha256 = [string]$Provision.packageSha256 }
 }
 
 if (-not $PackageUrl) {
@@ -107,7 +109,7 @@ if (-not (Test-Path $Updater)) {
   }
 }
 
-& $Updater -PackageUrl $PackageUrl -InstallDir $InstallDir
+& $Updater -PackageUrl $PackageUrl -PackageSha256 $PackageSha256 -InstallDir $InstallDir
 Unblock-GardenerPath -Path $InstallDir
 
 $FrpcExe = Join-Path $InstallDir "frpc.exe"

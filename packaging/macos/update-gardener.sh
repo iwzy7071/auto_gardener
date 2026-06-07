@@ -4,9 +4,27 @@ RELAY_BASE_URL="${GARDENER_RELAY_BASE_URL:-}"
 INSTALL_DIR="$HOME/Applications/Gardener"
 START_AFTER_UPDATE=1
 PACKAGE_URL=""
+PACKAGE_SHA256="${GARDENER_PACKAGE_SHA256:-}"
+
+verify_package_sha256() {
+  local file="$1" expected="${2:-}"
+  if [[ -z "$expected" ]]; then
+    if [[ "${GARDENER_ALLOW_UNVERIFIED_PACKAGE:-0}" == "1" ]]; then return 0; fi
+    echo "Package SHA256 is required. Set GARDENER_ALLOW_UNVERIFIED_PACKAGE=1 only for local testing." >&2
+    exit 1
+  fi
+  local actual
+  actual="$(shasum -a 256 "$file" | awk '{print $1}')"
+  if [[ "${actual,,}" != "${expected,,}" ]]; then
+    echo "Package SHA256 mismatch: expected $expected but got $actual" >&2
+    exit 1
+  fi
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --package-url) PACKAGE_URL="${2:-}"; shift 2 ;;
+    --package-sha256) PACKAGE_SHA256="${2:-}"; shift 2 ;;
     --install-dir) INSTALL_DIR="${2:-}"; shift 2 ;;
     --relay-base-url) RELAY_BASE_URL="${2:-}"; shift 2 ;;
     --no-start) START_AFTER_UPDATE=0; shift ;;
@@ -23,6 +41,7 @@ if [[ -z "$PACKAGE_URL" ]]; then
 fi
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 curl -fL --connect-timeout 20 --max-time 300 "$PACKAGE_URL" -o "$TMP/gardener.tar.gz"
+verify_package_sha256 "$TMP/gardener.tar.gz" "$PACKAGE_SHA256"
 mkdir -p "$TMP/extract"; tar -xzf "$TMP/gardener.tar.gz" -C "$TMP/extract"
 SRC="$(find "$TMP/extract" -maxdepth 1 -type d -name 'Gardener-macOS-*' | head -n 1)"; [[ -z "$SRC" ]] && SRC="$TMP/extract"
 uid="$(id -u)"

@@ -23,6 +23,11 @@ MAC_PACKAGE_URLS = {
     'arm64': os.environ.get('GARDENER_RELAY_MAC_ARM64_PACKAGE_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/Gardener-macOS-arm64.tar.gz'),
     'amd64': os.environ.get('GARDENER_RELAY_MAC_AMD64_PACKAGE_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/Gardener-macOS-amd64.tar.gz'),
 }
+PACKAGE_SHA256 = os.environ.get('GARDENER_RELAY_WINDOWS_PACKAGE_SHA256', '')
+MAC_PACKAGE_SHA256S = {
+    'arm64': os.environ.get('GARDENER_RELAY_MAC_ARM64_PACKAGE_SHA256', ''),
+    'amd64': os.environ.get('GARDENER_RELAY_MAC_AMD64_PACKAGE_SHA256', ''),
+}
 
 
 def require_relay_configured():
@@ -31,6 +36,20 @@ def require_relay_configured():
         raise SystemExit('error: relay server address is not configured. Set GARDENER_RELAY_SERVER_ADDR and GARDENER_RELAY_PUBLIC_BASE_URL from config/gardener-relay.env.local')
     if RELAY_PUBLIC_BASE_URL.endswith('YOUR_RELAY_SERVER') or 'YOUR_RELAY_SERVER' in RELAY_PUBLIC_BASE_URL or 'example.com' in RELAY_PUBLIC_BASE_URL:
         raise SystemExit('error: relay public base URL is not configured. Set GARDENER_RELAY_PUBLIC_BASE_URL from config/gardener-relay.env.local')
+    require_package_checksums()
+
+
+def require_package_checksums():
+    if os.environ.get('GARDENER_ALLOW_UNVERIFIED_PACKAGE') == '1':
+        return
+    missing = []
+    if not PACKAGE_SHA256.strip():
+        missing.append('GARDENER_RELAY_WINDOWS_PACKAGE_SHA256')
+    for arch, value in MAC_PACKAGE_SHA256S.items():
+        if not value.strip():
+            missing.append(f'GARDENER_RELAY_MAC_{arch.upper()}_PACKAGE_SHA256')
+    if missing:
+        raise SystemExit('error: package SHA256 values are required for provisioned installers: ' + ', '.join(missing) + '. Set GARDENER_ALLOW_UNVERIFIED_PACKAGE=1 only for local testing.')
 
 def run(cmd, check=True):
     return subprocess.run(cmd, check=check, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -196,9 +215,11 @@ def write_provision(instance, password, setup_key=None):
         'webUsername': instance['basicAuthUser'],
         'webPassword': password,
         'packageUrl': PACKAGE_URL,
+        'packageSha256': PACKAGE_SHA256,
         'installScriptUrl': INSTALL_SCRIPT_URL,
         'macInstallScriptUrl': MAC_INSTALL_SCRIPT_URL,
         'macPackageUrls': MAC_PACKAGE_URLS,
+        'macPackageSha256s': MAC_PACKAGE_SHA256S,
         'frpcToml': (USERS / instance['user'] / 'frpc.toml').read_text(),
         'createdAt': time.strftime('%Y-%m-%dT%H:%M:%S%z'),
         'note': 'Treat this setup key as a secret. Anyone with this URL can configure this Gardener relay client.',
