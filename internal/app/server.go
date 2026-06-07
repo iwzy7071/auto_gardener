@@ -16,6 +16,10 @@ import (
 	"time"
 )
 
+const (
+	maxMarkdownReportSize = 5 * 1024 * 1024
+)
+
 type workspaceFileEntry struct {
 	Path    string   `json:"path"`
 	Size    int64    `json:"size"`
@@ -680,6 +684,15 @@ func (s *Server) serveMarkdown(w http.ResponseWriter, r *http.Request, path stri
 	}
 	if realPath != realRoot && !strings.HasPrefix(realPath, realRoot+string(filepath.Separator)) {
 		writeError(w, http.StatusForbidden, "只能读取 forest_data 内的报告文件")
+		return
+	}
+	info, err := os.Stat(realPath)
+	if err != nil || info.IsDir() {
+		writeError(w, http.StatusNotFound, "文件不存在")
+		return
+	}
+	if info.Size() > maxMarkdownReportSize {
+		writeError(w, http.StatusBadRequest, "报告文件过大，暂不支持预览")
 		return
 	}
 	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
