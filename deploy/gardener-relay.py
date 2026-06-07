@@ -9,6 +9,7 @@ NGINX_DIR = Path('/etc/nginx/conf.d')
 FRPS_CONF = Path('/etc/frp/frps.toml')
 DOWNLOAD_ROOT = Path('/srv/gardener-downloads/public')
 PROVISION_ROOT = DOWNLOAD_ROOT / 'provision'
+MAX_SETUP_KEY_LENGTH = 128
 SERVER_ADDR = os.environ.get('GARDENER_RELAY_SERVER_ADDR', 'YOUR_RELAY_SERVER')
 FRPS_PORT = int(os.environ.get('GARDENER_RELAY_FRPS_PORT', '27000'))
 PUBLIC_START = int(os.environ.get('GARDENER_RELAY_PUBLIC_START', '28081'))
@@ -73,6 +74,8 @@ def sanitize_setup_key(key):
         raise SystemExit('error: setup key must contain only a-z, A-Z, 0-9, - or _')
     if len(key) < 20:
         raise SystemExit('error: setup key too short')
+    if len(key) > MAX_SETUP_KEY_LENGTH:
+        raise SystemExit('error: setup key too long')
     return key
 
 
