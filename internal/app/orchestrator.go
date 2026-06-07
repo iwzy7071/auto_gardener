@@ -16,6 +16,8 @@ import (
 	"auto_gardener/internal/codex"
 )
 
+const maxSendMessageContentRunes = 8000
+
 type Orchestrator struct {
 	store         *Store
 	runner        codex.Runner
@@ -152,6 +154,9 @@ func (o *Orchestrator) SendMessage(taskID, content string) (*Task, error) {
 	content = strings.TrimSpace(content)
 	if content == "" {
 		return nil, fmt.Errorf("消息不能为空")
+	}
+	if len([]rune(content)) > maxSendMessageContentRunes {
+		return nil, fmt.Errorf("消息过长，请缩短后再发送")
 	}
 	if snapshot, ok := o.store.GetTask(taskID); ok && snapshot.Status == StatusRunning && isProgressQuery(content) {
 		now := time.Now()
