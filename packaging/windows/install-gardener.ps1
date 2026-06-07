@@ -170,7 +170,7 @@ if ($DesktopShortcut -or $StartMenuShortcut) {
 
 Write-Host "Gardener installed to $InstallDir" -ForegroundColor Green
 if ($Provision) {
-  Write-Host "Remote URL: $($Provision.publicUrl)" -ForegroundColor Cyan
+  Write-Host "Remote URL: configured" -ForegroundColor Cyan
   Write-Host "Login user: $($Provision.webUsername)" -ForegroundColor Cyan
   Write-Host "Login password: $($Provision.webPassword)" -ForegroundColor Cyan
 }
