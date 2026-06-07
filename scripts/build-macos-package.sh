@@ -19,10 +19,7 @@ fetch_frpc() {
   local url="https://github.com/fatedier/frp/releases/download/v${FRP_VERSION}/frp_${FRP_VERSION}_darwin_${url_arch}.tar.gz"
   if [[ "${DOWNLOAD_FRPC:-0}" == "1" ]]; then
     echo "Downloading frpc for darwin/$arch from $url" >&2
-    if ! curl -L --fail --connect-timeout 20 --max-time 240 -o "$tmp/frp.tgz" "$url"; then
-      url="https://gh-proxy.com/https://github.com/fatedier/frp/releases/download/v${FRP_VERSION}/frp_${FRP_VERSION}_darwin_${url_arch}.tar.gz"
-      curl -L --fail --connect-timeout 20 --max-time 240 -o "$tmp/frp.tgz" "$url"
-    fi
+    curl -L --fail --connect-timeout 20 --max-time 240 -o "$tmp/frp.tgz" "$url"
     tar -xzf "$tmp/frp.tgz" -C "$tmp"
     local found
     found="$(find "$tmp" -name frpc -type f | head -n 1)"
