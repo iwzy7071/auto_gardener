@@ -788,6 +788,12 @@ async function renderUsage(task) {
   }
 }
 
+const MAX_RENDERED_USAGE_NOTE_CHARS = 300;
+function renderedUsageNote(note) {
+  const chars = Array.from(String(note || ''));
+  return chars.length > MAX_RENDERED_USAGE_NOTE_CHARS ? chars.slice(0, MAX_RENDERED_USAGE_NOTE_CHARS).join('') + '…' : chars.join('');
+}
+
 function paintUsage(panel, usage) {
   const total = Number(usage?.totalTokens || 0);
   if (!total) {
@@ -809,7 +815,7 @@ function paintUsage(panel, usage) {
     </div>
     <div class="usage-models">${modelHTML}</div>
   `;
-  panel.title = usage.pricingNote || '';
+  panel.title = renderedUsageNote(usage.pricingNote);
 }
 
 function formatTokenCount(n) {
