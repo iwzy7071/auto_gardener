@@ -39,7 +39,12 @@ def run(cmd, check=True):
 def load_state():
     if not STATE.exists():
         return {'instances': []}
-    return json.loads(STATE.read_text())
+    data = json.loads(STATE.read_text())
+    if not isinstance(data, dict) or not isinstance(data.get('instances'), list):
+        raise SystemExit('error: relay state file is invalid: expected object with instances list')
+    if any(not isinstance(i, dict) for i in data['instances']):
+        raise SystemExit('error: relay state file is invalid: instances must be objects')
+    return data
 
 
 def save_state(data):
