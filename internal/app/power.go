@@ -34,6 +34,8 @@ func CheckPowerStatus() PowerStatus {
 	}
 }
 
+const maxPowerWarningsTextRunes = 1000
+
 func PowerWarningsText(ps PowerStatus) string {
 	if len(ps.Warnings) == 0 && len(ps.Advice) == 0 {
 		return ""
@@ -41,7 +43,12 @@ func PowerWarningsText(ps PowerStatus) string {
 	var lines []string
 	lines = append(lines, ps.Warnings...)
 	lines = append(lines, ps.Advice...)
-	return strings.Join(lines, "\n")
+	text := strings.Join(lines, "\n")
+	chars := []rune(strings.TrimSpace(text))
+	if len(chars) <= maxPowerWarningsTextRunes {
+		return string(chars)
+	}
+	return string(chars[:maxPowerWarningsTextRunes]) + "…"
 }
 
 func checkWindowsPower(ps PowerStatus) PowerStatus {
