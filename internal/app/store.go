@@ -14,6 +14,8 @@ import (
 
 var ErrNotFound = errors.New("not found")
 
+const maxSettingsTokenBytes = 8 * 1024
+
 type taskDiskCompat struct {
 	Task
 	LegacyWave            int `json:"wave,omitempty"`
@@ -102,6 +104,13 @@ func compatibleCLIEngine(engine CLIEngine, mode ModelMode) CLIEngine {
 	return engine
 }
 
+func validateSettingsSecrets(settings AppSettings) error {
+	if len([]byte(settings.MiniMaxToken)) > maxSettingsTokenBytes || len([]byte(settings.KimiToken)) > maxSettingsTokenBytes {
+		return errors.New("model token is too large")
+	}
+	return nil
+}
+
 func (s *Store) settingsPath() string { return filepath.Join(s.dataDir, "settings.json") }
 
 func (s *Store) loadSettings() error {
@@ -130,6 +139,9 @@ func (s *Store) GetSettings() AppSettings {
 }
 
 func (s *Store) UpdateSettings(settings AppSettings) (AppSettings, error) {
+	if err := validateSettingsSecrets(settings); err != nil {
+		return s.GetSettings(), err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	settings.LogLevel = normalizeLogLevel(settings.LogLevel)
