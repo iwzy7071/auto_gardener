@@ -54,3 +54,16 @@ func TestNormalizeChatMessagesMergesSystem(t *testing.T) {
 		t.Fatalf("unexpected second message: %#v", got[1])
 	}
 }
+
+func TestValidateFunctionOutputSizeRejectsLargeOutput(t *testing.T) {
+	tooLarge := strings.Repeat("a", maxCompatFunctionOutputBytes+1)
+	raw := []byte(`[{"type":"function_call_output","call_id":"call_1","output":"` + tooLarge + `"}]`)
+	if err := validateFunctionOutputSize(raw); err == nil {
+		t.Fatal("validateFunctionOutputSize accepted large output")
+	}
+	boundary := strings.Repeat("a", maxCompatFunctionOutputBytes)
+	raw = []byte(`[{"type":"function_call_output","call_id":"call_1","output":"` + boundary + `"}]`)
+	if err := validateFunctionOutputSize(raw); err != nil {
+		t.Fatalf("validateFunctionOutputSize rejected boundary value: %v", err)
+	}
+}

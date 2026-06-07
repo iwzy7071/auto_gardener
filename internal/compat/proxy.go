@@ -19,6 +19,8 @@ type Proxy struct {
 	client  *http.Client
 }
 
+const maxCompatFunctionOutputBytes = 256 * 1024
+
 type providerSpec struct {
 	Name                 string
 	BaseURL              string
@@ -81,6 +83,10 @@ func (p *Proxy) handle(w http.ResponseWriter, r *http.Request) {
 	var req responseRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeProxyError(w, http.StatusBadRequest, "invalid responses request")
+		return
+	}
+	if err := validateFunctionOutputSize(req.Input); err != nil {
+		writeProxyError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if err := p.forwardChatStream(w, r, spec, token, req); err != nil {
@@ -262,6 +268,22 @@ type responseInputItem struct {
 	Name      string          `json:"name,omitempty"`
 	Arguments string          `json:"arguments,omitempty"`
 	Output    string          `json:"output,omitempty"`
+}
+
+func validateFunctionOutputSize(raw json.RawMessage) error {
+	if len(raw) == 0 || raw[0] != '[' {
+		return nil
+	}
+	var items []responseInputItem
+	if err := json.Unmarshal(raw, &items); err != nil {
+		return nil
+	}
+	for _, item := range items {
+		if item.Type == "function_call_output" && len(item.Output) > maxCompatFunctionOutputBytes {
+			return fmt.Errorf("function call output too large; maximum is %d bytes", maxCompatFunctionOutputBytes)
+		}
+	}
+	return nil
 }
 
 func contentText(raw json.RawMessage) string {
