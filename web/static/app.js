@@ -1502,8 +1502,15 @@ function parseCSV(text) {
   return rows.filter(r => r.some(c => String(c).trim() !== ''));
 }
 
+const MAX_MARKDOWN_LINE_CHARS = 4000;
+
+function limitMarkdownLine(line) {
+  line = String(line || '');
+  return line.length > MAX_MARKDOWN_LINE_CHARS ? line.slice(0, MAX_MARKDOWN_LINE_CHARS) + '…' : line;
+}
+
 function renderMarkdown(md) {
-  const lines = String(md || '').split(/\r?\n/);
+  const lines = String(md || '').split(/\r?\n/).map(limitMarkdownLine);
   const out = [];
   let inCode = false, code = [], para = [], list = [], table = [];
   const flushPara = () => { if (para.length) { out.push(`<p>${inline(para.join(' '))}</p>`); para = []; } };
