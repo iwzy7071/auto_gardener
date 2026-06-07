@@ -1,5 +1,6 @@
 const state = { powerStatus: null, tasks: [], activeTaskId: null, eventSource: null, recoveryPoller: null, activeRefreshPoller: null, selectedForests: {}, selectedFileTree: {}, selectedFilePath: {}, selectedFileManual: {}, fileListFingerprint: {}, lastFileRefreshAt: {}, treeStatusExpanded: {}, usage: {}, usageFetchedAt: {}, usagePending: {}, renderCache: {}, pendingTaskRender: null, pendingTaskRenderFrame: 0, lastTaskListSig: '', lastHomeSig: '', activeReportText: '', fileViewerToken: 0, previewToken: 0, overviewCollapsed: loadOverviewCollapsed(), editingTitle: false, settings: loadSettings() };
 const $ = (id) => document.getElementById(id);
+const MAX_CODE_PREVIEW_LINE_LENGTH = 2000;
 
 const I18N = {
   'zh-CN': {
@@ -1358,7 +1359,7 @@ function renderJSON(text) {
 function renderCode(text, lang = '') {
   const rawLines = String(text || '').replace(/\t/g, '  ').split(/\r?\n/);
   const maxLines = 2500;
-  const lines = rawLines.slice(0, maxLines);
+  const lines = rawLines.slice(0, maxLines).map(line => line.length > MAX_CODE_PREVIEW_LINE_LENGTH ? line.slice(0, MAX_CODE_PREVIEW_LINE_LENGTH) + '…' : line);
   const truncated = rawLines.length > maxLines ? `<div class="preview-note">${escapeHTML(t('previewTruncated').replace('%d', String(text || '').length))}</div>` : '';
   const body = lines.map((line, idx) => `
     <div class="code-line">
