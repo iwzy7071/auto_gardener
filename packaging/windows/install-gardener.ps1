@@ -12,6 +12,18 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Test-GardenerUnsafeInstallDir([string]$Path) {
+  if ([string]::IsNullOrWhiteSpace($Path)) { return $true }
+  $full = [IO.Path]::GetFullPath($Path)
+  $root = [IO.Path]::GetPathRoot($full)
+  return ($full -eq $root -or $full -eq (Get-Location).Path -or $Path -eq '.' -or $Path -eq '..' -or $Path.Contains('..'))
+}
+
+if (Test-GardenerUnsafeInstallDir $InstallDir) {
+  throw "Refusing unsafe install directory: $InstallDir"
+}
+$InstallDir = [IO.Path]::GetFullPath($InstallDir)
+
 if (-not $RelayBaseUrl -and $env:GARDENER_RELAY_BASE_URL) { $RelayBaseUrl = $env:GARDENER_RELAY_BASE_URL }
 if (-not $RelayBaseUrl) { $RelayBaseUrl = "http://YOUR_RELAY_SERVER" }
 
