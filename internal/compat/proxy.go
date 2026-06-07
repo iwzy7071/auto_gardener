@@ -19,6 +19,8 @@ type Proxy struct {
 	client  *http.Client
 }
 
+const maxCompatStreamTextBytes = 1 * 1024 * 1024
+
 type providerSpec struct {
 	Name                 string
 	BaseURL              string
@@ -393,6 +395,9 @@ func streamChatAsResponses(w http.ResponseWriter, body io.Reader, model string) 
 					writeSSE(w, "response.output_item.added", map[string]any{"type": "response.output_item.added", "output_index": outputIndex, "item": messageItem(msgID, "in_progress", "")})
 					writeSSE(w, "response.content_part.added", map[string]any{"type": "response.content_part.added", "item_id": msgID, "output_index": outputIndex, "content_index": 0, "part": map[string]any{"type": "output_text", "text": ""}})
 					textStarted = true
+				}
+				if text.Len()+len(choice.Delta.Content) > maxCompatStreamTextBytes {
+					return fmt.Errorf("streamed text too large; maximum is %d bytes", maxCompatStreamTextBytes)
 				}
 				text.WriteString(choice.Delta.Content)
 				writeSSE(w, "response.output_text.delta", map[string]any{"type": "response.output_text.delta", "item_id": msgID, "output_index": outputIndex, "content_index": 0, "delta": choice.Delta.Content})

@@ -1,6 +1,7 @@
 package compat
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -52,5 +53,26 @@ func TestNormalizeChatMessagesMergesSystem(t *testing.T) {
 	}
 	if got[1].Role != "user" {
 		t.Fatalf("unexpected second message: %#v", got[1])
+	}
+}
+
+func TestStreamChatAsResponsesRejectsLargeText(t *testing.T) {
+	chunk, err := json.Marshal(map[string]any{
+		"choices": []any{map[string]any{
+			"delta": map[string]any{
+				"content": strings.Repeat("a", maxCompatStreamTextBytes+1),
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("marshal chunk: %v", err)
+	}
+	rr := httptest.NewRecorder()
+	err = streamChatAsResponses(rr, strings.NewReader("data: "+string(chunk)+"\n\n"), "model")
+	if err == nil {
+		t.Fatal("streamChatAsResponses accepted large text")
+	}
+	if !strings.Contains(err.Error(), "streamed text too large") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
