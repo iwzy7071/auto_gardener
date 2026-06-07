@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse, base64, crypt, json, os, re, secrets, shutil, socket, string, subprocess, sys, time
 from pathlib import Path
+from urllib.parse import urlparse
 
 ROOT = Path('/etc/gardener-relay')
 USERS = ROOT / 'users'
@@ -31,6 +32,20 @@ def require_relay_configured():
         raise SystemExit('error: relay server address is not configured. Set GARDENER_RELAY_SERVER_ADDR and GARDENER_RELAY_PUBLIC_BASE_URL from config/gardener-relay.env.local')
     if RELAY_PUBLIC_BASE_URL.endswith('YOUR_RELAY_SERVER') or 'YOUR_RELAY_SERVER' in RELAY_PUBLIC_BASE_URL or 'example.com' in RELAY_PUBLIC_BASE_URL:
         raise SystemExit('error: relay public base URL is not configured. Set GARDENER_RELAY_PUBLIC_BASE_URL from config/gardener-relay.env.local')
+    require_https_url(RELAY_PUBLIC_BASE_URL, 'relay public base URL')
+    require_https_url(PACKAGE_URL, 'Windows package URL')
+    require_https_url(INSTALL_SCRIPT_URL, 'Windows install script URL')
+    require_https_url(MAC_INSTALL_SCRIPT_URL, 'macOS install script URL')
+    for arch, url in MAC_PACKAGE_URLS.items():
+        require_https_url(url, f'macOS {arch} package URL')
+
+
+def require_https_url(raw_url, label):
+    if os.environ.get('GARDENER_RELAY_ALLOW_INSECURE_HTTP') == '1':
+        return
+    parsed = urlparse(raw_url)
+    if parsed.scheme.lower() != 'https':
+        raise SystemExit(f'error: {label} must use https://. Set GARDENER_RELAY_ALLOW_INSECURE_HTTP=1 only for local testing.')
 
 def run(cmd, check=True):
     return subprocess.run(cmd, check=check, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
