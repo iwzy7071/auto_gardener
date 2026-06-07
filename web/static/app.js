@@ -1319,6 +1319,12 @@ function setFruitLink(anchor, taskId, tree) {
   }
 }
 
+const MAX_RENDERED_REPORT_ERROR_CHARS = 300;
+function renderedReportErrorMessage(err) {
+  const chars = Array.from(String(err?.message || err || ''));
+  return chars.length > MAX_RENDERED_REPORT_ERROR_CHARS ? chars.slice(0, MAX_RENDERED_REPORT_ERROR_CHARS).join('') + '…' : chars.join('');
+}
+
 async function openReport(url, title) {
   const overlay = $('reportOverlay');
   $('reportTitle').textContent = title;
@@ -1330,7 +1336,7 @@ async function openReport(url, title) {
     state.activeReportText = text;
     $('reportBody').innerHTML = renderMarkdown(text);
   } catch (err) {
-    $('reportBody').innerHTML = `<div class="report-loading">${t('openFailed')}${escapeHTML(err.message)}</div>`;
+    $('reportBody').innerHTML = `<div class="report-loading">${t('openFailed')}${escapeHTML(renderedReportErrorMessage(err))}</div>`;
   }
 }
 
