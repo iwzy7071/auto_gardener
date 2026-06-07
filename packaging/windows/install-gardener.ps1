@@ -11,6 +11,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$FrpcTomlMaxBytes = 64KB
 
 if (-not $RelayBaseUrl -and $env:GARDENER_RELAY_BASE_URL) { $RelayBaseUrl = $env:GARDENER_RELAY_BASE_URL }
 if (-not $RelayBaseUrl) { $RelayBaseUrl = "http://YOUR_RELAY_SERVER" }
@@ -131,7 +132,11 @@ $ConfigText = @"
 if ($Provision) {
   Write-Host "Writing relay configuration..." -ForegroundColor Green
   if (-not $Provision.frpcToml) { throw "Provision is missing frpcToml" }
-  [IO.File]::WriteAllText((Join-Path $InstallDir "frpc.toml"), [string]$Provision.frpcToml, [Text.UTF8Encoding]::new($false))
+  $FrpcToml = [string]$Provision.frpcToml
+  if ([Text.Encoding]::UTF8.GetByteCount($FrpcToml) -gt $FrpcTomlMaxBytes) {
+    throw "Provision frpcToml is too large."
+  }
+  [IO.File]::WriteAllText((Join-Path $InstallDir "frpc.toml"), $FrpcToml, [Text.UTF8Encoding]::new($false))
 
   $RelayConfig = [ordered]@{
     schemaVersion = 1
