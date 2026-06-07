@@ -7,6 +7,16 @@ SETUP_KEY=""
 PROVISION_URL=""
 START_AFTER_INSTALL=1
 
+validate_install_dir() {
+  local dir="${1:-}"
+  case "$dir" in
+    ""|"/"|"."|".."|../*|*/../*)
+      echo "Refusing unsafe install directory: $dir" >&2
+      exit 1
+      ;;
+  esac
+}
+
 usage() {
   cat <<EOF
 Usage: install-gardener.sh [--setup-key sk_xxx] [--relay-base-url URL] [--install-dir DIR] [--no-start]
@@ -26,6 +36,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+validate_install_dir "$INSTALL_DIR"
 RELAY_BASE_URL="${RELAY_BASE_URL%/}"
 is_placeholder_relay_url() { [[ -z "${1:-}" || "$1" == *YOUR_RELAY_SERVER* || "$1" == *YOUR_SERVER_IP* || "$1" == *example.com* ]]; }
 if [[ -z "$PROVISION_URL" && -n "$SETUP_KEY" ]]; then
