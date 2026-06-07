@@ -55,3 +55,14 @@ func TestNoDingTalkSecretSkipsVerify(t *testing.T) {
 		t.Fatalf("verification should be skipped without secret: %v", err)
 	}
 }
+
+func TestDingTalkRejectsInvalidTaskID(t *testing.T) {
+	server := &Server{}
+	longID := "forest_" + strings.Repeat("x", 200)
+	if got := server.dingTalkTaskStatus(longID); got != "任务 ID 格式不正确。" {
+		t.Fatalf("unexpected status response: %q", got)
+	}
+	if validDingTalkTaskID("forest_abc/../../secret") {
+		t.Fatal("path-like task ID should be rejected")
+	}
+}

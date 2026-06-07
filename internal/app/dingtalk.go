@@ -102,12 +102,18 @@ func (s *Server) handleDingTalkCommand(msg dingTalkIncomingMessage, content stri
 		return fmt.Sprintf("已创建任务：%s\n任务 ID：%s\n你可以发送“状态”“继续”“停止”，或直接补充要求。", task.Title, task.ID)
 	case "状态", "进度", "status", "progress":
 		taskID := strings.TrimSpace(arg)
+		if taskID != "" && !validDingTalkTaskID(taskID) {
+			return "任务 ID 格式不正确。"
+		}
 		if taskID == "" {
 			taskID = s.getDingTalkSessionTask(key)
 		}
 		return s.dingTalkTaskStatus(taskID)
 	case "继续", "继续任务", "resume", "continue":
 		taskID := strings.TrimSpace(arg)
+		if taskID != "" && !validDingTalkTaskID(taskID) {
+			return "任务 ID 格式不正确。"
+		}
 		if taskID == "" {
 			taskID = s.getDingTalkSessionTask(key)
 		}
@@ -122,6 +128,9 @@ func (s *Server) handleDingTalkCommand(msg dingTalkIncomingMessage, content stri
 		return "已继续任务：" + task.Title + "\n任务 ID：" + task.ID
 	case "停止", "stop":
 		taskID := strings.TrimSpace(arg)
+		if taskID != "" && !validDingTalkTaskID(taskID) {
+			return "任务 ID 格式不正确。"
+		}
 		if taskID == "" {
 			taskID = s.getDingTalkSessionTask(key)
 		}
@@ -193,6 +202,9 @@ func (s *Server) dingTalkTaskStatus(taskID string) string {
 	if strings.TrimSpace(taskID) == "" {
 		return "还没有绑定任务。请先发送“新任务 你的目标”，或指定任务 ID：状态 forest_xxx。"
 	}
+	if !validDingTalkTaskID(taskID) {
+		return "任务 ID 格式不正确。"
+	}
 	task, ok := s.store.GetTask(taskID)
 	if !ok {
 		return "任务不存在：" + taskID
@@ -218,6 +230,20 @@ func (s *Server) dingTalkTaskStatus(taskID string) string {
 		b.WriteString("\n你可以继续询问状态，不会中断任务。")
 	}
 	return b.String()
+}
+
+func validDingTalkTaskID(taskID string) bool {
+	taskID = strings.TrimSpace(taskID)
+	if len(taskID) < len("forest_")+12 || len(taskID) > 80 || !strings.HasPrefix(taskID, "forest_") {
+		return false
+	}
+	for _, r := range taskID {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_' || r == '-' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func dingTalkSessionKey(msg dingTalkIncomingMessage) string {
