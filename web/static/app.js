@@ -1,5 +1,6 @@
 const state = { powerStatus: null, tasks: [], activeTaskId: null, eventSource: null, recoveryPoller: null, activeRefreshPoller: null, selectedForests: {}, selectedFileTree: {}, selectedFilePath: {}, selectedFileManual: {}, fileListFingerprint: {}, lastFileRefreshAt: {}, treeStatusExpanded: {}, usage: {}, usageFetchedAt: {}, usagePending: {}, renderCache: {}, pendingTaskRender: null, pendingTaskRenderFrame: 0, lastTaskListSig: '', lastHomeSig: '', activeReportText: '', fileViewerToken: 0, previewToken: 0, overviewCollapsed: loadOverviewCollapsed(), editingTitle: false, settings: loadSettings() };
 const $ = (id) => document.getElementById(id);
+const MAX_RENDERED_TREE_SCOPE_CHARS = 4000;
 
 const I18N = {
   'zh-CN': {
@@ -1290,7 +1291,7 @@ function renderTrees(task) {
     node.querySelector('p').textContent = tree.isValidation ? t('validationTeam') : t('team');
     const pill = node.querySelector('.status-pill'); pill.textContent = statusText(tree.status); pill.className = 'status-pill ' + tree.status;
     const scopeText = [(tree.scope || []).join(' / '), tree.objective || ''].filter(Boolean).join('\n');
-    node.querySelector('.scope').textContent = humanizeText(scopeText || '等待 Gardener 分配范围');
+    node.querySelector('.scope').textContent = humanizeText(truncateRenderedTreeScope(scopeText || '等待 Gardener 分配范围'));
     const ul = node.querySelector('ul');
     (tree.progress || []).slice(-8).forEach(p => { const li = document.createElement('li'); li.textContent = humanizeText(p); ul.appendChild(li); });
     setFruitLink(node.querySelector('.fruit-btn'), task.id, tree);
@@ -1507,6 +1508,10 @@ function humanizeText(s) {
     .replace(/\bfruit\b/g, words.fruit)
     .replace(/log\.md/g, words.log)
     .replace(/schedule\.md/g, words.schedule);
+}
+function truncateRenderedTreeScope(content) {
+  const text = String(content || '');
+  return text.length > MAX_RENDERED_TREE_SCOPE_CHARS ? text.slice(0, MAX_RENDERED_TREE_SCOPE_CHARS) + '…' : text;
 }
 function escapeHTML(s) { return String(s || '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
 
