@@ -55,3 +55,11 @@ func TestNoDingTalkSecretSkipsVerify(t *testing.T) {
 		t.Fatalf("verification should be skipped without secret: %v", err)
 	}
 }
+
+func TestDingTalkSignedWebhookSkipsLongSecret(t *testing.T) {
+	raw := "https://example.invalid/hook?access_token=abc"
+	got := dingTalkSignedWebhook(raw, strings.Repeat("a", maxDingTalkOutgoingSecretLength+1))
+	if got != raw {
+		t.Fatalf("dingTalkSignedWebhook signed with over-long secret: %s", got)
+	}
+}

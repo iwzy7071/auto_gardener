@@ -17,6 +17,8 @@ import (
 	"time"
 )
 
+const maxDingTalkOutgoingSecretLength = 512
+
 type dingTalkIncomingMessage struct {
 	ConversationID string `json:"conversationId"`
 	SenderID       string `json:"senderId"`
@@ -277,7 +279,11 @@ func dingTalkSign(timestamp, secret string) string {
 }
 
 func dingTalkSignedWebhook(rawURL, secret string) string {
-	if strings.TrimSpace(secret) == "" || strings.TrimSpace(rawURL) == "" {
+	secret = strings.TrimSpace(secret)
+	if secret == "" || strings.TrimSpace(rawURL) == "" {
+		return rawURL
+	}
+	if len(secret) > maxDingTalkOutgoingSecretLength {
 		return rawURL
 	}
 	timestamp := strconv.FormatInt(time.Now().UnixMilli(), 10)
