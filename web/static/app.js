@@ -1,5 +1,6 @@
 const state = { powerStatus: null, tasks: [], activeTaskId: null, eventSource: null, recoveryPoller: null, activeRefreshPoller: null, selectedForests: {}, selectedFileTree: {}, selectedFilePath: {}, selectedFileManual: {}, fileListFingerprint: {}, lastFileRefreshAt: {}, treeStatusExpanded: {}, usage: {}, usageFetchedAt: {}, usagePending: {}, renderCache: {}, pendingTaskRender: null, pendingTaskRenderFrame: 0, lastTaskListSig: '', lastHomeSig: '', activeReportText: '', fileViewerToken: 0, previewToken: 0, overviewCollapsed: loadOverviewCollapsed(), editingTitle: false, settings: loadSettings() };
 const $ = (id) => document.getElementById(id);
+const MAX_ROUTE_TASK_ID_LENGTH = 80;
 
 const I18N = {
   'zh-CN': {
@@ -127,7 +128,8 @@ function taskURL(taskId) {
 
 function routeTaskId() {
   const match = window.location.pathname.match(/^\/forests\/([^/]+)\/?$/);
-  return match ? decodeURIComponent(match[1]) : '';
+  if (!match || match[1].length > MAX_ROUTE_TASK_ID_LENGTH) return '';
+  return decodeURIComponent(match[1]);
 }
 
 function setRoute(path, replace = false) {
