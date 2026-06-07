@@ -262,7 +262,7 @@ function applyModelTokenField() {
 async function loadTasks(options = {}) {
   try {
     const data = await api('/api/tasks?compact=1');
-    state.tasks = data.tasks || [];
+    state.tasks = Array.isArray(data.tasks) ? data.tasks : [];
     setConnected(true);
     renderTaskList();
     renderHomeGarden();
