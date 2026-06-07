@@ -16,6 +16,8 @@ import (
 	"auto_gardener/internal/codex"
 )
 
+const maxConcurrentTreesLimit = 10
+
 type Orchestrator struct {
 	store         *Store
 	runner        codex.Runner
@@ -35,7 +37,7 @@ func NewOrchestrator(store *Store, runner codex.Runner, dataDir, compatBaseURL s
 		runner:        runner,
 		dataDir:       dataDir,
 		maxTrees:      getenvIntFallback("AUTO_GARDENER_MAX_TREES_PER_FOREST", "AUTO_GARDENER_MAX_TREES_PER_WAVE", 5),
-		maxConcurrent: getenvInt("AUTO_GARDENER_MAX_CONCURRENT_TREES", 3),
+		maxConcurrent: getenvIntMax("AUTO_GARDENER_MAX_CONCURRENT_TREES", 3, maxConcurrentTreesLimit),
 		compatBaseURL: strings.TrimRight(compatBaseURL, "/"),
 		cancels:       make(map[string]context.CancelFunc),
 		activeRuns:    make(map[string]string),
@@ -1356,6 +1358,14 @@ func getenvInt(key string, defaultValue int) int {
 	n, err := strconv.Atoi(v)
 	if err != nil || n <= 0 {
 		return defaultValue
+	}
+	return n
+}
+
+func getenvIntMax(key string, defaultValue, maxValue int) int {
+	n := getenvInt(key, defaultValue)
+	if maxValue > 0 && n > maxValue {
+		return maxValue
 	}
 	return n
 }
