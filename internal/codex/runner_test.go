@@ -32,3 +32,19 @@ func TestWithGoalEnvelope(t *testing.T) {
 		}
 	}
 }
+
+func TestSanitizedRunnerEnvStripsDingTalkSecrets(t *testing.T) {
+	env := sanitizedRunnerEnv([]string{
+		"AUTO_GARDENER_DINGTALK_WEBHOOK=https://example.invalid/hook",
+		"AUTO_GARDENER_DINGTALK_INCOMING_SECRET=secret",
+		"PATH=/usr/bin",
+	})
+	for _, item := range env {
+		if strings.HasPrefix(item, "AUTO_GARDENER_DINGTALK_") {
+			t.Fatalf("DingTalk secret leaked into runner env: %s", item)
+		}
+	}
+	if !containsString(env, "PATH=/usr/bin") {
+		t.Fatalf("non-secret env was not preserved: %#v", env)
+	}
+}
