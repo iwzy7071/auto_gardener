@@ -1,6 +1,9 @@
 package app
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestIsProgressQuery(t *testing.T) {
 	queries := []string{
@@ -43,5 +46,25 @@ func TestInferGoalStatus(t *testing.T) {
 	status, _ = inferGoalStatus("Goal status: complete\n全部完成", nil)
 	if status != "complete" {
 		t.Fatalf("complete output status = %q", status)
+	}
+}
+
+func TestLatestHumanProgressLimitsSnippets(t *testing.T) {
+	long := strings.Repeat("x", maxProgressQuerySnippetRunes+50)
+	task := &Task{
+		GardenerProgress: []string{long},
+		Trees: []*Tree{{
+			Name:     long,
+			Progress: []string{long},
+		}},
+	}
+
+	got := latestHumanProgress(task)
+	if strings.Contains(got, long) {
+		t.Fatalf("progress query included unbounded text")
+	}
+	want := strings.Repeat("x", maxProgressQuerySnippetRunes) + "..."
+	if strings.Count(got, want) < 2 {
+		t.Fatalf("progress query did not include truncated snippets, got %q", got)
 	}
 }
