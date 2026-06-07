@@ -489,8 +489,9 @@ func parseNumber(s string) int64 {
 func newStableUsageID(parts ...string) string {
 	h := sha1.New()
 	for _, part := range parts {
+		_, _ = h.Write([]byte(strconv.Itoa(len(part))))
+		_, _ = h.Write([]byte{':'})
 		_, _ = h.Write([]byte(part))
-		_, _ = h.Write([]byte{0})
 	}
 	return "usage_" + hex.EncodeToString(h.Sum(nil))[:16]
 }
