@@ -191,14 +191,24 @@ function loadSettings() {
   }
 }
 
+function isValidSettingsResponse(data) {
+  const settings = data?.settings;
+  if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return false;
+  for (const key of ['logLevel', 'cliEngine', 'modelMode', 'minimaxToken', 'kimiToken']) {
+    if (settings[key] !== undefined && typeof settings[key] !== 'string') return false;
+  }
+  return true;
+}
+
 async function loadServerSettings() {
   try {
     const data = await api('/api/settings');
-    state.settings.logLevel = data.settings?.logLevel || state.settings.logLevel || 'quiet';
-    state.settings.cliEngine = normalizeCLIEngineValue(data.settings?.cliEngine || state.settings.cliEngine || 'codex');
-    state.settings.modelMode = data.settings?.modelMode || state.settings.modelMode || 'default';
-    state.settings.minimaxToken = data.settings?.minimaxToken || state.settings.minimaxToken || '';
-    state.settings.kimiToken = data.settings?.kimiToken || state.settings.kimiToken || '';
+    if (!isValidSettingsResponse(data)) throw new Error('Invalid settings response');
+    state.settings.logLevel = data.settings.logLevel || state.settings.logLevel || 'quiet';
+    state.settings.cliEngine = normalizeCLIEngineValue(data.settings.cliEngine || state.settings.cliEngine || 'codex');
+    state.settings.modelMode = data.settings.modelMode || state.settings.modelMode || 'default';
+    state.settings.minimaxToken = data.settings.minimaxToken || state.settings.minimaxToken || '';
+    state.settings.kimiToken = data.settings.kimiToken || state.settings.kimiToken || '';
     applySettings();
   } catch (err) { console.error(err); }
 }
