@@ -54,3 +54,21 @@ func TestNormalizeChatMessagesMergesSystem(t *testing.T) {
 		t.Fatalf("unexpected second message: %#v", got[1])
 	}
 }
+
+func TestValidateFunctionCallIDsRejectsInvalidIDs(t *testing.T) {
+	cases := []string{"", strings.Repeat("a", 129), "bad id", "bad.id", "调用"}
+	for _, id := range cases {
+		raw := []byte(`[{"type":"function_call","call_id":"` + id + `","name":"tool"}]`)
+		if err := validateFunctionCallIDs(raw); err == nil {
+			t.Fatalf("validateFunctionCallIDs accepted function_call id %q", id)
+		}
+		raw = []byte(`[{"type":"function_call_output","call_id":"` + id + `","output":"ok"}]`)
+		if err := validateFunctionCallIDs(raw); err == nil {
+			t.Fatalf("validateFunctionCallIDs accepted function_call_output id %q", id)
+		}
+	}
+	raw := []byte(`[{"type":"function_call","call_id":"call_123-abc","name":"tool"},{"type":"function_call_output","call_id":"call_123-abc","output":"ok"}]`)
+	if err := validateFunctionCallIDs(raw); err != nil {
+		t.Fatalf("validateFunctionCallIDs rejected valid ids: %v", err)
+	}
+}

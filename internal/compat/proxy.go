@@ -83,6 +83,10 @@ func (p *Proxy) handle(w http.ResponseWriter, r *http.Request) {
 		writeProxyError(w, http.StatusBadRequest, "invalid responses request")
 		return
 	}
+	if err := validateFunctionCallIDs(req.Input); err != nil {
+		writeProxyError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	if err := p.forwardChatStream(w, r, spec, token, req); err != nil {
 		log.Printf("compat proxy %s error: %v", spec.Name, err)
 	}
@@ -262,6 +266,38 @@ type responseInputItem struct {
 	Name      string          `json:"name,omitempty"`
 	Arguments string          `json:"arguments,omitempty"`
 	Output    string          `json:"output,omitempty"`
+}
+
+func validateFunctionCallIDs(raw json.RawMessage) error {
+	if len(raw) == 0 || raw[0] != '[' {
+		return nil
+	}
+	var items []responseInputItem
+	if err := json.Unmarshal(raw, &items); err != nil {
+		return nil
+	}
+	for _, item := range items {
+		if item.Type != "function_call" && item.Type != "function_call_output" {
+			continue
+		}
+		if !validCompatCallID(firstNonEmpty(item.CallID, item.ID)) {
+			return fmt.Errorf("invalid function call id")
+		}
+	}
+	return nil
+}
+
+func validCompatCallID(id string) bool {
+	if id == "" || len(id) > 128 {
+		return false
+	}
+	for i := 0; i < len(id); i++ {
+		c := id[i]
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-') {
+			return false
+		}
+	}
+	return true
 }
 
 func contentText(raw json.RawMessage) string {
