@@ -889,6 +889,8 @@ func humanGoalTitle(tr *Tree) string {
 	return "完成子任务：" + name
 }
 
+const maxGoalReportFieldRunes = 1000
+
 func (o *Orchestrator) writeTreeGoal(task *Task, tr *Tree, status string, start time.Time, end *time.Time, note, output string) error {
 	if task == nil || tr == nil {
 		return nil
@@ -904,34 +906,38 @@ func (o *Orchestrator) writeTreeGoal(task *Task, tr *Tree, status string, start 
 	var b strings.Builder
 	b.WriteString("# 子任务 Goal\n\n")
 	b.WriteString("## Goal 元数据\n\n")
-	b.WriteString("- Goal ID: " + goal.ID + "\n")
-	b.WriteString("- Goal 标题: " + goal.Title + "\n")
-	b.WriteString("- 所属任务 ID: " + task.ID + "\n")
-	b.WriteString("- 所属任务: " + task.Title + "\n")
+	b.WriteString("- Goal ID: " + goalReportField(goal.ID) + "\n")
+	b.WriteString("- Goal 标题: " + goalReportField(goal.Title) + "\n")
+	b.WriteString("- 所属任务 ID: " + goalReportField(task.ID) + "\n")
+	b.WriteString("- 所属任务: " + goalReportField(task.Title) + "\n")
 	b.WriteString("- 阶段: " + strconv.Itoa(tr.Forest) + "\n")
-	b.WriteString("- 状态: " + status + "\n")
+	b.WriteString("- 状态: " + goalReportField(status) + "\n")
 	b.WriteString("- 开始时间: " + start.Format(time.RFC3339) + "\n")
 	if end != nil {
 		b.WriteString("- 结束时间: " + end.Format(time.RFC3339) + "\n")
 	}
 	b.WriteString("- 是否验证子任务: " + strconv.FormatBool(tr.IsValidation) + "\n")
-	b.WriteString("- 工作区: " + task.WorkspacePath + "\n")
+	b.WriteString("- 工作区: " + goalReportField(task.WorkspacePath) + "\n")
 	b.WriteString("\n## Goal 目标\n\n")
-	b.WriteString(strings.TrimSpace(goal.Objective) + "\n")
+	b.WriteString(goalReportField(goal.Objective) + "\n")
 	b.WriteString("\n## 验收标准\n\n")
 	for _, item := range goal.SuccessCriteria {
 		item = strings.TrimSpace(item)
 		if item != "" {
-			b.WriteString("- " + item + "\n")
+			b.WriteString("- " + goalReportField(item) + "\n")
 		}
 	}
 	b.WriteString("\n## 当前说明\n\n")
-	b.WriteString(strings.TrimSpace(note) + "\n")
+	b.WriteString(goalReportField(note) + "\n")
 	if strings.TrimSpace(output) != "" {
 		b.WriteString("\n## CLI 输出摘要\n\n")
 		b.WriteString(codex.Truncate(strings.TrimSpace(output), 2000) + "\n")
 	}
 	return os.WriteFile(path, []byte(b.String()), 0644)
+}
+
+func goalReportField(s string) string {
+	return codex.Truncate(s, maxGoalReportFieldRunes)
 }
 
 func (o *Orchestrator) writeFruit(task *Task, tr *Tree, output string, runErr error, start, end time.Time) (string, error) {
