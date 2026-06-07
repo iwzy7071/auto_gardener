@@ -17,6 +17,8 @@ import (
 	"time"
 )
 
+const maxDingTalkWebhookURLLength = 2048
+
 type dingTalkIncomingMessage struct {
 	ConversationID string `json:"conversationId"`
 	SenderID       string `json:"senderId"`
@@ -297,6 +299,9 @@ func (s *Server) sendDingTalkReply(sessionWebhook, content string) error {
 	}
 	if webhook == "" {
 		return nil
+	}
+	if len(webhook) > maxDingTalkWebhookURLLength {
+		return errors.New("钉钉 webhook URL 过长")
 	}
 	body, _ := json.Marshal(dingTalkTextPayload(content))
 	resp, err := s.httpClient.Post(webhook, "application/json", bytes.NewReader(body))

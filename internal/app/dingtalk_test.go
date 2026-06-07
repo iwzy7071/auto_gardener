@@ -55,3 +55,11 @@ func TestNoDingTalkSecretSkipsVerify(t *testing.T) {
 		t.Fatalf("verification should be skipped without secret: %v", err)
 	}
 }
+
+func TestSendDingTalkReplyRejectsLongWebhook(t *testing.T) {
+	server := NewServer(nil, nil, "", nil)
+	longWebhook := "https://example.invalid/" + strings.Repeat("a", maxDingTalkWebhookURLLength)
+	if err := server.sendDingTalkReply(longWebhook, "hello"); err == nil || !strings.Contains(err.Error(), "webhook URL 过长") {
+		t.Fatalf("expected long webhook rejection, got %v", err)
+	}
+}
