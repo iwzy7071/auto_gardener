@@ -84,8 +84,8 @@ if ($Relay -and $Relay.publicUrl) {
   Write-Host "Remote URL: $($Relay.publicUrl)" -ForegroundColor Cyan
   Write-Host "Remote login: $($Relay.webUsername) / $($Relay.webPassword)" -ForegroundColor Cyan
 }
-Write-Host "Data: $env:AUTO_GARDENER_DATA"
-Write-Host "Static: $env:AUTO_GARDENER_STATIC"
+Write-Host "Data: configured"
+Write-Host "Static: configured"
 Show-GardenerPowerWarning
 
 $frpcProc = $null
