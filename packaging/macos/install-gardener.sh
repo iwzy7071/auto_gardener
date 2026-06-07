@@ -256,7 +256,7 @@ fi
 echo "Gardener installed."
 echo "Local URL:  $local_url"
 if [[ -n "$public_url" ]]; then
-  echo "Remote URL: $public_url"
+  echo "Remote URL: configured"
   echo "Login:      $web_user / $web_pass"
 fi
 if [[ "$START_AFTER_INSTALL" == "1" ]]; then
