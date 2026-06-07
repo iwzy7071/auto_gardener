@@ -88,12 +88,20 @@ func parsePowerCfgIndexes(out string) (ac, dc int64) {
 	reAC := regexp.MustCompile(`(?i)Current AC Power Setting Index:\s*0x([0-9a-f]+)`)
 	reDC := regexp.MustCompile(`(?i)Current DC Power Setting Index:\s*0x([0-9a-f]+)`)
 	if m := reAC.FindStringSubmatch(out); len(m) == 2 {
-		ac, _ = strconv.ParseInt(m[1], 16, 64)
+		ac = parsePowerCfgIndex(m[1])
 	}
 	if m := reDC.FindStringSubmatch(out); len(m) == 2 {
-		dc, _ = strconv.ParseInt(m[1], 16, 64)
+		dc = parsePowerCfgIndex(m[1])
 	}
 	return ac, dc
+}
+
+func parsePowerCfgIndex(hexValue string) int64 {
+	n, err := strconv.ParseInt(hexValue, 16, 64)
+	if err != nil {
+		return 1
+	}
+	return n
 }
 
 func checkMacPower(ps PowerStatus) PowerStatus {

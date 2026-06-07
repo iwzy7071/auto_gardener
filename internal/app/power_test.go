@@ -27,3 +27,13 @@ AC Power:
 		t.Fatalf("bad ac values: %#v", vals["AC Power"])
 	}
 }
+
+func TestParsePowerCfgIndexesTreatsOverflowAsUnsafe(t *testing.T) {
+	ac, dc := parsePowerCfgIndexes(`
+    Current AC Power Setting Index: 0xffffffffffffffffffffffffffffffff
+    Current DC Power Setting Index: 0x00000000
+`)
+	if ac <= 0 || dc != 0 {
+		t.Fatalf("got ac=%d dc=%d, want overflow AC treated as positive and dc 0", ac, dc)
+	}
+}
