@@ -1207,7 +1207,13 @@ func parsePlan(s string) (GardenerPlan, error) {
 	return p, nil
 }
 
+const fallbackMaxPlanTrees = 20
+
 func normalizePlan(p GardenerPlan, t *Task, instruction string) GardenerPlan {
+	maxTrees := maxPlanTrees(t)
+	if len(p.Trees) > maxTrees {
+		p.Trees = p.Trees[:maxTrees]
+	}
 	for i := range p.Trees {
 		if strings.TrimSpace(p.Trees[i].Name) == "" {
 			p.Trees[i].Name = fmt.Sprintf("Tree %d", i+1)
@@ -1223,6 +1229,13 @@ func normalizePlan(p GardenerPlan, t *Task, instruction string) GardenerPlan {
 		}
 	}
 	return p
+}
+
+func maxPlanTrees(t *Task) int {
+	if t != nil && t.MaxTreesPerForest > 0 {
+		return t.MaxTreesPerForest
+	}
+	return fallbackMaxPlanTrees
 }
 
 func treeSummary(t *Task) string {
