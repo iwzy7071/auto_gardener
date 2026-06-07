@@ -127,7 +127,12 @@ function taskURL(taskId) {
 
 function routeTaskId() {
   const match = window.location.pathname.match(/^\/forests\/([^/]+)\/?$/);
-  return match ? decodeURIComponent(match[1]) : '';
+  if (!match) return '';
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return '';
+  }
 }
 
 function setRoute(path, replace = false) {
