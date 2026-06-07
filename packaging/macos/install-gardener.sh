@@ -104,7 +104,7 @@ if [[ -z "$PACKAGE_URL" ]]; then
   exit 1
 fi
 
-echo "Installing Gardener to $INSTALL_DIR"
+echo "Installing Gardener to the configured install directory"
 mkdir -p "$INSTALL_DIR"
 
 echo "Downloading package: $PACKAGE_URL"
