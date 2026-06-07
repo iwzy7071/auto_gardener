@@ -14,6 +14,17 @@ import (
 
 var ErrNotFound = errors.New("not found")
 
+type taskDiskCompat struct {
+	Task
+	LegacyWave            int `json:"wave,omitempty"`
+	LegacyMaxTreesPerWave int `json:"maxTreesPerWave,omitempty"`
+}
+
+type treeDiskCompat struct {
+	Tree
+	LegacyWave int `json:"wave,omitempty"`
+}
+
 type Store struct {
 	mu       sync.RWMutex
 	tasks    map[string]*Task
@@ -149,11 +160,12 @@ func (s *Store) Load() error {
 			continue
 		}
 		forestDir := filepath.Join(root, entry.Name())
-		var t Task
-		if err := readJSON(filepath.Join(forestDir, "forest.json"), &t); err != nil {
+		var diskTask taskDiskCompat
+		if err := readJSON(filepath.Join(forestDir, "forest.json"), &diskTask); err != nil {
 			continue
 		}
-		normalizeForestFields(&t)
+		t := diskTask.Task
+		normalizeForestFields(&t, diskTask.LegacyWave, diskTask.LegacyMaxTreesPerWave)
 		_ = readJSON(filepath.Join(forestDir, "messages.json"), &t.Messages)
 		if progress := readGardenerProgress(t.LogPath); len(progress) > 0 {
 			t.GardenerProgress = progress
@@ -165,9 +177,10 @@ func (s *Store) Load() error {
 				if !te.IsDir() {
 					continue
 				}
-				var tr Tree
-				if err := readJSON(filepath.Join(treesDir, te.Name(), "tree.json"), &tr); err == nil {
-					normalizeTreeForestFields(&tr)
+				var diskTree treeDiskCompat
+				if err := readJSON(filepath.Join(treesDir, te.Name(), "tree.json"), &diskTree); err == nil {
+					tr := diskTree.Tree
+					normalizeTreeForestFields(&tr, diskTree.LegacyWave)
 					if tr.Progress == nil {
 						tr.Progress = readProgress(filepath.Join(treesDir, te.Name(), "progress.log"))
 					}
@@ -181,13 +194,8 @@ func (s *Store) Load() error {
 			}
 			return t.Trees[i].Forest < t.Trees[j].Forest
 		})
-		t.LegacyWave = 0
-		t.LegacyMaxTreesPerWave = 0
 		t.ModelMode = normalizeModelMode(t.ModelMode)
 		t.CLIEngine = compatibleCLIEngine(t.CLIEngine, t.ModelMode)
-		for _, tr := range t.Trees {
-			tr.LegacyWave = 0
-		}
 		t.Status = normalizeStatus(t.Status)
 		t.GardenerStatus = normalizeStatus(t.GardenerStatus)
 		if strings.TrimSpace(t.ScratchPath) == "" {
@@ -213,18 +221,18 @@ func (s *Store) Load() error {
 	return nil
 }
 
-func normalizeForestFields(t *Task) {
-	if t.Forest == 0 && t.LegacyWave > 0 {
-		t.Forest = t.LegacyWave
+func normalizeForestFields(t *Task, legacyWave, legacyMaxTreesPerWave int) {
+	if t.Forest == 0 && legacyWave > 0 {
+		t.Forest = legacyWave
 	}
-	if t.MaxTreesPerForest == 0 && t.LegacyMaxTreesPerWave > 0 {
-		t.MaxTreesPerForest = t.LegacyMaxTreesPerWave
+	if t.MaxTreesPerForest == 0 && legacyMaxTreesPerWave > 0 {
+		t.MaxTreesPerForest = legacyMaxTreesPerWave
 	}
 }
 
-func normalizeTreeForestFields(tr *Tree) {
-	if tr.Forest == 0 && tr.LegacyWave > 0 {
-		tr.Forest = tr.LegacyWave
+func normalizeTreeForestFields(tr *Tree, legacyWave int) {
+	if tr.Forest == 0 && legacyWave > 0 {
+		tr.Forest = legacyWave
 	}
 }
 
@@ -455,6 +463,7 @@ func (s *Store) persistTaskLocked(t *Task) error {
 	meta := cloneTask(t)
 	meta.Messages = nil
 	meta.Trees = nil
+	meta.Runtime = nil
 	if err := writeJSONFile(filepath.Join(forestDir, "forest.json"), meta); err != nil {
 		return err
 	}
@@ -475,6 +484,7 @@ func (s *Store) persistTaskLocked(t *Task) error {
 
 func cloneTask(t *Task) *Task {
 	cp := *t
+	cp.Runtime = buildTaskRuntime(t, time.Now())
 	cp.Messages = append([]Message(nil), t.Messages...)
 	cp.GardenerProgress = append([]string(nil), t.GardenerProgress...)
 	cp.Trees = make([]*Tree, 0, len(t.Trees))

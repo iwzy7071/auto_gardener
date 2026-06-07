@@ -106,37 +106,49 @@ type Message struct {
 	CreatedAt time.Time   `json:"createdAt"`
 }
 
+type TaskRuntime struct {
+	Phase            string     `json:"phase"`
+	Cue              string     `json:"cue"`
+	Severity         string     `json:"severity"`
+	IdleSeconds      int64      `json:"idleSeconds"`
+	DurationSeconds  int64      `json:"durationSeconds"`
+	RunningTrees     int        `json:"runningTrees"`
+	FinishedTrees    int        `json:"finishedTrees"`
+	TotalTrees       int        `json:"totalTrees"`
+	LatestActivityAt *time.Time `json:"latestActivityAt,omitempty"`
+	CanAskProgress   bool       `json:"canAskProgress"`
+	CanResume        bool       `json:"canResume"`
+}
+
 type Task struct {
-	ID                    string     `json:"id"`
-	Title                 string     `json:"title"`
-	Prompt                string     `json:"prompt"`
-	WorkspacePath         string     `json:"workspacePath"`
-	ScratchPath           string     `json:"scratchPath,omitempty"`
-	CLIEngine             CLIEngine  `json:"cliEngine"`
-	ModelMode             ModelMode  `json:"modelMode"`
-	Status                Status     `json:"status"`
-	GardenerStatus        Status     `json:"gardenerStatus"`
-	Forest                int        `json:"forest"`
-	LegacyWave            int        `json:"wave,omitempty"`
-	MaxTreesPerForest     int        `json:"maxTreesPerForest"`
-	LegacyMaxTreesPerWave int        `json:"maxTreesPerWave,omitempty"`
-	MaxConcurrentTrees    int        `json:"maxConcurrentTrees"`
-	StopRequested         bool       `json:"stopRequested"`
-	SchedulePath          string     `json:"schedulePath"`
-	LogPath               string     `json:"logPath"`
-	Trees                 []*Tree    `json:"trees"`
-	Messages              []Message  `json:"messages"`
-	GardenerProgress      []string   `json:"gardenerProgress"`
-	LastProgressAt        *time.Time `json:"lastProgressAt,omitempty"`
-	CreatedAt             time.Time  `json:"createdAt"`
-	UpdatedAt             time.Time  `json:"updatedAt"`
+	ID                 string       `json:"id"`
+	Title              string       `json:"title"`
+	Prompt             string       `json:"prompt"`
+	WorkspacePath      string       `json:"workspacePath"`
+	ScratchPath        string       `json:"scratchPath,omitempty"`
+	CLIEngine          CLIEngine    `json:"cliEngine"`
+	ModelMode          ModelMode    `json:"modelMode"`
+	Status             Status       `json:"status"`
+	GardenerStatus     Status       `json:"gardenerStatus"`
+	Forest             int          `json:"forest"`
+	MaxTreesPerForest  int          `json:"maxTreesPerForest"`
+	MaxConcurrentTrees int          `json:"maxConcurrentTrees"`
+	StopRequested      bool         `json:"stopRequested"`
+	SchedulePath       string       `json:"schedulePath"`
+	LogPath            string       `json:"logPath"`
+	Trees              []*Tree      `json:"trees"`
+	Messages           []Message    `json:"messages"`
+	GardenerProgress   []string     `json:"gardenerProgress"`
+	LastProgressAt     *time.Time   `json:"lastProgressAt,omitempty"`
+	Runtime            *TaskRuntime `json:"runtime,omitempty"`
+	CreatedAt          time.Time    `json:"createdAt"`
+	UpdatedAt          time.Time    `json:"updatedAt"`
 }
 
 type Tree struct {
 	ID           string     `json:"id"`
 	TaskID       string     `json:"taskId"`
 	Forest       int        `json:"forest"`
-	LegacyWave   int        `json:"wave,omitempty"`
 	Name         string     `json:"name"`
 	Objective    string     `json:"objective"`
 	Prompt       string     `json:"prompt"`

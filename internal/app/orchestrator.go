@@ -17,13 +17,12 @@ import (
 )
 
 type Orchestrator struct {
-	store          *Store
-	runner         codex.Runner
-	dataDir        string
-	maxTrees       int
-	maxConcurrent  int
-	maxAutoForests int
-	compatBaseURL  string
+	store         *Store
+	runner        codex.Runner
+	dataDir       string
+	maxTrees      int
+	maxConcurrent int
+	compatBaseURL string
 
 	mu         sync.Mutex
 	cancels    map[string]context.CancelFunc
@@ -32,15 +31,14 @@ type Orchestrator struct {
 
 func NewOrchestrator(store *Store, runner codex.Runner, dataDir, compatBaseURL string) *Orchestrator {
 	return &Orchestrator{
-		store:          store,
-		runner:         runner,
-		dataDir:        dataDir,
-		maxTrees:       getenvIntFallback("AUTO_GARDENER_MAX_TREES_PER_FOREST", "AUTO_GARDENER_MAX_TREES_PER_WAVE", 5),
-		maxConcurrent:  getenvInt("AUTO_GARDENER_MAX_CONCURRENT_TREES", 3),
-		maxAutoForests: getenvIntFallback("AUTO_GARDENER_MAX_AUTO_FORESTS", "AUTO_GARDENER_MAX_AUTO_WAVES", 3),
-		compatBaseURL:  strings.TrimRight(compatBaseURL, "/"),
-		cancels:        make(map[string]context.CancelFunc),
-		activeRuns:     make(map[string]string),
+		store:         store,
+		runner:        runner,
+		dataDir:       dataDir,
+		maxTrees:      getenvIntFallback("AUTO_GARDENER_MAX_TREES_PER_FOREST", "AUTO_GARDENER_MAX_TREES_PER_WAVE", 5),
+		maxConcurrent: getenvInt("AUTO_GARDENER_MAX_CONCURRENT_TREES", 3),
+		compatBaseURL: strings.TrimRight(compatBaseURL, "/"),
+		cancels:       make(map[string]context.CancelFunc),
+		activeRuns:    make(map[string]string),
 	}
 }
 
@@ -82,7 +80,7 @@ func buildContinueInstruction(t *Task) string {
 - 先检查交付目录、schedule、已有子任务报告、验证报告、progress.log 和当前文件状态。
 - 如果任务已经足够完成，请向用户说明已完成，并结束。
 - 如果仍有缺口、失败、冲突、半成品或未交付内容，请继续派出新的子任务完成剩余工作。
-- 如果上一次是因为自动阶段上限、CLI 异常、JSON 解析失败或用户手动停止而暂停，请优先定位未完成部分并继续。
+- 如果上一次是因为 CLI 异常、JSON 解析失败或用户手动停止而暂停，请优先定位未完成部分并继续。
 
 任务 ID: %s
 任务标题: %s
@@ -371,7 +369,7 @@ func (o *Orchestrator) runForest(ctx context.Context, taskID, instruction, runID
 	}
 
 	plan := o.runGardenerPlan(ctx, taskID, instruction)
-	for autoForest := 1; autoForest <= o.maxAutoForests; autoForest++ {
+	for autoForest := 1; ; autoForest++ {
 		if ctx.Err() != nil || isStopRequested(o.store, taskID) {
 			if o.isActiveRun(taskID, runID) {
 				o.finishAfterStop(taskID)
@@ -445,10 +443,6 @@ func (o *Orchestrator) runForest(ctx context.Context, taskID, instruction, runID
 		}
 		plan = decision
 		o.store.AppendGardenerLog(taskID, fmt.Sprintf("Gardener 决定继续派出下一批子任务修复或补充，autoStage=%d。", autoForest+1))
-	}
-	if o.isActiveRun(taskID, runID) {
-		o.appendSystemMessage(taskID, "已达到本轮自动阶段上限，任务暂时暂停，避免无限循环。若你觉得还没完成，请点击“继续任务”。")
-		o.finishTask(taskID, "达到最大自动阶段数量，任务暂时暂停。")
 	}
 }
 
@@ -1209,7 +1203,7 @@ func normalizePlan(p GardenerPlan, t *Task, instruction string) GardenerPlan {
 			p.Trees[i].Scope = []string{"相关文件"}
 		}
 		if strings.TrimSpace(p.Trees[i].Prompt) == "" {
-			p.Trees[i].Prompt = fmt.Sprintf("你是一棵 Tree。请完成子任务：%s。本次用户指令：%s。报告中只使用 Forest/Gardener/Tree/Fruit 等 Garden 隐喻，不要使用小队称呼。", p.Trees[i].Objective, instruction)
+			p.Trees[i].Prompt = fmt.Sprintf("你是 Gardener 派出的子任务执行 agent。请完成子任务：%s。本次用户指令：%s。报告中使用任务、阶段、子任务、验证、报告、文件、工作区、进展等专业工作语言，不要使用 Forest/Tree/Fruit 等隐喻，也不要使用小队称呼。", p.Trees[i].Objective, instruction)
 		}
 	}
 	return p

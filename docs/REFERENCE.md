@@ -165,6 +165,12 @@ GOOS=windows GOARCH=amd64 go build -o gardener.exe ./cmd/server
 go run ./cmd/server
 ```
 
+无需真实 Codex / Claude CLI 的本地 smoke test：
+
+```bash
+AUTO_GARDENER_RUNNER=mock go run ./cmd/server
+```
+
 打开：
 
 ```text
@@ -315,7 +321,6 @@ AUTO_GARDENER_KIMI_MODEL=kimi-coding
 ```bash
 AUTO_GARDENER_MAX_TREES_PER_FOREST=5
 AUTO_GARDENER_MAX_CONCURRENT_TREES=3
-AUTO_GARDENER_MAX_AUTO_FORESTS=3
 ```
 
 Windows PowerShell 示例：
@@ -323,11 +328,10 @@ Windows PowerShell 示例：
 ```powershell
 $env:AUTO_GARDENER_MAX_TREES_PER_FOREST = "5"
 $env:AUTO_GARDENER_MAX_CONCURRENT_TREES = "3"
-$env:AUTO_GARDENER_MAX_AUTO_FORESTS = "3"
 .\gardener.exe
 ```
 
-旧环境变量 `AUTO_GARDENER_MAX_TREES_PER_WAVE` 和 `AUTO_GARDENER_MAX_AUTO_WAVES` 仍会被兼容读取。
+当前推荐使用 `AUTO_GARDENER_MAX_TREES_PER_FOREST` 控制单阶段普通子任务数量；Gardener 不再限制自动阶段数量，会持续进入下一阶段直到完成、用户停止或底层 CLI/模型失败。旧环境变量 `AUTO_GARDENER_MAX_TREES_PER_WAVE` 仅作为迁移兼容别名读取。
 
 ## API
 

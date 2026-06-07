@@ -114,7 +114,6 @@ func compactTaskList(tasks []*Task) []*Task {
 				ID:           tr.ID,
 				TaskID:       tr.TaskID,
 				Forest:       tr.Forest,
-				LegacyWave:   tr.LegacyWave,
 				Name:         tr.Name,
 				IsValidation: tr.IsValidation,
 				Status:       tr.Status,
@@ -281,6 +280,16 @@ func (s *Server) handleTaskSubroutes(w http.ResponseWriter, r *http.Request) {
 
 	if len(parts) == 2 && parts[1] == "events" && r.Method == http.MethodGet {
 		s.handleEvents(w, r, taskID)
+		return
+	}
+
+	if len(parts) == 2 && parts[1] == "diagnostics" && r.Method == http.MethodGet {
+		task, ok := s.store.GetTask(taskID)
+		if !ok {
+			writeError(w, http.StatusNotFound, "任务不存在")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"runtime": task.Runtime})
 		return
 	}
 

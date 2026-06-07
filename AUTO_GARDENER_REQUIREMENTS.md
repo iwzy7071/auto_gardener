@@ -185,14 +185,15 @@ AUTO_GARDENER_CODEX_CMD=/path/to/codex
 
 默认限制：
 
-- 每批最多 5 个普通 Tree
-- 同一时间最多 3 个 Tree 并行运行
+- 每个阶段最多 5 个普通子任务
+- 同一时间最多 3 个子任务并行运行
+- 自动阶段不设置上限；只要 Gardener 判断任务未完成，就持续进入下一阶段，直到完成、用户停止或底层 CLI/模型失败。
 
 可通过环境变量覆盖：
 
-- `AUTO_GARDENER_MAX_TREES_PER_WAVE`
+- `AUTO_GARDENER_MAX_TREES_PER_FOREST`
 - `AUTO_GARDENER_MAX_CONCURRENT_TREES`
-- `AUTO_GARDENER_MAX_AUTO_WAVES`
+- 兼容迁移别名：`AUTO_GARDENER_MAX_TREES_PER_WAVE`
 
 系统不隔离 Tree，不创建 worktree，不创建 workspace 副本。多个 Tree 可以并行修改同一个 `workspacePath`。Gardener 必须明确各 Tree 的工作范围；如果产生冲突，由 Gardener 派新的 Tree 后续修复。
 

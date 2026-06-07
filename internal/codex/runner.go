@@ -63,6 +63,10 @@ type ShellRunner struct {
 }
 
 func NewRunnerFromEnv() Runner {
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("AUTO_GARDENER_RUNNER")), "mock") {
+		r := NewMockRunnerFromEnv()
+		return r
+	}
 	codexCmd := strings.TrimSpace(os.Getenv("AUTO_GARDENER_CODEX_CMD"))
 	if codexCmd == "" {
 		codexCmd = "codex"

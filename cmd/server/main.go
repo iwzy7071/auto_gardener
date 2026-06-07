@@ -28,6 +28,7 @@ func main() {
 	}
 	orch := app.NewOrchestrator(store, codex.NewRunnerFromEnv(), dataDir, proxy.BaseURL())
 	orch.ResumeUnfinished()
+	orch.StartWatchdog()
 	server := app.NewServer(store, orch, staticDir, events)
 
 	log.Printf("auto_gardener listening on %s", listenURL(addr))
