@@ -1548,6 +1548,10 @@ async function loadDirectory(path = '') {
   });
 }
 
+function isValidResumeTaskPayload(task) {
+  return !!task && typeof task === 'object' && typeof task.id === 'string' && task.id.trim() !== '';
+}
+
 async function resumeActiveTask() {
   if (!state.activeTaskId) return;
   const taskId = state.activeTaskId;
@@ -1567,6 +1571,7 @@ async function resumeActiveTask() {
   }
   try {
     const data = await api(`/api/tasks/${taskId}/resume`, { method:'POST', body:'{}' });
+    if (!isValidResumeTaskPayload(data.task)) throw new Error('Invalid task response');
     upsertTask(data.task);
     if (state.activeTaskId === taskId) renderTask(data.task, { skipFileViewer: true });
   } catch (err) {
