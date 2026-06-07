@@ -166,6 +166,9 @@ func (s *Store) Load() error {
 		}
 		t := diskTask.Task
 		normalizeForestFields(&t, diskTask.LegacyWave, diskTask.LegacyMaxTreesPerWave)
+		if !loadedPathWithinRoot(forestDir, t.SchedulePath) {
+			t.SchedulePath = filepath.Join(forestDir, "gardener", "schedule.md")
+		}
 		_ = readJSON(filepath.Join(forestDir, "messages.json"), &t.Messages)
 		if progress := readGardenerProgress(t.LogPath); len(progress) > 0 {
 			t.GardenerProgress = progress
@@ -219,6 +222,22 @@ func (s *Store) Load() error {
 		_ = s.persistTaskLocked(&t)
 	}
 	return nil
+}
+
+func loadedPathWithinRoot(root, path string) bool {
+	if strings.TrimSpace(root) == "" || strings.TrimSpace(path) == "" {
+		return false
+	}
+	rootAbs, err := filepath.Abs(filepath.Clean(root))
+	if err != nil {
+		return false
+	}
+	pathAbs, err := filepath.Abs(filepath.Clean(path))
+	if err != nil {
+		return false
+	}
+	rel, err := filepath.Rel(rootAbs, pathAbs)
+	return err == nil && rel != "." && !strings.HasPrefix(rel, "..") && !filepath.IsAbs(rel)
 }
 
 func normalizeForestFields(t *Task, legacyWave, legacyMaxTreesPerWave int) {
