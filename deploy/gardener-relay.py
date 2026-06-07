@@ -19,6 +19,8 @@ RELAY_PUBLIC_BASE_URL = os.environ.get('GARDENER_RELAY_PUBLIC_BASE_URL', f'http:
 PACKAGE_URL = os.environ.get('GARDENER_RELAY_WINDOWS_PACKAGE_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/Gardener-Windows.zip')
 INSTALL_SCRIPT_URL = os.environ.get('GARDENER_RELAY_WINDOWS_INSTALL_SCRIPT_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/install-gardener.ps1')
 MAC_INSTALL_SCRIPT_URL = os.environ.get('GARDENER_RELAY_MAC_INSTALL_SCRIPT_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/install-gardener-macos.sh')
+MAX_FRPC_CONFIG_BYTES = 64 * 1024
+
 MAC_PACKAGE_URLS = {
     'arm64': os.environ.get('GARDENER_RELAY_MAC_ARM64_PACKAGE_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/Gardener-macOS-arm64.tar.gz'),
     'amd64': os.environ.get('GARDENER_RELAY_MAC_AMD64_PACKAGE_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/Gardener-macOS-amd64.tar.gz'),
@@ -40,6 +42,12 @@ def load_state():
     if not STATE.exists():
         return {'instances': []}
     return json.loads(STATE.read_text())
+
+
+def read_text_limited(path, max_bytes, label):
+    if path.stat().st_size > max_bytes:
+        raise SystemExit(f'error: {label} file is too large')
+    return path.read_text()
 
 
 def save_state(data):
@@ -199,7 +207,7 @@ def write_provision(instance, password, setup_key=None):
         'installScriptUrl': INSTALL_SCRIPT_URL,
         'macInstallScriptUrl': MAC_INSTALL_SCRIPT_URL,
         'macPackageUrls': MAC_PACKAGE_URLS,
-        'frpcToml': (USERS / instance['user'] / 'frpc.toml').read_text(),
+        'frpcToml': read_text_limited(USERS / instance['user'] / 'frpc.toml', MAX_FRPC_CONFIG_BYTES, 'frpc config'),
         'createdAt': time.strftime('%Y-%m-%dT%H:%M:%S%z'),
         'note': 'Treat this setup key as a secret. Anyone with this URL can configure this Gardener relay client.',
     }
@@ -324,7 +332,7 @@ def show_user(args):
         if i['user'] == user:
             out = dict(i)
             if args.with_frpc:
-                out['frpc'] = (USERS / user / 'frpc.toml').read_text()
+                out['frpc'] = read_text_limited(USERS / user / 'frpc.toml', MAX_FRPC_CONFIG_BYTES, 'frpc config')
             if args.with_provision:
                 if not out.get('provisionPath') or not Path(out['provisionPath']).exists():
                     raise SystemExit('error: this user has no provision file; rotate/reset the user to create one')
