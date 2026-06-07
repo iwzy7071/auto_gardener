@@ -156,6 +156,12 @@ async function loadHealthStatus() {
   }
 }
 
+const MAX_RENDERED_POWER_WARNING_CHARS = 240;
+function renderedPowerWarningText(value) {
+  const chars = Array.from(String(value || ''));
+  return chars.length > MAX_RENDERED_POWER_WARNING_CHARS ? chars.slice(0, MAX_RENDERED_POWER_WARNING_CHARS).join('') + '…' : chars.join('');
+}
+
 function renderPowerBanner() {
   const el = $('powerBanner');
   if (!el) return;
@@ -167,7 +173,7 @@ function renderPowerBanner() {
   }
   const items = [...(ps.warnings || []), ...(ps.advice || [])].slice(0, 5);
   el.classList.remove('hidden');
-  el.innerHTML = `<strong>${escapeHTML(t('powerWarningTitle'))}</strong><div>${escapeHTML(t('powerWarningPrefix'))}</div><ul>${items.map(x => `<li>${escapeHTML(x)}</li>`).join('')}</ul>`;
+  el.innerHTML = `<strong>${escapeHTML(t('powerWarningTitle'))}</strong><div>${escapeHTML(t('powerWarningPrefix'))}</div><ul>${items.map(x => `<li>${escapeHTML(renderedPowerWarningText(x))}</li>`).join('')}</ul>`;
 }
 
 function normalizeCLIEngineValue(value) {
