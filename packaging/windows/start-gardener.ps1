@@ -54,9 +54,13 @@ if (-not (Test-Path $Exe)) {
 }
 
 try {
-  Get-ChildItem -Path $Root -Recurse -Force -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue
+  foreach ($Path in @($MyInvocation.MyCommand.Path, $Exe, $Config, $RelayJson, $FrpcExe, $FrpcConfig)) {
+    if ($Path -and (Test-Path -LiteralPath $Path -PathType Leaf)) {
+      Unblock-File -Path $Path -ErrorAction SilentlyContinue
+    }
+  }
 } catch {
-  Write-Host "Warning: could not unblock downloaded Gardener files: $_" -ForegroundColor Yellow
+  Write-Host "Warning: could not unblock downloaded Gardener files" -ForegroundColor Yellow
 }
 
 $env:PATH = "$env:APPDATA\npm;$env:ProgramFiles\nodejs;${env:ProgramFiles(x86)}\nodejs;$env:PATH"
