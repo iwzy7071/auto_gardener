@@ -19,6 +19,8 @@ type Proxy struct {
 	client  *http.Client
 }
 
+const maxCompatToolParametersBytes = 64 * 1024
+
 type providerSpec struct {
 	Name                 string
 	BaseURL              string
@@ -83,6 +85,10 @@ func (p *Proxy) handle(w http.ResponseWriter, r *http.Request) {
 		writeProxyError(w, http.StatusBadRequest, "invalid responses request")
 		return
 	}
+	if err := validateToolParameters(req.Tools); err != nil {
+		writeProxyError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	if err := p.forwardChatStream(w, r, spec, token, req); err != nil {
 		log.Printf("compat proxy %s error: %v", spec.Name, err)
 	}
@@ -114,6 +120,15 @@ type responseTool struct {
 	Name        string          `json:"name"`
 	Description string          `json:"description,omitempty"`
 	Parameters  json.RawMessage `json:"parameters,omitempty"`
+}
+
+func validateToolParameters(tools []responseTool) error {
+	for _, tool := range tools {
+		if tool.Type == "function" && len(tool.Parameters) > maxCompatToolParametersBytes {
+			return fmt.Errorf("tool parameters are too large")
+		}
+	}
+	return nil
 }
 
 type chatRequest struct {

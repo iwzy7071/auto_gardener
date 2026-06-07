@@ -1,6 +1,7 @@
 package compat
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -52,5 +53,16 @@ func TestNormalizeChatMessagesMergesSystem(t *testing.T) {
 	}
 	if got[1].Role != "user" {
 		t.Fatalf("unexpected second message: %#v", got[1])
+	}
+}
+
+func TestValidateToolParametersRejectsOversizedSchemas(t *testing.T) {
+	large := json.RawMessage(`{"schema":"` + strings.Repeat("a", maxCompatToolParametersBytes) + `"}`)
+	if err := validateToolParameters([]responseTool{{Type: "function", Parameters: large}}); err == nil {
+		t.Fatal("validateToolParameters accepted oversized parameters")
+	}
+	boundary := json.RawMessage(strings.Repeat("a", maxCompatToolParametersBytes))
+	if err := validateToolParameters([]responseTool{{Type: "function", Parameters: boundary}}); err != nil {
+		t.Fatalf("validateToolParameters rejected boundary value: %v", err)
 	}
 }
