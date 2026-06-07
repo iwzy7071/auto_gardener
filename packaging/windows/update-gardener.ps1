@@ -29,6 +29,14 @@ function Unblock-GardenerPath([string]$Path) {
   }
 }
 
+
+function Stop-GardenerInstalledProcess([string]$ProcessName, [string]$ExePath) {
+  $fullPath = [IO.Path]::GetFullPath($ExePath)
+  Get-CimInstance Win32_Process -Filter "name = '$ProcessName'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.ExecutablePath -and ([IO.Path]::GetFullPath([string]$_.ExecutablePath) -eq $fullPath) } |
+    ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+}
+
 function Set-GardenerFirewallPolicy([string]$ExePath) {
   if (-not (Test-Path $ExePath)) { return }
   if (-not (Test-GardenerAdmin)) {
@@ -61,9 +69,9 @@ Unblock-GardenerPath -Path $Extract
 $Source = Get-ChildItem -Path $Extract -Directory | Select-Object -First 1
 if ($null -eq $Source) { $Source = Get-Item $Extract }
 
-Write-Host "Stopping running gardener.exe/frpc.exe if any..."
-Get-Process gardener -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-Get-Process frpc -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Write-Host "Stopping running Gardener processes for this install directory if any..."
+Stop-GardenerInstalledProcess -ProcessName "gardener.exe" -ExePath (Join-Path $InstallDir "gardener.exe")
+Stop-GardenerInstalledProcess -ProcessName "frpc.exe" -ExePath (Join-Path $InstallDir "frpc.exe")
 Start-Sleep -Seconds 1
 
 New-Item -ItemType Directory -Force -Path $Backup | Out-Null
