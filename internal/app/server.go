@@ -191,8 +191,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"tasks": tasks})
 	case http.MethodPost:
 		var req CreateTaskRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeError(w, http.StatusBadRequest, "请求体不是合法 JSON")
+		if !decodeLimitedJSON(w, r, &req, maxTaskJSONBodyBytes, "请求体不是合法 JSON") {
 			return
 		}
 		task, err := s.orchestrator.CreateTask(req.Prompt, req.WorkspacePath)
@@ -212,8 +211,7 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, SettingsResponse{Settings: s.store.GetSettings()})
 	case http.MethodPut:
 		var settings AppSettings
-		if err := json.NewDecoder(r.Body).Decode(&settings); err != nil {
-			writeError(w, http.StatusBadRequest, "请求体不是合法 JSON")
+		if !decodeLimitedJSON(w, r, &settings, maxSettingsJSONBodyBytes, "请求体不是合法 JSON") {
 			return
 		}
 		updated, err := s.store.UpdateSettings(settings)
@@ -251,8 +249,7 @@ func (s *Server) handleTaskSubroutes(w http.ResponseWriter, r *http.Request) {
 		}
 		if r.Method == http.MethodPatch {
 			var req RenameTaskRequest
-			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-				writeError(w, http.StatusBadRequest, "请求体不是合法 JSON")
+			if !decodeLimitedJSON(w, r, &req, maxMessageJSONBodyBytes, "请求体不是合法 JSON") {
 				return
 			}
 			task, err := s.orchestrator.RenameTask(taskID, req.Title)
@@ -300,8 +297,7 @@ func (s *Server) handleTaskSubroutes(w http.ResponseWriter, r *http.Request) {
 
 	if len(parts) == 2 && parts[1] == "messages" && r.Method == http.MethodPost {
 		var req SendMessageRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeError(w, http.StatusBadRequest, "请求体不是合法 JSON")
+		if !decodeLimitedJSON(w, r, &req, maxMessageJSONBodyBytes, "请求体不是合法 JSON") {
 			return
 		}
 		task, err := s.orchestrator.SendMessage(taskID, req.Content)

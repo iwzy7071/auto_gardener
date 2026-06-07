@@ -48,8 +48,7 @@ func (s *Server) handleDingTalkRobot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var msg dingTalkIncomingMessage
-	if err := json.NewDecoder(r.Body).Decode(&msg); err != nil {
-		writeError(w, http.StatusBadRequest, "钉钉消息不是合法 JSON")
+	if !decodeLimitedJSON(w, r, &msg, maxDingTalkJSONBodyBytes, "钉钉消息不是合法 JSON") {
 		return
 	}
 	content := extractDingTalkContent(msg)
