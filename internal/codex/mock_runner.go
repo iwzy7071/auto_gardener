@@ -10,13 +10,22 @@ import (
 	"time"
 )
 
+const maxMockRunnerDelay = 30 * time.Second
+
 type MockRunner struct {
 	Delay time.Duration
 }
 
 func NewMockRunnerFromEnv() MockRunner {
 	ms, _ := strconv.Atoi(strings.TrimSpace(os.Getenv("AUTO_GARDENER_MOCK_DELAY_MS")))
-	return MockRunner{Delay: time.Duration(ms) * time.Millisecond}
+	delay := time.Duration(ms) * time.Millisecond
+	if delay < 0 {
+		delay = 0
+	}
+	if delay > maxMockRunnerDelay {
+		delay = maxMockRunnerDelay
+	}
+	return MockRunner{Delay: delay}
 }
 
 func (r MockRunner) Run(ctx context.Context, req RunRequest) RunResult {

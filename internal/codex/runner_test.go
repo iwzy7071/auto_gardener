@@ -32,3 +32,19 @@ func TestWithGoalEnvelope(t *testing.T) {
 		}
 	}
 }
+
+func TestNewMockRunnerFromEnvCapsDelay(t *testing.T) {
+	t.Setenv("AUTO_GARDENER_MOCK_DELAY_MS", "999999999")
+	r := NewMockRunnerFromEnv()
+	if r.Delay != maxMockRunnerDelay {
+		t.Fatalf("mock delay = %v, want %v", r.Delay, maxMockRunnerDelay)
+	}
+}
+
+func TestNewMockRunnerFromEnvRejectsNegativeDelay(t *testing.T) {
+	t.Setenv("AUTO_GARDENER_MOCK_DELAY_MS", "-1000")
+	r := NewMockRunnerFromEnv()
+	if r.Delay != 0 {
+		t.Fatalf("mock delay = %v, want 0", r.Delay)
+	}
+}
