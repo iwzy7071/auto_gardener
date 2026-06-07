@@ -54,3 +54,16 @@ func TestNormalizeChatMessagesMergesSystem(t *testing.T) {
 		t.Fatalf("unexpected second message: %#v", got[1])
 	}
 }
+
+func TestValidateResponseRequestRejectsInvalidMaxOutputTokens(t *testing.T) {
+	for _, value := range []int{0, -1, maxCompatOutputTokens + 1} {
+		value := value
+		if err := validateResponseRequest(responseRequest{MaxOutputTokens: &value}); err == nil {
+			t.Fatalf("validateResponseRequest accepted max_output_tokens=%d", value)
+		}
+	}
+	value := maxCompatOutputTokens
+	if err := validateResponseRequest(responseRequest{MaxOutputTokens: &value}); err != nil {
+		t.Fatalf("validateResponseRequest rejected boundary value: %v", err)
+	}
+}
