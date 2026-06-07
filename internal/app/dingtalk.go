@@ -96,7 +96,7 @@ func (s *Server) handleDingTalkCommand(msg dingTalkIncomingMessage, content stri
 		}
 		task, err := s.orchestrator.CreateTask(arg, "")
 		if err != nil {
-			return "创建任务失败：" + err.Error()
+			return "创建任务失败，请在本地 Gardener 界面查看详情。"
 		}
 		s.setDingTalkSessionTask(key, task.ID)
 		return fmt.Sprintf("已创建任务：%s\n任务 ID：%s\n你可以发送“状态”“继续”“停止”，或直接补充要求。", task.Title, task.ID)
@@ -116,7 +116,7 @@ func (s *Server) handleDingTalkCommand(msg dingTalkIncomingMessage, content stri
 		}
 		task, err := s.orchestrator.ResumeTask(taskID)
 		if err != nil {
-			return "继续任务失败：" + err.Error()
+			return "继续任务失败，请在本地 Gardener 界面查看详情。"
 		}
 		s.setDingTalkSessionTask(key, task.ID)
 		return "已继续任务：" + task.Title + "\n任务 ID：" + task.ID
@@ -130,20 +130,20 @@ func (s *Server) handleDingTalkCommand(msg dingTalkIncomingMessage, content stri
 		}
 		task, err := s.orchestrator.StopTask(taskID)
 		if err != nil {
-			return "停止任务失败：" + err.Error()
+			return "停止任务失败，请在本地 Gardener 界面查看详情。"
 		}
 		return "已停止任务：" + task.Title
 	}
 	if taskID := s.getDingTalkSessionTask(key); taskID != "" {
 		task, err := s.orchestrator.SendMessage(taskID, content)
 		if err != nil {
-			return "发送给 Gardener 失败：" + err.Error()
+			return "发送给 Gardener 失败，请在本地 Gardener 界面查看详情。"
 		}
 		return fmt.Sprintf("已发送给任务：%s\n任务 ID：%s", task.Title, task.ID)
 	}
 	task, err := s.orchestrator.CreateTask(content, "")
 	if err != nil {
-		return "创建任务失败：" + err.Error()
+		return "创建任务失败，请在本地 Gardener 界面查看详情。"
 	}
 	s.setDingTalkSessionTask(key, task.ID)
 	return fmt.Sprintf("已按你的消息创建新任务：%s\n任务 ID：%s\n之后可发送“状态”“继续”“停止”。", task.Title, task.ID)
