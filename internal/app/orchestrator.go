@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -15,6 +16,8 @@ import (
 
 	"auto_gardener/internal/codex"
 )
+
+const maxScheduleAppendReadBytes int64 = 512 * 1024
 
 type Orchestrator struct {
 	store         *Store
@@ -795,9 +798,9 @@ func (o *Orchestrator) appendSchedulePlan(taskID string, forest int, plan Garden
 		return
 	}
 	var b strings.Builder
-	if existing, err := os.ReadFile(t.SchedulePath); err == nil {
-		b.Write(existing)
-		if !strings.HasSuffix(b.String(), "\n") {
+	if existing, err := readScheduleForAppend(t.SchedulePath); err == nil && existing != "" {
+		b.WriteString(existing)
+		if !strings.HasSuffix(existing, "\n") {
 			b.WriteByte('\n')
 		}
 	}
@@ -811,6 +814,39 @@ func (o *Orchestrator) appendSchedulePlan(taskID string, forest int, plan Garden
 		b.WriteString("   - 范围：" + strings.Join(tr.Scope, ", ") + "\n")
 	}
 	_ = o.store.WriteSchedule(taskID, b.String())
+}
+
+func readScheduleForAppend(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return "", err
+	}
+	start := int64(0)
+	truncated := info.Size() > maxScheduleAppendReadBytes
+	if truncated {
+		start = info.Size() - maxScheduleAppendReadBytes
+	}
+	if _, err := f.Seek(start, io.SeekStart); err != nil {
+		return "", err
+	}
+	b, err := io.ReadAll(io.LimitReader(f, maxScheduleAppendReadBytes))
+	if err != nil {
+		return "", err
+	}
+	if truncated {
+		if i := strings.IndexByte(string(b), '\n'); i >= 0 {
+			b = b[i+1:]
+		} else {
+			b = nil
+		}
+		return "<!-- schedule history truncated while appending to avoid loading an oversized file -->\n" + string(b), nil
+	}
+	return string(b), nil
 }
 
 func (o *Orchestrator) treeGoalPath(taskID, treeID string) string {
