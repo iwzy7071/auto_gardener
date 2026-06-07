@@ -27,12 +27,18 @@ function applyI18n() {
   document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
 }
 
+const MAX_API_ERROR_CHARS = 1000;
+function apiErrorMessage(message) {
+  const chars = Array.from(String(message || ''));
+  return chars.length > MAX_API_ERROR_CHARS ? chars.slice(0, MAX_API_ERROR_CHARS).join('') + '…' : chars.join('');
+}
+
 async function api(path, options = {}) {
   const res = await fetch(path, { headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }, ...options });
   if (!res.ok) {
     let msg = `HTTP ${res.status}`;
     try { msg = (await res.json()).error || msg; } catch {}
-    throw new Error(msg);
+    throw new Error(apiErrorMessage(msg));
   }
   return res.json();
 }
