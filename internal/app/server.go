@@ -697,10 +697,14 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]string{"error": msg})
 }
 
+func singleLineLogValue(value string) string {
+	return strings.Join(strings.Fields(value), " ")
+}
+
 func logRequests(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/") && !strings.HasSuffix(r.URL.Path, "/events") {
-			log.Printf("%s %s", r.Method, r.URL.Path)
+			log.Printf("%s %s", r.Method, singleLineLogValue(r.URL.Path))
 		}
 		next.ServeHTTP(w, r)
 	})
