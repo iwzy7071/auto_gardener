@@ -6,6 +6,13 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Test-GardenerUnsafeInstallDir([string]$Path) {
+  if ([string]::IsNullOrWhiteSpace($Path)) { return $true }
+  $full = [IO.Path]::GetFullPath($Path)
+  $root = [IO.Path]::GetPathRoot($full)
+  return ($full -eq $root -or $full -eq (Get-Location).Path -or $Path -eq '.' -or $Path -eq '..' -or $Path.Contains('..'))
+}
+
 function Test-GardenerAdmin {
   try {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -45,6 +52,9 @@ function Set-GardenerFirewallPolicy([string]$ExePath) {
   }
 }
 
+if (Test-GardenerUnsafeInstallDir $InstallDir) {
+  throw "Refusing unsafe install directory: $InstallDir"
+}
 $InstallDir = [IO.Path]::GetFullPath($InstallDir)
 $Temp = Join-Path $env:TEMP ("gardener-update-" + [guid]::NewGuid().ToString("N"))
 $Zip = Join-Path $Temp "Gardener-Windows.zip"
