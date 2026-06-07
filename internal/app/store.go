@@ -180,6 +180,9 @@ func (s *Store) Load() error {
 				var diskTree treeDiskCompat
 				if err := readJSON(filepath.Join(treesDir, te.Name(), "tree.json"), &diskTree); err == nil {
 					tr := diskTree.Tree
+					if !validLoadedTreeID(te.Name(), tr.ID) || (strings.TrimSpace(tr.TaskID) != "" && tr.TaskID != t.ID) {
+						continue
+					}
 					normalizeTreeForestFields(&tr, diskTree.LegacyWave)
 					if tr.Progress == nil {
 						tr.Progress = readProgress(filepath.Join(treesDir, te.Name(), "progress.log"))
@@ -219,6 +222,19 @@ func (s *Store) Load() error {
 		_ = s.persistTaskLocked(&t)
 	}
 	return nil
+}
+
+func validLoadedTreeID(dirName, treeID string) bool {
+	if treeID == "" || treeID != dirName || !strings.HasPrefix(treeID, "tree_") {
+		return false
+	}
+	for _, r := range treeID {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_' || r == '-' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func normalizeForestFields(t *Task, legacyWave, legacyMaxTreesPerWave int) {
