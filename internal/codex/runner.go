@@ -170,7 +170,7 @@ func (r ShellRunner) runCodex(ctx context.Context, req RunRequest) RunResult {
 		return RunResult{Err: err}
 	}
 	if err := cmd.Start(); err != nil {
-		return RunResult{Err: err}
+		return RunResult{Err: fmt.Errorf("Codex CLI 启动失败；请检查 AUTO_GARDENER_CODEX_CMD 配置和执行权限")}
 	}
 
 	var mu sync.Mutex
@@ -255,7 +255,7 @@ func (r ShellRunner) runClaude(ctx context.Context, req RunRequest) RunResult {
 		return RunResult{Err: err}
 	}
 	if err := cmd.Start(); err != nil {
-		return RunResult{Err: err}
+		return RunResult{Err: fmt.Errorf("Claude CLI 启动失败；请检查 AUTO_GARDENER_CLAUDE_CMD 配置和执行权限")}
 	}
 
 	var mu sync.Mutex
