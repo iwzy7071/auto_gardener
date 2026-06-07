@@ -212,7 +212,8 @@ def write_provision(instance, password, setup_key=None):
 
 def install_command(setup_key):
     return ('powershell -ExecutionPolicy Bypass -Command '
-            f'"iwr {INSTALL_SCRIPT_URL} -OutFile install-gardener.ps1; '
+            f'"$p=\'install-gardener.ps1\'; iwr {INSTALL_SCRIPT_URL} -OutFile $p; '
+            f'if ((Get-Item $p).Length -gt 1048576) {{ Remove-Item $p -Force; throw \'install script is too large\' }}; '
             f'.\\install-gardener.ps1 -RelayBaseUrl {RELAY_PUBLIC_BASE_URL} -SetupKey {setup_key} -DesktopShortcut -StartMenuShortcut -StartAfterInstall"')
 
 
