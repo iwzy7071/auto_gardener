@@ -119,7 +119,7 @@ func (s *Server) handleDingTalkCommand(msg dingTalkIncomingMessage, content stri
 			return "继续任务失败：" + err.Error()
 		}
 		s.setDingTalkSessionTask(key, task.ID)
-		return "已继续任务：" + task.Title + "\n任务 ID：" + task.ID
+		return "已继续任务。\n任务 ID：" + task.ID
 	case "停止", "stop":
 		taskID := strings.TrimSpace(arg)
 		if taskID == "" {
@@ -132,14 +132,14 @@ func (s *Server) handleDingTalkCommand(msg dingTalkIncomingMessage, content stri
 		if err != nil {
 			return "停止任务失败：" + err.Error()
 		}
-		return "已停止任务：" + task.Title
+		return "已停止任务。\n任务 ID：" + task.ID
 	}
 	if taskID := s.getDingTalkSessionTask(key); taskID != "" {
 		task, err := s.orchestrator.SendMessage(taskID, content)
 		if err != nil {
 			return "发送给 Gardener 失败：" + err.Error()
 		}
-		return fmt.Sprintf("已发送给任务：%s\n任务 ID：%s", task.Title, task.ID)
+		return fmt.Sprintf("已发送给任务。\n任务 ID：%s", task.ID)
 	}
 	task, err := s.orchestrator.CreateTask(content, "")
 	if err != nil {
