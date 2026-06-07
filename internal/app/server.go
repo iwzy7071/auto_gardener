@@ -423,7 +423,11 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request, taskID str
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no")
 
-	ch, unsubscribe := s.events.Subscribe(taskID)
+	ch, unsubscribe, ok := s.events.Subscribe(taskID)
+	if !ok {
+		writeError(w, http.StatusTooManyRequests, "当前任务事件连接过多，请稍后重试")
+		return
+	}
 	defer unsubscribe()
 	if task, ok := s.store.GetTask(taskID); ok {
 		writeSSE(w, "task", task)
