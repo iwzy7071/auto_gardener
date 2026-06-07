@@ -774,6 +774,7 @@ async function renderUsage(task) {
   state.usagePending[task.id] = true;
   try {
     const data = await api(`/api/tasks/${task.id}/usage`);
+    if (!isValidUsageResponse(data)) throw new Error('Invalid usage response');
     if (task.id !== state.activeTaskId) return;
     state.usage[task.id] = data.usage;
     state.usageFetchedAt[task.id] = Date.now();
@@ -786,6 +787,22 @@ async function renderUsage(task) {
   } finally {
     delete state.usagePending[task.id];
   }
+}
+
+function isValidUsageResponse(data) {
+  const usage = data?.usage;
+  if (!usage || typeof usage !== 'object' || Array.isArray(usage)) return false;
+  if (typeof usage.totalTokens !== 'number' || !Number.isFinite(usage.totalTokens) || usage.totalTokens < 0) return false;
+  if (usage.pricingNote !== undefined && typeof usage.pricingNote !== 'string') return false;
+  if (usage.models !== undefined) {
+    if (!Array.isArray(usage.models) || usage.models.length > 20) return false;
+    for (const model of usage.models) {
+      if (!model || typeof model !== 'object' || Array.isArray(model)) return false;
+      if (model.model !== undefined && typeof model.model !== 'string') return false;
+      if (typeof model.totalTokens !== 'number' || !Number.isFinite(model.totalTokens) || model.totalTokens < 0) return false;
+    }
+  }
+  return true;
 }
 
 function paintUsage(panel, usage) {
