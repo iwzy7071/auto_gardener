@@ -3,6 +3,10 @@ set -euo pipefail
 VERSION="${VERSION:-dev}"
 OUT_DIR="${OUT_DIR:-dist}"
 FRP_VERSION="${FRP_VERSION:-0.52.3}"
+if (( ${#FRP_VERSION} > 32 )) || [[ ! "$FRP_VERSION" =~ ^[0-9]+(\.[0-9]+){1,3}$ ]]; then
+  echo "FRP_VERSION must be a dotted numeric version such as 0.52.3" >&2
+  exit 1
+fi
 ARCHES="${ARCHES:-arm64 amd64}"
 mkdir -p "$OUT_DIR"
 

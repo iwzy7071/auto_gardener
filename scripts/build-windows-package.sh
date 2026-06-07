@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 VERSION="${VERSION:-dev}"
+FRP_VERSION="${FRP_VERSION:-0.52.3}"
+if (( ${#FRP_VERSION} > 32 )) || [[ ! "$FRP_VERSION" =~ ^[0-9]+(\.[0-9]+){1,3}$ ]]; then
+  echo "FRP_VERSION must be a dotted numeric version such as 0.52.3" >&2
+  exit 1
+fi
 OUT_DIR="${OUT_DIR:-dist}"
 PKG_DIR="$OUT_DIR/Gardener-Windows"
 ZIP_PATH="$OUT_DIR/Gardener-Windows.zip"
@@ -18,7 +23,6 @@ cp packaging/windows/gardener.config.example.ps1 "$PKG_DIR/gardener.config.examp
 cp packaging/windows/README-Windows.txt "$PKG_DIR/README-Windows.txt"
 cp packaging/windows/frpc.example.toml "$PKG_DIR/frpc.example.toml"
 
-FRP_VERSION="${FRP_VERSION:-0.52.3}"
 if [[ -n "${FRPC_EXE:-}" && -f "$FRPC_EXE" ]]; then
   cp "$FRPC_EXE" "$PKG_DIR/frpc.exe"
 elif [[ -f packaging/windows/frpc.exe ]]; then
