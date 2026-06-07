@@ -54,3 +54,15 @@ func TestNormalizeChatMessagesMergesSystem(t *testing.T) {
 		t.Fatalf("unexpected second message: %#v", got[1])
 	}
 }
+
+func TestValidateToolDescriptionsRejectsOversizedDescriptions(t *testing.T) {
+	if err := validateToolDescriptions([]responseTool{{Type: "function", Description: strings.Repeat("a", maxCompatToolDescriptionBytes+1)}}); err == nil {
+		t.Fatal("validateToolDescriptions accepted oversized description")
+	}
+	if err := validateToolDescriptions([]responseTool{{Type: "function", Description: strings.Repeat("你", maxCompatToolDescriptionBytes/3+1)}}); err == nil {
+		t.Fatal("validateToolDescriptions accepted oversized multibyte description")
+	}
+	if err := validateToolDescriptions([]responseTool{{Type: "function", Description: strings.Repeat("a", maxCompatToolDescriptionBytes)}}); err != nil {
+		t.Fatalf("validateToolDescriptions rejected boundary value: %v", err)
+	}
+}
