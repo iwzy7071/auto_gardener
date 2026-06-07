@@ -542,7 +542,19 @@ func writeRecoveryFruit(path string, task *Task, tr *Tree, when time.Time) error
 
 建议由 Gardener 派验证子任务或修复子任务检查 workspace 状态。
 `, tr.ID, task.ID, task.Title, tr.Name, when.Format(time.RFC3339), task.WorkspacePath, tr.Objective)
-	return os.WriteFile(path, []byte(body), 0644)
+	return writeFileNoSymlink(path, []byte(body), 0644)
+}
+
+func writeFileNoSymlink(path string, data []byte, perm os.FileMode) error {
+	if isSymlink(path) {
+		return fmt.Errorf("refusing to write file through symlink")
+	}
+	return os.WriteFile(path, data, perm)
+}
+
+func isSymlink(path string) bool {
+	info, err := os.Lstat(path)
+	return err == nil && info.Mode()&os.ModeSymlink != 0
 }
 
 func readJSON(path string, v any) error {

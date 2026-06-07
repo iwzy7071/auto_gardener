@@ -988,7 +988,7 @@ func (o *Orchestrator) writeFruit(task *Task, tr *Tree, output string, runErr er
 
 由 Gardener 读取本报告和验证报告后决定是否派出新的子任务修复或继续。
 `, tr.ID, task.ID, task.Title, tr.Name, start.Format(time.RFC3339), end.Format(time.RFC3339), task.WorkspacePath, taskWorkDir(task), strings.Join(tr.Scope, ", "), tr.IsValidation, tr.Objective, strings.TrimSpace(output), errText, codex.Truncate(output, 1200))
-	return path, os.WriteFile(path, []byte(body), 0644)
+	return path, writeFileNoSymlink(path, []byte(body), 0644)
 }
 
 func taskWorkDir(t *Task) string {
