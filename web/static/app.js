@@ -1,5 +1,6 @@
 const state = { powerStatus: null, tasks: [], activeTaskId: null, eventSource: null, recoveryPoller: null, activeRefreshPoller: null, selectedForests: {}, selectedFileTree: {}, selectedFilePath: {}, selectedFileManual: {}, fileListFingerprint: {}, lastFileRefreshAt: {}, treeStatusExpanded: {}, usage: {}, usageFetchedAt: {}, usagePending: {}, renderCache: {}, pendingTaskRender: null, pendingTaskRenderFrame: 0, lastTaskListSig: '', lastHomeSig: '', activeReportText: '', fileViewerToken: 0, previewToken: 0, overviewCollapsed: loadOverviewCollapsed(), editingTitle: false, settings: loadSettings() };
 const $ = (id) => document.getElementById(id);
+const MAX_CSV_PREVIEW_ROWS = 500;
 
 const I18N = {
   'zh-CN': {
@@ -1391,9 +1392,9 @@ function highlightCodeLine(line, lang) {
 }
 
 function renderCSV(text) {
-  const rows = parseCSV(text);
+  const rows = parseCSV(text, MAX_CSV_PREVIEW_ROWS + 1);
   if (!rows.length) return `<div class="report-loading">${t('emptyResult')}</div>`;
-  const maxRows = 500;
+  const maxRows = MAX_CSV_PREVIEW_ROWS;
   const visibleRows = rows.slice(0, maxRows);
   const colCount = Math.max(...visibleRows.map(r => r.length));
   const normalized = visibleRows.map(r => Array.from({ length: colCount }, (_, i) => r[i] ?? ''));
@@ -1404,7 +1405,7 @@ function renderCSV(text) {
   return `${note}<div class="csv-table-wrap"><table>${tableHead}${tableBody}</table></div>`;
 }
 
-function parseCSV(text) {
+function parseCSV(text, maxRows = Infinity) {
   const rows = [];
   let row = [], field = '', inQuotes = false;
   const input = String(text || '');
@@ -1419,7 +1420,7 @@ function parseCSV(text) {
     }
     if (ch === '"') { inQuotes = true; continue; }
     if (ch === ',') { row.push(field); field = ''; continue; }
-    if (ch === '\n') { row.push(field); rows.push(row); row = []; field = ''; continue; }
+    if (ch === '\n') { row.push(field); rows.push(row); if (rows.length >= maxRows) return rows.filter(r => r.some(c => String(c).trim() !== '')); row = []; field = ''; continue; }
     if (ch === '\r') continue;
     field += ch;
   }
