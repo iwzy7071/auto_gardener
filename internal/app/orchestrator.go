@@ -16,6 +16,8 @@ import (
 	"auto_gardener/internal/codex"
 )
 
+const maxPlanJSONBytes = 1 * 1024 * 1024
+
 type Orchestrator struct {
 	store         *Store
 	runner        codex.Runner
@@ -1200,6 +1202,9 @@ func parsePlan(s string) (GardenerPlan, error) {
 	end := strings.LastIndex(s, "}")
 	if start < 0 || end < start {
 		return p, fmt.Errorf("未找到 JSON 对象")
+	}
+	if end-start+1 > maxPlanJSONBytes {
+		return p, fmt.Errorf("JSON 对象过大")
 	}
 	if err := json.Unmarshal([]byte(s[start:end+1]), &p); err != nil {
 		return p, err
