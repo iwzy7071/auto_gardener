@@ -52,7 +52,7 @@ $Extract = Join-Path $Temp "extract"
 $Backup = Join-Path $InstallDir ("backup-" + (Get-Date -Format "yyyyMMdd-HHmmss"))
 
 New-Item -ItemType Directory -Force -Path $Temp, $Extract | Out-Null
-Write-Host "Downloading $PackageUrl" -ForegroundColor Green
+Write-Host "Downloading Gardener package..." -ForegroundColor Green
 Invoke-WebRequest -Uri $PackageUrl -OutFile $Zip
 Unblock-GardenerPath -Path $Zip
 Expand-Archive -Path $Zip -DestinationPath $Extract -Force

@@ -107,7 +107,7 @@ fi
 echo "Installing Gardener to $INSTALL_DIR"
 mkdir -p "$INSTALL_DIR"
 
-echo "Downloading package: $PACKAGE_URL"
+echo "Downloading Gardener package..."
 curl -fL --connect-timeout 20 --max-time 300 "$PACKAGE_URL" -o "$TMP/gardener.tar.gz"
 mkdir -p "$TMP/extract"
 tar -xzf "$TMP/gardener.tar.gz" -C "$TMP/extract"
