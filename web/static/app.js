@@ -402,6 +402,10 @@ function backToList(options = {}) {
   renderHomeGarden();
 }
 
+function isValidTaskEventPayload(task) {
+  return !!task && typeof task === 'object' && typeof task.id === 'string' && task.id.trim() !== '';
+}
+
 function connectEvents(taskId) {
   if (state.eventSource) state.eventSource.close();
   if (state.recoveryPoller) { clearInterval(state.recoveryPoller); state.recoveryPoller = null; }
@@ -415,6 +419,11 @@ function connectEvents(taskId) {
   es.addEventListener('open', () => setConnected(true));
   es.addEventListener('task', (ev) => {
     const task = JSON.parse(ev.data);
+    if (!isValidTaskEventPayload(task)) {
+      console.warn('Ignoring invalid task event');
+      loadActiveTask(true);
+      return;
+    }
     const previous = state.tasks.find(t => t.id === task.id);
     upsertTask(task);
     if (task.id === state.activeTaskId) {
