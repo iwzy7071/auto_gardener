@@ -16,6 +16,8 @@ import (
 	"auto_gardener/internal/codex"
 )
 
+const maxAutomaticForestsPerRun = 20
+
 type Orchestrator struct {
 	store         *Store
 	runner        codex.Runner
@@ -375,6 +377,15 @@ func (o *Orchestrator) runForest(ctx context.Context, taskID, instruction, runID
 				o.finishAfterStop(taskID)
 			} else {
 				o.store.AppendGardenerLog(taskID, "旧 Gardener run 被新的用户指令取代，已退出。")
+			}
+			return
+		}
+		if autoForest > maxAutomaticForestsPerRun {
+			msg := fmt.Sprintf("自动阶段达到安全上限 %d，已暂停以避免无限循环。", maxAutomaticForestsPerRun)
+			o.store.AppendGardenerLog(taskID, msg)
+			o.appendSystemMessage(taskID, msg+"你可以检查当前结果后再点击继续任务。")
+			if o.isActiveRun(taskID, runID) {
+				o.finishTask(taskID, msg)
 			}
 			return
 		}
