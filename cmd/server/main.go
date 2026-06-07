@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -31,12 +32,12 @@ func main() {
 	orch.StartWatchdog()
 	server := app.NewServer(store, orch, staticDir, events)
 
-	log.Printf("auto_gardener listening on %s", listenURL(addr))
-	log.Printf("data dir: %s", dataDir)
-	log.Printf("static dir: %s", staticDir)
-	log.Printf("codex command: %s", getenv("AUTO_GARDENER_CODEX_CMD", "codex"))
-	log.Printf("claude command: %s", getenv("AUTO_GARDENER_CLAUDE_CMD", "claude"))
-	log.Printf("compat proxy: %s", proxy.BaseURL())
+	log.Printf("auto_gardener listening on %s", sanitizeStartupLogValue(listenURL(addr)))
+	log.Printf("data dir: %s", sanitizeStartupLogValue(dataDir))
+	log.Printf("static dir: %s", sanitizeStartupLogValue(staticDir))
+	log.Printf("codex command: %s", sanitizeStartupLogValue(getenv("AUTO_GARDENER_CODEX_CMD", "codex")))
+	log.Printf("claude command: %s", sanitizeStartupLogValue(getenv("AUTO_GARDENER_CLAUDE_CMD", "claude")))
+	log.Printf("compat proxy: %s", sanitizeStartupLogValue(proxy.BaseURL()))
 	if power := app.CheckPowerStatus(); !power.OK {
 		log.Printf("power warning: remote access requires this computer to stay awake and powered on; %s", app.PowerWarningsText(power))
 	}
@@ -53,6 +54,27 @@ func listenURL(addr string) string {
 		return addr
 	}
 	return "http://" + addr
+}
+
+func sanitizeStartupLogValue(value string) string {
+	var b strings.Builder
+	for _, r := range value {
+		switch r {
+		case '\n':
+			b.WriteString(`\n`)
+		case '\r':
+			b.WriteString(`\r`)
+		case '\t':
+			b.WriteString(`\t`)
+		default:
+			if r < 0x20 || r == 0x7f {
+				fmt.Fprintf(&b, `\x%02x`, r)
+				continue
+			}
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 func getenv(key, defaultValue string) string {
