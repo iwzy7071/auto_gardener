@@ -212,7 +212,7 @@ def write_provision(instance, password, setup_key=None):
 
 def install_command(setup_key):
     return ('powershell -ExecutionPolicy Bypass -Command '
-            f'"iwr {INSTALL_SCRIPT_URL} -OutFile install-gardener.ps1; '
+            f'"iwr {INSTALL_SCRIPT_URL} -TimeoutSec 120 -OutFile install-gardener.ps1; '
             f'.\\install-gardener.ps1 -RelayBaseUrl {RELAY_PUBLIC_BASE_URL} -SetupKey {setup_key} -DesktopShortcut -StartMenuShortcut -StartAfterInstall"')
 
 
