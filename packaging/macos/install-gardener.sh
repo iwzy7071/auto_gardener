@@ -111,8 +111,11 @@ echo "Downloading package: $PACKAGE_URL"
 curl -fL --connect-timeout 20 --max-time 300 "$PACKAGE_URL" -o "$TMP/gardener.tar.gz"
 mkdir -p "$TMP/extract"
 tar -xzf "$TMP/gardener.tar.gz" -C "$TMP/extract"
-SRC="$(find "$TMP/extract" -maxdepth 1 -type d -name 'Gardener-macOS-*' | head -n 1)"
-if [[ -z "$SRC" ]]; then SRC="$TMP/extract"; fi
+SRC="$TMP/extract/Gardener-macOS-$pkg_arch"
+if [[ ! -d "$SRC" ]]; then
+  echo "Package is missing expected Gardener-macOS-$pkg_arch directory" >&2
+  exit 1
+fi
 
 # Stop existing services before replacing files.
 uid="$(id -u)"
