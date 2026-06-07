@@ -657,6 +657,10 @@ function cancelTitleEdit(restoreTitle = true) {
   }
 }
 
+function isValidRenameTaskPayload(task) {
+  return !!task && typeof task === 'object' && typeof task.id === 'string' && task.id.trim() !== '';
+}
+
 async function commitTitleEdit() {
   if (!state.editingTitle) return;
   const task = state.tasks.find(t => t.id === state.activeTaskId);
@@ -667,6 +671,7 @@ async function commitTitleEdit() {
   $('renameTaskBtn').disabled = true;
   try {
     const data = await api(`/api/tasks/${task.id}`, { method:'PATCH', body: JSON.stringify({ title: next }) });
+    if (!isValidRenameTaskPayload(data.task)) throw new Error('Invalid task response');
     state.editingTitle = false;
     cancelTitleEdit(false);
     upsertTask(data.task);
