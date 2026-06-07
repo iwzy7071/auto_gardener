@@ -39,6 +39,21 @@ function Test-GardenerAdmin {
   }
 }
 
+
+function Protect-GardenerSecretFile([string]$Path) {
+  if (-not $Path -or -not (Test-Path $Path)) { return }
+  try {
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+    $acl = Get-Acl -Path $Path
+    $acl.SetAccessRuleProtection($true, $false)
+    $rule = New-Object Security.AccessControl.FileSystemAccessRule($identity, "FullControl", "Allow")
+    $acl.SetAccessRule($rule)
+    Set-Acl -Path $Path -AclObject $acl
+  } catch {
+    Write-Host "Warning: could not restrict permissions on $Path: $_" -ForegroundColor Yellow
+  }
+}
+
 function Unblock-GardenerPath([string]$Path) {
   if (-not $Path -or -not (Test-Path $Path)) { return }
   try {
@@ -131,7 +146,9 @@ $ConfigText = @"
 if ($Provision) {
   Write-Host "Writing relay configuration..." -ForegroundColor Green
   if (-not $Provision.frpcToml) { throw "Provision is missing frpcToml" }
-  [IO.File]::WriteAllText((Join-Path $InstallDir "frpc.toml"), [string]$Provision.frpcToml, [Text.UTF8Encoding]::new($false))
+  $FrpcConfigPath = Join-Path $InstallDir "frpc.toml"
+  [IO.File]::WriteAllText($FrpcConfigPath, [string]$Provision.frpcToml, [Text.UTF8Encoding]::new($false))
+  Protect-GardenerSecretFile -Path $FrpcConfigPath
 
   $RelayConfig = [ordered]@{
     schemaVersion = 1
@@ -142,7 +159,9 @@ if ($Provision) {
     provisionUrl = [string]$ProvisionUrl
     installedAt = (Get-Date).ToString("o")
   }
-  [IO.File]::WriteAllText((Join-Path $InstallDir "gardener.relay.json"), (ConvertTo-PlainJson $RelayConfig), [Text.UTF8Encoding]::new($false))
+  $RelayJsonPath = Join-Path $InstallDir "gardener.relay.json"
+  [IO.File]::WriteAllText($RelayJsonPath, (ConvertTo-PlainJson $RelayConfig), [Text.UTF8Encoding]::new($false))
+  Protect-GardenerSecretFile -Path $RelayJsonPath
 }
 
 [IO.File]::WriteAllText((Join-Path $InstallDir "gardener.config.ps1"), $ConfigText, [Text.UTF8Encoding]::new($false))
