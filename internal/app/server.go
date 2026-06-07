@@ -34,6 +34,8 @@ type Server struct {
 	httpClient       *http.Client
 }
 
+const maxWorkspaceFileTreeFilterLength = 80
+
 func NewServer(store *Store, orchestrator *Orchestrator, staticDir string, events *EventHub) *Server {
 	return &Server{store: store, orchestrator: orchestrator, staticDir: staticDir, events: events, dingTalkSessions: make(map[string]string), httpClient: &http.Client{Timeout: 10 * time.Second}}
 }
@@ -488,6 +490,10 @@ func (s *Server) listWorkspaceFiles(w http.ResponseWriter, r *http.Request, task
 		return
 	}
 	filterTree := strings.TrimSpace(r.URL.Query().Get("treeId"))
+	if !validWorkspaceFileTreeFilter(filterTree) {
+		writeError(w, http.StatusBadRequest, "Tree 过滤条件非法")
+		return
+	}
 	filterForest := strings.TrimSpace(r.URL.Query().Get("forest"))
 	forestTreeIDs := treeIDsForForest(task, filterForest)
 	matches := treeScopeMatchers(task)
@@ -535,6 +541,21 @@ func (s *Server) listWorkspaceFiles(w http.ResponseWriter, r *http.Request, task
 	})
 	sort.Slice(files, func(i, j int) bool { return files[i].Path < files[j].Path })
 	writeJSON(w, http.StatusOK, map[string]any{"files": files})
+}
+
+func validWorkspaceFileTreeFilter(id string) bool {
+	if id == "" {
+		return true
+	}
+	if len(id) > maxWorkspaceFileTreeFilterLength {
+		return false
+	}
+	for _, r := range id {
+		if r != '-' && r != '_' && (r < 'A' || r > 'Z') && (r < 'a' || r > 'z') && (r < '0' || r > '9') {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *Server) serveWorkspaceFile(w http.ResponseWriter, r *http.Request, task *Task, rel string) {
