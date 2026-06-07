@@ -16,6 +16,8 @@ import (
 	"time"
 )
 
+const maxWorkspaceWalkEntries = 5000
+
 type workspaceFileEntry struct {
 	Path    string   `json:"path"`
 	Size    int64    `json:"size"`
@@ -492,9 +494,14 @@ func (s *Server) listWorkspaceFiles(w http.ResponseWriter, r *http.Request, task
 	forestTreeIDs := treeIDsForForest(task, filterForest)
 	matches := treeScopeMatchers(task)
 	files := make([]workspaceFileEntry, 0)
+	visited := 0
 	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
+		}
+		visited++
+		if visited > maxWorkspaceWalkEntries {
+			return filepath.SkipAll
 		}
 		name := d.Name()
 		if d.IsDir() {
