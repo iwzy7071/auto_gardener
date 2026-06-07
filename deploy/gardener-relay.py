@@ -329,10 +329,14 @@ def show_user(args):
                 if not out.get('provisionPath') or not Path(out['provisionPath']).exists():
                     raise SystemExit('error: this user has no provision file; rotate/reset the user to create one')
                 out['provision'] = json.loads(Path(out['provisionPath']).read_text())
-            if out.get('setupKey'):
+            if out.get('setupKey') and args.with_setup_key:
                 require_relay_configured()
                 out['installCommand'] = install_command(out['setupKey'])
                 out['macInstallCommand'] = mac_install_command(out['setupKey'])
+            elif out.get('setupKey'):
+                out['setupKey'] = '<redacted>'
+                if out.get('provisionPath'):
+                    out['provisionPath'] = '<redacted>'
             print(json.dumps(out, ensure_ascii=False, indent=2))
             return
     raise SystemExit(f'error: user {user} not found')
@@ -358,6 +362,7 @@ def main():
     s.add_argument('user')
     s.add_argument('--with-frpc', action='store_true')
     s.add_argument('--with-provision', action='store_true')
+    s.add_argument('--with-setup-key', action='store_true', help='include setup key and install commands in output')
     s.set_defaults(func=show_user)
     args = p.parse_args()
     args.func(args)
