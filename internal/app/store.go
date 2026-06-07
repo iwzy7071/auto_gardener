@@ -391,7 +391,9 @@ func (s *Store) AppendTreeProgress(taskID, treeID, line string) {
 		}
 	})
 	path := filepath.Join(s.dataDir, "forests", taskID, "trees", treeID, "progress.log")
-	_ = appendFile(path, fmt.Sprintf("[%s] %s\n", time.Now().Format(time.RFC3339), line))
+	if !isSymlink(path) {
+		_ = appendFile(path, fmt.Sprintf("[%s] %s\n", time.Now().Format(time.RFC3339), line))
+	}
 }
 
 func (s *Store) AppendGardenerLog(taskID, line string) {
@@ -632,6 +634,11 @@ func shouldDeleteManagedScratch(dataDir, taskID, scratchPath string) bool {
 		return base == taskID || strings.HasPrefix(base, taskID+"_")
 	}
 	return false
+}
+
+func isSymlink(path string) bool {
+	info, err := os.Lstat(path)
+	return err == nil && info.Mode()&os.ModeSymlink != 0
 }
 
 func appendFile(path, s string) error {
