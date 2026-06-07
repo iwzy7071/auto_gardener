@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/gardener-logo.svg" alt="Gardener logo" width="680">
+  <img src="web/static/assets/gardener-logo.svg" alt="Gardener logo" width="128">
 </p>
 
 <p align="center">
