@@ -495,10 +495,20 @@ func writeSSE(w io.Writer, event string, data any) {
 	_, _ = fmt.Fprintf(w, "data: %s\n\n", b)
 }
 
+const maxProxyErrorMessageRunes = 1000
+
+func limitProxyErrorMessage(message string) string {
+	chars := []rune(strings.TrimSpace(message))
+	if len(chars) <= maxProxyErrorMessageRunes {
+		return string(chars)
+	}
+	return string(chars[:maxProxyErrorMessageRunes]) + "…"
+}
+
 func writeProxyError(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]any{"message": strings.TrimSpace(message)}})
+	_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]any{"message": limitProxyErrorMessage(message)}})
 }
 
 func firstNonEmpty(items ...string) string {
