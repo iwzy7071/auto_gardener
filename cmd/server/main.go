@@ -12,8 +12,10 @@ import (
 	"auto_gardener/internal/compat"
 )
 
+const maxListenAddrLength = 256
+
 func main() {
-	addr := getenv("AUTO_GARDENER_ADDR", "127.0.0.1:8080")
+	addr := getenvLimited("AUTO_GARDENER_ADDR", "127.0.0.1:8080", maxListenAddrLength)
 	dataDir := app.DefaultDataDir()
 	staticDir := defaultStaticDir()
 
@@ -58,6 +60,15 @@ func listenURL(addr string) string {
 func getenv(key, defaultValue string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
+	}
+	return defaultValue
+}
+
+func getenvLimited(key, defaultValue string, maxLen int) string {
+	if v := os.Getenv(key); v != "" {
+		if len(v) <= maxLen {
+			return v
+		}
 	}
 	return defaultValue
 }
