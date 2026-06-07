@@ -55,3 +55,13 @@ func TestNoDingTalkSecretSkipsVerify(t *testing.T) {
 		t.Fatalf("verification should be skipped without secret: %v", err)
 	}
 }
+
+func TestVerifyDingTalkIncomingSignatureRejectsLongSecret(t *testing.T) {
+	t.Setenv("AUTO_GARDENER_DINGTALK_INCOMING_SECRET", strings.Repeat("a", maxDingTalkIncomingSecretLength+1))
+	req := httptest.NewRequest("POST", "/api/dingtalk/robot", nil)
+	req.Header.Set("timestamp", strconv.FormatInt(time.Now().UnixMilli(), 10))
+	req.Header.Set("sign", "bad")
+	if err := verifyDingTalkIncomingSignature(req); err == nil || !strings.Contains(err.Error(), "secret 过长") {
+		t.Fatalf("expected long secret rejection, got %v", err)
+	}
+}

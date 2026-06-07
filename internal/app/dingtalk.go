@@ -17,6 +17,8 @@ import (
 	"time"
 )
 
+const maxDingTalkIncomingSecretLength = 512
+
 type dingTalkIncomingMessage struct {
 	ConversationID string `json:"conversationId"`
 	SenderID       string `json:"senderId"`
@@ -251,6 +253,9 @@ func verifyDingTalkIncomingSignature(r *http.Request) error {
 	secret := strings.TrimSpace(firstNonEmpty(os.Getenv("AUTO_GARDENER_DINGTALK_INCOMING_SECRET"), os.Getenv("AUTO_GARDENER_DINGTALK_APP_SECRET")))
 	if secret == "" {
 		return nil
+	}
+	if len(secret) > maxDingTalkIncomingSecretLength {
+		return errors.New("钉钉签名 secret 过长")
 	}
 	timestamp := strings.TrimSpace(firstNonEmpty(r.Header.Get("timestamp"), r.Header.Get("Timestamp"), r.URL.Query().Get("timestamp")))
 	signature := strings.TrimSpace(firstNonEmpty(r.Header.Get("sign"), r.Header.Get("Sign"), r.URL.Query().Get("sign")))
