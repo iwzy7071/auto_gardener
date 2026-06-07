@@ -45,6 +45,13 @@ function Set-GardenerFirewallPolicy([string]$ExePath) {
   }
 }
 
+function Remove-OldGardenerBackups([string]$Dir, [int]$Keep = 5) {
+  Get-ChildItem -Path $Dir -Directory -Filter "backup-*" -ErrorAction SilentlyContinue |
+    Sort-Object LastWriteTime -Descending |
+    Select-Object -Skip $Keep |
+    Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+}
+
 $InstallDir = [IO.Path]::GetFullPath($InstallDir)
 $Temp = Join-Path $env:TEMP ("gardener-update-" + [guid]::NewGuid().ToString("N"))
 $Zip = Join-Path $Temp "Gardener-Windows.zip"
@@ -87,6 +94,7 @@ Unblock-GardenerPath -Path $InstallDir
 Set-GardenerFirewallPolicy -ExePath (Join-Path $InstallDir "gardener.exe")
 
 Remove-Item -Path $Temp -Recurse -Force -ErrorAction SilentlyContinue
+Remove-OldGardenerBackups -Dir $InstallDir
 Write-Host "Gardener updated successfully." -ForegroundColor Green
 Write-Host "Backup: $Backup"
 
