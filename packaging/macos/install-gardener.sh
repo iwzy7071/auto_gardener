@@ -257,7 +257,8 @@ echo "Gardener installed."
 echo "Local URL:  $local_url"
 if [[ -n "$public_url" ]]; then
   echo "Remote URL: $public_url"
-  echo "Login:      $web_user / $web_pass"
+  echo "Login user: $web_user"
+  echo "Login password: saved in gardener.relay.json; keep that file private."
 fi
 if [[ "$START_AFTER_INSTALL" == "1" ]]; then
   sleep 2

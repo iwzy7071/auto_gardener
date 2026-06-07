@@ -82,7 +82,8 @@ Write-Host "Starting Gardener..." -ForegroundColor Green
 Write-Host "Local URL: $localUrl"
 if ($Relay -and $Relay.publicUrl) {
   Write-Host "Remote URL: $($Relay.publicUrl)" -ForegroundColor Cyan
-  Write-Host "Remote login: $($Relay.webUsername) / $($Relay.webPassword)" -ForegroundColor Cyan
+  Write-Host "Remote login user: $($Relay.webUsername)" -ForegroundColor Cyan
+  Write-Host "Remote login password: saved in gardener.relay.json; keep that file private." -ForegroundColor Cyan
 }
 Write-Host "Data: $env:AUTO_GARDENER_DATA"
 Write-Host "Static: $env:AUTO_GARDENER_STATIC"
