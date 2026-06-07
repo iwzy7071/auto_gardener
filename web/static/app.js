@@ -1,5 +1,6 @@
 const state = { powerStatus: null, tasks: [], activeTaskId: null, eventSource: null, recoveryPoller: null, activeRefreshPoller: null, selectedForests: {}, selectedFileTree: {}, selectedFilePath: {}, selectedFileManual: {}, fileListFingerprint: {}, lastFileRefreshAt: {}, treeStatusExpanded: {}, usage: {}, usageFetchedAt: {}, usagePending: {}, renderCache: {}, pendingTaskRender: null, pendingTaskRenderFrame: 0, lastTaskListSig: '', lastHomeSig: '', activeReportText: '', fileViewerToken: 0, previewToken: 0, overviewCollapsed: loadOverviewCollapsed(), editingTitle: false, settings: loadSettings() };
 const $ = (id) => document.getElementById(id);
+const MAX_CSV_PREVIEW_COLUMNS = 50;
 
 const I18N = {
   'zh-CN': {
@@ -1394,7 +1395,7 @@ function renderCSV(text) {
   const rows = parseCSV(text);
   if (!rows.length) return `<div class="report-loading">${t('emptyResult')}</div>`;
   const maxRows = 500;
-  const visibleRows = rows.slice(0, maxRows);
+  const visibleRows = rows.slice(0, maxRows).map(r => r.slice(0, MAX_CSV_PREVIEW_COLUMNS));
   const colCount = Math.max(...visibleRows.map(r => r.length));
   const normalized = visibleRows.map(r => Array.from({ length: colCount }, (_, i) => r[i] ?? ''));
   const [head, ...body] = normalized;
