@@ -74,6 +74,9 @@ func isUnsafeMethod(method string) bool {
 }
 
 func requestHasSameOrigin(r *http.Request) bool {
+	if strings.EqualFold(strings.TrimSpace(r.Header.Get("Sec-Fetch-Site")), "cross-site") {
+		return false
+	}
 	if origin := strings.TrimSpace(r.Header.Get("Origin")); origin != "" {
 		return headerURLMatchesHost(origin, r.Host)
 	}
