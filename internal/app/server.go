@@ -200,6 +200,10 @@ func (s *Server) handleDirectoryBrowse(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "目录路径无效")
 		return
 	}
+	if !isAllowedDirectoryBrowsePath(abs) {
+		writeError(w, http.StatusForbidden, "只能浏览用户主目录内的目录")
+		return
+	}
 	info, err := os.Stat(abs)
 	if err != nil || !info.IsDir() {
 		writeError(w, http.StatusBadRequest, "目录不存在或不可访问")
@@ -219,7 +223,7 @@ func (s *Server) handleDirectoryBrowse(w http.ResponseWriter, r *http.Request) {
 	}
 	sort.Slice(dirs, func(i, j int) bool { return strings.ToLower(dirs[i].Name) < strings.ToLower(dirs[j].Name) })
 	parent := filepath.Dir(abs)
-	if parent == abs {
+	if parent == abs || !isAllowedDirectoryBrowsePath(parent) {
 		parent = ""
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -227,6 +231,25 @@ func (s *Server) handleDirectoryBrowse(w http.ResponseWriter, r *http.Request) {
 		"parent":  parent,
 		"entries": dirs,
 	})
+}
+
+func isAllowedDirectoryBrowsePath(path string) bool {
+	if os.Getenv("AUTO_GARDENER_ALLOW_DIRECTORY_BROWSE_ROOT") == "1" {
+		return true
+	}
+	home, err := os.UserHomeDir()
+	if err != nil || strings.TrimSpace(home) == "" {
+		return false
+	}
+	root, err := filepath.Abs(filepath.Clean(home))
+	if err != nil {
+		return false
+	}
+	abs, err := filepath.Abs(filepath.Clean(path))
+	if err != nil {
+		return false
+	}
+	return abs == root || strings.HasPrefix(abs, root+string(filepath.Separator))
 }
 
 func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
