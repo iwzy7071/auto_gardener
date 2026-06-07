@@ -217,7 +217,7 @@ def install_command(setup_key):
 
 
 def mac_install_command(setup_key):
-    return f'curl -fsSL {MAC_INSTALL_SCRIPT_URL} -o install-gardener-macos.sh && bash install-gardener-macos.sh --relay-base-url {RELAY_PUBLIC_BASE_URL} --setup-key {setup_key}'
+    return f'curl -fsSL --max-filesize 1048576 {MAC_INSTALL_SCRIPT_URL} -o install-gardener-macos.sh && bash install-gardener-macos.sh --relay-base-url {RELAY_PUBLIC_BASE_URL} --setup-key {setup_key}'
 
 
 def reload_nginx():
