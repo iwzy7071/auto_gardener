@@ -2,6 +2,12 @@
 set -euo pipefail
 VERSION="${VERSION:-dev}"
 OUT_DIR="${OUT_DIR:-dist}"
+case "$OUT_DIR" in
+  ""|"/"|"."|".."|../*|*/../*)
+    echo "Refusing unsafe OUT_DIR: $OUT_DIR" >&2
+    exit 1
+    ;;
+esac
 PKG_DIR="$OUT_DIR/Gardener-Windows"
 ZIP_PATH="$OUT_DIR/Gardener-Windows.zip"
 
