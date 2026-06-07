@@ -46,7 +46,9 @@ def save_state(data):
     ROOT.mkdir(parents=True, exist_ok=True)
     tmp = STATE.with_suffix('.tmp')
     tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')
+    os.chmod(tmp, 0o600)
     tmp.replace(STATE)
+    os.chmod(STATE, 0o600)
 
 
 def sanitize_user(user):
