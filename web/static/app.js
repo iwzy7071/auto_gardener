@@ -519,9 +519,15 @@ function shouldSkipFileViewer(previous, task) {
   return Date.now() - last < (isCompactViewport() ? 15000 : 6000);
 }
 
+const MAX_FILE_REFRESH_SIGNATURE_PATH_CHARS = 400;
+function fileRefreshSignaturePath(value) {
+  const chars = Array.from(String(value || ''));
+  return chars.length > MAX_FILE_REFRESH_SIGNATURE_PATH_CHARS ? chars.slice(0, MAX_FILE_REFRESH_SIGNATURE_PATH_CHARS).join('') : chars.join('');
+}
+
 function fileRefreshSignature(task) {
   const trees = (task.trees || []).map(tree => [tree.id, tree.forest || 1, tree.status || '', tree.fruitPath || '', !!tree.isValidation].join(':')).join('|');
-  return [task.id, task.workspacePath || '', task.status || '', trees].join('::');
+  return [task.id, fileRefreshSignaturePath(task.workspacePath), task.status || '', trees].join('::');
 }
 
 
