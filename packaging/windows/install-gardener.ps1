@@ -11,6 +11,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$ProvisionJsonMaxBytes = 64KB
 
 if (-not $RelayBaseUrl -and $env:GARDENER_RELAY_BASE_URL) { $RelayBaseUrl = $env:GARDENER_RELAY_BASE_URL }
 if (-not $RelayBaseUrl) { $RelayBaseUrl = "http://YOUR_RELAY_SERVER" }
@@ -79,7 +80,16 @@ if (-not $ProvisionUrl -and $SetupKey) {
 
 if ($ProvisionUrl) {
   Write-Host "Loading Gardener relay provision..." -ForegroundColor Green
-  $Provision = Invoke-RestMethod -Uri $ProvisionUrl
+  $ProvisionFile = [IO.Path]::GetTempFileName()
+  try {
+    Invoke-WebRequest -Uri $ProvisionUrl -OutFile $ProvisionFile
+    if ((Get-Item $ProvisionFile).Length -gt $ProvisionJsonMaxBytes) {
+      throw "Relay provision JSON is too large."
+    }
+    $Provision = Get-Content -Raw -Path $ProvisionFile | ConvertFrom-Json
+  } finally {
+    Remove-Item -LiteralPath $ProvisionFile -Force -ErrorAction SilentlyContinue
+  }
   if ($User -and $Provision.user -and ($User.ToLowerInvariant() -ne [string]($Provision.user).ToLowerInvariant())) {
     throw "Provision user mismatch: expected $User but got $($Provision.user)"
   }
