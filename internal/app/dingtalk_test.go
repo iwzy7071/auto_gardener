@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"auto_gardener/internal/codex"
 )
 
 func TestDingTalkSign(t *testing.T) {
@@ -53,5 +55,23 @@ func TestNoDingTalkSecretSkipsVerify(t *testing.T) {
 	req := httptest.NewRequest("POST", "/api/dingtalk/robot", nil)
 	if err := verifyDingTalkIncomingSignature(req); err != nil {
 		t.Fatalf("verification should be skipped without secret: %v", err)
+	}
+}
+
+func TestDingTalkCommandRejectsOversizedContent(t *testing.T) {
+	events := NewEventHub()
+	store, err := NewStore(t.TempDir(), events)
+	if err != nil {
+		t.Fatal(err)
+	}
+	orch := NewOrchestrator(store, codex.MockRunner{}, store.DataDir(), "")
+	server := NewServer(store, orch, "", events)
+
+	reply := server.handleDingTalkCommand(dingTalkIncomingMessage{ConversationID: "c", SenderID: "s"}, strings.Repeat("长", maxDingTalkCommandRunes+1))
+	if !strings.Contains(reply, "消息过长") {
+		t.Fatalf("expected oversized DingTalk message to be rejected, got %q", reply)
+	}
+	if tasks := store.ListTasks(); len(tasks) != 0 {
+		t.Fatalf("oversized DingTalk message should not create task: %+v", tasks)
 	}
 }

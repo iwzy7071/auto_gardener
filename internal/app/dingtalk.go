@@ -17,6 +17,8 @@ import (
 	"time"
 )
 
+const maxDingTalkCommandRunes = 8000
+
 type dingTalkIncomingMessage struct {
 	ConversationID string `json:"conversationId"`
 	SenderID       string `json:"senderId"`
@@ -83,6 +85,9 @@ func extractDingTalkContent(msg dingTalkIncomingMessage) string {
 func (s *Server) handleDingTalkCommand(msg dingTalkIncomingMessage, content string) string {
 	content = strings.TrimSpace(strings.TrimPrefix(content, "@Gardener"))
 	content = strings.TrimSpace(strings.TrimPrefix(content, "Gardener"))
+	if len([]rune(content)) > maxDingTalkCommandRunes {
+		return "消息过长，请缩短后再发送。"
+	}
 	key := dingTalkSessionKey(msg)
 	cmd, arg := splitDingTalkCommand(content)
 	switch cmd {
