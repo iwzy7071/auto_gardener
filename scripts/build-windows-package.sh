@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 VERSION="${VERSION:-dev}"
+if (( ${#VERSION} > 64 )) || [[ ! "$VERSION" =~ ^[A-Za-z0-9][A-Za-z0-9._+-]*$ ]]; then
+  echo "VERSION must be 1-64 characters and contain only letters, digits, dot, underscore, plus or dash" >&2
+  exit 1
+fi
 OUT_DIR="${OUT_DIR:-dist}"
 PKG_DIR="$OUT_DIR/Gardener-Windows"
 ZIP_PATH="$OUT_DIR/Gardener-Windows.zip"
