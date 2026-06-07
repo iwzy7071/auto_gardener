@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"regexp"
@@ -44,13 +45,21 @@ func PowerWarningsText(ps PowerStatus) string {
 	return strings.Join(lines, "\n")
 }
 
+const powerCheckCommandTimeout = 3 * time.Second
+
+func runPowerCommand(name string, args ...string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), powerCheckCommandTimeout)
+	defer cancel()
+	return exec.CommandContext(ctx, name, args...).CombinedOutput()
+}
+
 func checkWindowsPower(ps PowerStatus) PowerStatus {
 	checks := []struct{ alias, label string }{
 		{"STANDBYIDLE", "睡眠"},
 		{"HIBERNATEIDLE", "休眠"},
 	}
 	for _, c := range checks {
-		out, err := exec.Command("powercfg", "/query", "SCHEME_CURRENT", "SUB_SLEEP", c.alias).CombinedOutput()
+		out, err := runPowerCommand("powercfg", "/query", "SCHEME_CURRENT", "SUB_SLEEP", c.alias)
 		if err != nil {
 			ps.OK = false
 			ps.Warnings = append(ps.Warnings, fmt.Sprintf("无法检测 Windows %s设置：%v", c.label, err))
@@ -66,7 +75,7 @@ func checkWindowsPower(ps PowerStatus) PowerStatus {
 			ps.Warnings = append(ps.Warnings, fmt.Sprintf("Windows 当前电源计划在使用电池时会自动%s（%d 秒后）。", c.label, dc))
 		}
 	}
-	out, err := exec.Command("powercfg", "/query", "SCHEME_CURRENT", "SUB_BUTTONS", "LIDACTION").CombinedOutput()
+	out, err := runPowerCommand("powercfg", "/query", "SCHEME_CURRENT", "SUB_BUTTONS", "LIDACTION")
 	if err == nil {
 		ac, dc := parsePowerCfgIndexes(string(out))
 		if ac != 0 || dc != 0 {
@@ -97,9 +106,9 @@ func parsePowerCfgIndexes(out string) (ac, dc int64) {
 }
 
 func checkMacPower(ps PowerStatus) PowerStatus {
-	out, err := exec.Command("pmset", "-g", "custom").CombinedOutput()
+	out, err := runPowerCommand("pmset", "-g", "custom")
 	if err != nil {
-		out, err = exec.Command("pmset", "-g").CombinedOutput()
+		out, err = runPowerCommand("pmset", "-g")
 	}
 	if err != nil {
 		ps.OK = false
