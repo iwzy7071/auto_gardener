@@ -4,6 +4,7 @@ RELAY_BASE_URL="${GARDENER_RELAY_BASE_URL:-}"
 INSTALL_DIR="$HOME/Applications/Gardener"
 START_AFTER_UPDATE=1
 PACKAGE_URL=""
+BACKUP_KEEP=5
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --package-url) PACKAGE_URL="${2:-}"; shift 2 ;;
@@ -38,4 +39,5 @@ if [[ "$START_AFTER_UPDATE" == "1" ]]; then
   [[ -f "$HOME/Library/LaunchAgents/com.gardener.relay.plist" ]] && launchctl bootstrap "gui/$uid" "$HOME/Library/LaunchAgents/com.gardener.relay.plist" 2>/dev/null || true
   [[ -f "$HOME/Library/LaunchAgents/com.gardener.relay.plist" ]] && launchctl kickstart -k "gui/$uid/com.gardener.relay" 2>/dev/null || true
 fi
+find "$INSTALL_DIR" -maxdepth 1 -type d -name 'backup-*' | sort -r | tail -n +$((BACKUP_KEEP + 1)) | while IFS= read -r old_backup; do rm -rf "$old_backup"; done
 echo "Gardener updated. Backup: $backup"
