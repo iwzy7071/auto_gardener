@@ -634,7 +634,7 @@ func matchingTreeIDs(rel string, matchers map[string][]string) []string {
 
 func isHiddenOrNoiseFile(rel string) bool {
 	base := filepath.Base(rel)
-	if strings.HasPrefix(base, ".") && base != ".env" {
+	if strings.HasPrefix(base, ".") {
 		return true
 	}
 	lower := strings.ToLower(base)
