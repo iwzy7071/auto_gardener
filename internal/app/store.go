@@ -143,7 +143,7 @@ func (s *Store) UpdateSettings(settings AppSettings) (AppSettings, error) {
 }
 
 func (s *Store) persistSettingsLocked() error {
-	return writeJSONFile(s.settingsPath(), s.settings)
+	return writeJSONFileMode(s.settingsPath(), s.settings, 0600)
 }
 
 func (s *Store) Load() error {
@@ -554,6 +554,10 @@ func readJSON(path string, v any) error {
 }
 
 func writeJSONFile(path string, v any) error {
+	return writeJSONFileMode(path, v, 0644)
+}
+
+func writeJSONFileMode(path string, v any, perm os.FileMode) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
 	}
@@ -561,7 +565,7 @@ func writeJSONFile(path string, v any) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, b, 0644)
+	return os.WriteFile(path, b, perm)
 }
 
 func compactProgressLine(line string) string {
