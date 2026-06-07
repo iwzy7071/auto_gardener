@@ -30,9 +30,9 @@ elif [[ "${DOWNLOAD_FRPC:-0}" == "1" ]]; then
   echo "Downloading frpc.exe from $url"
   curl -L --fail --connect-timeout 20 --max-time 240 -o "$tmp/frp.zip" "$url"
   unzip -q "$tmp/frp.zip" -d "$tmp/frp"
-  found="$(find "$tmp/frp" -name frpc.exe -type f | head -n 1)"
-  if [[ -z "$found" ]]; then
-    echo "frpc.exe not found in downloaded archive" >&2
+  found="$tmp/frp/frp_${FRP_VERSION}_windows_amd64/frpc.exe"
+  if [[ ! -f "$found" ]]; then
+    echo "expected frpc.exe not found in downloaded archive" >&2
     exit 1
   fi
   cp "$found" "$PKG_DIR/frpc.exe"
