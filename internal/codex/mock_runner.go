@@ -56,7 +56,7 @@ func (r MockRunner) Run(ctx context.Context, req RunRequest) RunResult {
 		if err := os.MkdirAll(filepath.Dir(req.OutputFile), 0755); err != nil {
 			return RunResult{Output: output, Err: err}
 		}
-		if err := os.WriteFile(req.OutputFile, []byte(output), 0644); err != nil {
+		if err := writeFileNoSymlink(req.OutputFile, []byte(output), 0644); err != nil {
 			return RunResult{Output: output, Err: err}
 		}
 	}

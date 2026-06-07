@@ -150,6 +150,9 @@ func (r ShellRunner) runCodex(ctx context.Context, req RunRequest) RunResult {
 	}
 	args = appendModelArgs(args, req.Model)
 	if req.OutputFile != "" {
+		if err := ensureOutputFileSafe(req.OutputFile); err != nil {
+			return RunResult{Err: err}
+		}
 		args = append(args, "-o", req.OutputFile)
 	}
 	args = append(args, "-")
@@ -211,7 +214,7 @@ func (r ShellRunner) runCodex(ctx context.Context, req RunRequest) RunResult {
 	output := out.String()
 	mu.Unlock()
 	if req.OutputFile != "" {
-		if b, readErr := os.ReadFile(req.OutputFile); readErr == nil && len(b) > 0 {
+		if b, readErr := readFileNoSymlink(req.OutputFile); readErr == nil && len(b) > 0 {
 			// The Codex final message is the authoritative output. stdout/stderr is
 			// already streamed through OnLine into log.md/progress.log. Keeping only
 			// the final message here prevents Gardener JSON parsing from being polluted
@@ -297,7 +300,7 @@ func (r ShellRunner) runClaude(ctx context.Context, req RunRequest) RunResult {
 	mu.Unlock()
 	if req.OutputFile != "" && strings.TrimSpace(output) != "" {
 		_ = os.MkdirAll(filepath.Dir(req.OutputFile), 0755)
-		_ = os.WriteFile(req.OutputFile, []byte(output), 0644)
+		_ = writeFileNoSymlink(req.OutputFile, []byte(output), 0644)
 	}
 	return RunResult{Output: output, Err: err}
 }
@@ -417,6 +420,32 @@ func ensureNoProxyKey(env []string, key, host string) []string {
 		}
 	}
 	return append(env, key+"="+host)
+}
+
+func ensureOutputFileSafe(path string) error {
+	if isSymlink(path) {
+		return fmt.Errorf("refusing to use runner output symlink")
+	}
+	return nil
+}
+
+func readFileNoSymlink(path string) ([]byte, error) {
+	if err := ensureOutputFileSafe(path); err != nil {
+		return nil, err
+	}
+	return os.ReadFile(path)
+}
+
+func writeFileNoSymlink(path string, data []byte, perm os.FileMode) error {
+	if err := ensureOutputFileSafe(path); err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, perm)
+}
+
+func isSymlink(path string) bool {
+	info, err := os.Lstat(path)
+	return err == nil && info.Mode()&os.ModeSymlink != 0
 }
 
 func envListContains(value, target string) bool {
