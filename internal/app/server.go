@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -560,7 +561,7 @@ func (s *Server) serveWorkspaceFile(w http.ResponseWriter, r *http.Request, task
 		return
 	}
 	if r.URL.Query().Get("download") == "1" {
-		w.Header().Set("Content-Disposition", "attachment; filename="+filepath.Base(abs))
+		w.Header().Set("Content-Disposition", contentDisposition("attachment", abs))
 		http.ServeFile(w, r, abs)
 		return
 	}
@@ -683,8 +684,12 @@ func (s *Server) serveMarkdown(w http.ResponseWriter, r *http.Request, path stri
 		return
 	}
 	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
-	w.Header().Set("Content-Disposition", "inline; filename="+filepath.Base(realPath))
+	w.Header().Set("Content-Disposition", contentDisposition("inline", realPath))
 	http.ServeFile(w, r, realPath)
+}
+
+func contentDisposition(disposition, path string) string {
+	return mime.FormatMediaType(disposition, map[string]string{"filename": filepath.Base(path)})
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
