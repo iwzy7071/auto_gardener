@@ -32,3 +32,25 @@ func TestWithGoalEnvelope(t *testing.T) {
 		}
 	}
 }
+
+func TestClaudeBaseURLLengthLimit(t *testing.T) {
+	t.Setenv("AUTO_GARDENER_KIMI_CLAUDE_BASE_URL", "https://example.test/"+strings.Repeat("a", maxClaudeBaseURLLength))
+	env := appendClaudeEnv(nil, ModelConfig{ProviderID: "gardener-kimi", Token: "secret"})
+	for _, item := range env {
+		if strings.HasPrefix(item, "ANTHROPIC_BASE_URL=") {
+			t.Fatalf("appendClaudeEnv accepted oversized base URL: %q", item)
+		}
+	}
+
+	t.Setenv("AUTO_GARDENER_KIMI_CLAUDE_BASE_URL", "https://example.test/"+strings.Repeat("a", maxClaudeBaseURLLength-len("https://example.test/")))
+	env = appendClaudeEnv(nil, ModelConfig{ProviderID: "gardener-kimi", Token: "secret"})
+	found := false
+	for _, item := range env {
+		if strings.HasPrefix(item, "ANTHROPIC_BASE_URL=") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("appendClaudeEnv rejected boundary base URL: %#v", env)
+	}
+}

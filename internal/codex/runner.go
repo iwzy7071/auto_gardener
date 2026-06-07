@@ -62,6 +62,8 @@ type ShellRunner struct {
 	ClaudeCommand string
 }
 
+const maxClaudeBaseURLLength = 2048
+
 func NewRunnerFromEnv() Runner {
 	if strings.EqualFold(strings.TrimSpace(os.Getenv("AUTO_GARDENER_RUNNER")), "mock") {
 		r := NewMockRunnerFromEnv()
@@ -359,7 +361,10 @@ func appendModelEnv(env []string, model ModelConfig) []string {
 func appendClaudeEnv(env []string, model ModelConfig) []string {
 	token := strings.TrimSpace(model.Token)
 	if strings.TrimSpace(model.ProviderID) == "gardener-kimi" && token != "" {
-		env = upsertEnv(env, "ANTHROPIC_BASE_URL", firstNonEmpty(os.Getenv("AUTO_GARDENER_KIMI_CLAUDE_BASE_URL"), "https://api.kimi.com/coding/"))
+		baseURL := firstNonEmpty(os.Getenv("AUTO_GARDENER_KIMI_CLAUDE_BASE_URL"), "https://api.kimi.com/coding/")
+		if len(baseURL) <= maxClaudeBaseURLLength {
+			env = upsertEnv(env, "ANTHROPIC_BASE_URL", baseURL)
+		}
 		env = upsertEnv(env, "ANTHROPIC_API_KEY", token)
 		env = upsertEnv(env, "ENABLE_TOOL_SEARCH", firstNonEmpty(os.Getenv("AUTO_GARDENER_KIMI_ENABLE_TOOL_SEARCH"), "false"))
 	}
