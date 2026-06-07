@@ -1,5 +1,6 @@
 const state = { powerStatus: null, tasks: [], activeTaskId: null, eventSource: null, recoveryPoller: null, activeRefreshPoller: null, selectedForests: {}, selectedFileTree: {}, selectedFilePath: {}, selectedFileManual: {}, fileListFingerprint: {}, lastFileRefreshAt: {}, treeStatusExpanded: {}, usage: {}, usageFetchedAt: {}, usagePending: {}, renderCache: {}, pendingTaskRender: null, pendingTaskRenderFrame: 0, lastTaskListSig: '', lastHomeSig: '', activeReportText: '', fileViewerToken: 0, previewToken: 0, overviewCollapsed: loadOverviewCollapsed(), editingTitle: false, settings: loadSettings() };
 const $ = (id) => document.getElementById(id);
+const MAX_MARKDOWN_RENDER_LINES = 5000;
 
 const I18N = {
   'zh-CN': {
@@ -1428,7 +1429,8 @@ function parseCSV(text) {
 }
 
 function renderMarkdown(md) {
-  const lines = String(md || '').split(/\r?\n/);
+  const rawLines = String(md || '').split(/\r?\n/);
+  const lines = rawLines.slice(0, MAX_MARKDOWN_RENDER_LINES);
   const out = [];
   let inCode = false, code = [], para = [], list = [], table = [];
   const flushPara = () => { if (para.length) { out.push(`<p>${inline(para.join(' '))}</p>`); para = []; } };
@@ -1472,6 +1474,7 @@ function renderMarkdown(md) {
     para.push(line);
   }
   flushPara(); flushList(); flushTable(); if (inCode) flushCode();
+  if (rawLines.length > MAX_MARKDOWN_RENDER_LINES) out.push(`<div class="preview-note">${escapeHTML(t('previewTruncated').replace('%d', MAX_MARKDOWN_RENDER_LINES))}</div>`);
   return out.join('') || `<div class="report-loading">${t('emptyResult')}</div>`;
 }
 
