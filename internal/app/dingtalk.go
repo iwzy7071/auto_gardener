@@ -184,7 +184,7 @@ func (s *Server) dingTalkListTasks() string {
 	var b strings.Builder
 	b.WriteString("最近任务：")
 	for _, task := range tasks {
-		b.WriteString(fmt.Sprintf("\n- %s｜%s｜阶段 %d｜%s", task.ID, task.Status, task.Forest, task.Title))
+		b.WriteString(fmt.Sprintf("\n- %s｜%s｜阶段 %d", task.ID, task.Status, task.Forest))
 	}
 	return b.String()
 }
