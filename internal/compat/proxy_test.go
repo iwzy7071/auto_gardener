@@ -54,3 +54,14 @@ func TestNormalizeChatMessagesMergesSystem(t *testing.T) {
 		t.Fatalf("unexpected second message: %#v", got[1])
 	}
 }
+
+func TestStreamChatAsResponsesIgnoresInvalidUsage(t *testing.T) {
+	rr := httptest.NewRecorder()
+	body := strings.NewReader(`data: {"usage":{"prompt_tokens":-1,"completion_tokens":1,"total_tokens":0},"choices":[{"delta":{}}]}` + "\n\n" + "data: [DONE]\n\n")
+	if err := streamChatAsResponses(rr, body, "test-model"); err != nil {
+		t.Fatalf("streamChatAsResponses error: %v", err)
+	}
+	if strings.Contains(rr.Body.String(), `"usage"`) {
+		t.Fatalf("invalid upstream usage should not be forwarded: %s", rr.Body.String())
+	}
+}

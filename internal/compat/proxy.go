@@ -341,6 +341,8 @@ type chatStreamChunk struct {
 	} `json:"usage,omitempty"`
 }
 
+const maxCompatUsageTokens = 1_000_000_000
+
 type pendingToolCall struct {
 	ID        string
 	ItemID    string
@@ -384,7 +386,7 @@ func streamChatAsResponses(w http.ResponseWriter, body io.Reader, model string) 
 		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
 			continue
 		}
-		if chunk.Usage != nil {
+		if chunk.Usage != nil && validCompatUsage(chunk.Usage.PromptTokens, chunk.Usage.CompletionTokens, chunk.Usage.TotalTokens) {
 			usage = map[string]any{"input_tokens": chunk.Usage.PromptTokens, "output_tokens": chunk.Usage.CompletionTokens, "total_tokens": chunk.Usage.TotalTokens}
 		}
 		for _, choice := range chunk.Choices {
@@ -447,6 +449,15 @@ func streamChatAsResponses(w http.ResponseWriter, body io.Reader, model string) 
 	_, _ = io.WriteString(w, "data: [DONE]\n\n")
 	flush()
 	return scanner.Err()
+}
+
+func validCompatUsage(promptTokens, completionTokens, totalTokens int) bool {
+	for _, value := range []int{promptTokens, completionTokens, totalTokens} {
+		if value < 0 || value > maxCompatUsageTokens {
+			return false
+		}
+	}
+	return true
 }
 
 func orderedToolCalls(calls map[int]*pendingToolCall) []*pendingToolCall {
