@@ -27,6 +27,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 RELAY_BASE_URL="${RELAY_BASE_URL%/}"
+if [[ -n "$SETUP_KEY" && ! "$SETUP_KEY" =~ ^[A-Za-z0-9_-]{20,}$ ]]; then
+  echo "Setup key format is invalid." >&2
+  exit 1
+fi
+
 is_placeholder_relay_url() { [[ -z "${1:-}" || "$1" == *YOUR_RELAY_SERVER* || "$1" == *YOUR_SERVER_IP* || "$1" == *example.com* ]]; }
 if [[ -z "$PROVISION_URL" && -n "$SETUP_KEY" ]]; then
   if is_placeholder_relay_url "$RELAY_BASE_URL"; then
