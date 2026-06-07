@@ -1510,6 +1510,11 @@ function humanizeText(s) {
 }
 function escapeHTML(s) { return String(s || '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
 
+const MAX_RENDERED_STOP_TASK_ERROR_CHARS = 300;
+function renderedStopTaskErrorMessage(err) {
+  const chars = Array.from(String(err?.message || err || ''));
+  return chars.length > MAX_RENDERED_STOP_TASK_ERROR_CHARS ? chars.slice(0, MAX_RENDERED_STOP_TASK_ERROR_CHARS).join('') + '…' : chars.join('');
+}
 
 let currentDirectoryPath = '';
 
@@ -1619,7 +1624,7 @@ $('sendMessageBtn').onclick = async () => {
   }
 };
 $('resumeTaskBtn').onclick = resumeActiveTask;
-$('stopTaskBtn').onclick = async () => { if (!state.activeTaskId) return; if (!confirm(t('stopConfirm'))) return; $('stopTaskBtn').disabled = true; try { await api(`/api/tasks/${state.activeTaskId}/stop`, { method:'POST', body:'{}' }); } catch(err){ alert(err.message); } };
+$('stopTaskBtn').onclick = async () => { if (!state.activeTaskId) return; if (!confirm(t('stopConfirm'))) return; $('stopTaskBtn').disabled = true; try { await api(`/api/tasks/${state.activeTaskId}/stop`, { method:'POST', body:'{}' }); } catch(err){ alert(renderedStopTaskErrorMessage(err)); } };
 $('deleteTaskBtn').onclick = async () => { if (!state.activeTaskId) return; if (!confirm(t('deleteConfirm'))) return; const deleted = state.activeTaskId; $('deleteTaskBtn').disabled = true; try { await api(`/api/tasks/${deleted}`, { method:'DELETE' }); state.tasks = state.tasks.filter(t => t.id !== deleted); backToList({ replaceRoute: true }); renderTaskList(); renderHomeGarden(); } catch(err){ alert((t('deleteFailed') || 'Delete failed: ') + err.message); } finally { $('deleteTaskBtn').disabled = false; } };
 $('renameTaskBtn').addEventListener('mousedown', e => { if (state.editingTitle) e.preventDefault(); });
 $('renameTaskBtn').onclick = () => { state.editingTitle ? commitTitleEdit() : beginTitleEdit(); };
