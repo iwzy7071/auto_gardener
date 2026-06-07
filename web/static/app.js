@@ -1510,6 +1510,11 @@ function humanizeText(s) {
 }
 function escapeHTML(s) { return String(s || '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
 
+const MAX_RENDERED_SEND_MESSAGE_ERROR_CHARS = 300;
+function renderedSendMessageErrorMessage(err) {
+  const chars = Array.from(String(err?.message || err || ''));
+  return chars.length > MAX_RENDERED_SEND_MESSAGE_ERROR_CHARS ? chars.slice(0, MAX_RENDERED_SEND_MESSAGE_ERROR_CHARS).join('') + '…' : chars.join('');
+}
 
 let currentDirectoryPath = '';
 
@@ -1613,7 +1618,7 @@ $('sendMessageBtn').onclick = async () => {
     input.value = content;
     autoResizeMessageInput();
     if (originalTask && state.activeTaskId === taskId) renderTask(originalTask, { skipFileViewer: true });
-    alert(err.message);
+    alert(renderedSendMessageErrorMessage(err));
   } finally {
     $('sendMessageBtn').disabled=false;
   }
