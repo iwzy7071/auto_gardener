@@ -118,7 +118,10 @@ def make_password():
 
 def htpasswd_hash(password):
     salt = '$6$' + secrets.token_urlsafe(12)
-    return crypt.crypt(password, salt)
+    hashed = crypt.crypt(password, salt)
+    if not hashed:
+        raise SystemExit('error: failed to hash relay password')
+    return hashed
 
 
 def nginx_conf(user, public_port, remote_port):
