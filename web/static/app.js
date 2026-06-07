@@ -986,8 +986,14 @@ function fileListFingerprint(files) {
   return (files || []).map(f => `${f.path}:${f.size || 0}:${f.modTime || ''}`).join('|');
 }
 
+const MAX_FILE_SORT_PATH_CHARS = 400;
+function fileSortPath(path) {
+  const chars = Array.from(String(path || ''));
+  return chars.length > MAX_FILE_SORT_PATH_CHARS ? chars.slice(0, MAX_FILE_SORT_PATH_CHARS).join('') : chars.join('');
+}
+
 function newestFile(files) {
-  return (files || []).slice().sort((a, b) => new Date(b.modTime || 0) - new Date(a.modTime || 0) || String(a.path).localeCompare(String(b.path)))[0] || null;
+  return (files || []).slice().sort((a, b) => new Date(b.modTime || 0) - new Date(a.modTime || 0) || fileSortPath(a.path).localeCompare(fileSortPath(b.path)))[0] || null;
 }
 
 function latestFruitReport(task) {
