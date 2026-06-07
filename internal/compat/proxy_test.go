@@ -54,3 +54,15 @@ func TestNormalizeChatMessagesMergesSystem(t *testing.T) {
 		t.Fatalf("unexpected second message: %#v", got[1])
 	}
 }
+
+func TestValidateToolNamesRejectsInvalidNames(t *testing.T) {
+	cases := []string{"", strings.Repeat("a", 65), "bad name", "bad.name", "工具"}
+	for _, name := range cases {
+		if err := validateToolNames([]responseTool{{Type: "function", Name: name}}); err == nil {
+			t.Fatalf("validateToolNames accepted %q", name)
+		}
+	}
+	if err := validateToolNames([]responseTool{{Type: "function", Name: "valid_tool-1"}}); err != nil {
+		t.Fatalf("validateToolNames rejected valid name: %v", err)
+	}
+}

@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode"
 )
 
 type Proxy struct {
@@ -83,6 +84,10 @@ func (p *Proxy) handle(w http.ResponseWriter, r *http.Request) {
 		writeProxyError(w, http.StatusBadRequest, "invalid responses request")
 		return
 	}
+	if err := validateToolNames(req.Tools); err != nil {
+		writeProxyError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	if err := p.forwardChatStream(w, r, spec, token, req); err != nil {
 		log.Printf("compat proxy %s error: %v", spec.Name, err)
 	}
@@ -114,6 +119,30 @@ type responseTool struct {
 	Name        string          `json:"name"`
 	Description string          `json:"description,omitempty"`
 	Parameters  json.RawMessage `json:"parameters,omitempty"`
+}
+
+func validateToolNames(tools []responseTool) error {
+	for _, tool := range tools {
+		if tool.Type != "function" {
+			continue
+		}
+		if !validToolName(tool.Name) {
+			return fmt.Errorf("invalid tool name")
+		}
+	}
+	return nil
+}
+
+func validToolName(name string) bool {
+	if name == "" || len(name) > 64 {
+		return false
+	}
+	for _, r := range name {
+		if r > unicode.MaxASCII || !(unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' || r == '-') {
+			return false
+		}
+	}
+	return true
 }
 
 type chatRequest struct {
