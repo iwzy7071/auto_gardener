@@ -254,9 +254,29 @@ func normalizeStatus(status Status) Status {
 
 func (tr *Tree) CreatedOrder() int64 {
 	if tr.StartedAt != nil {
-		return tr.StartedAt.UnixNano()
+		return safeUnixNano(*tr.StartedAt)
 	}
-	return tr.UpdatedAt.UnixNano()
+	return safeUnixNano(tr.UpdatedAt)
+}
+
+const (
+	minInt64 = -1 << 63
+	maxInt64 = 1<<63 - 1
+)
+
+var (
+	minUnixNanoTime = time.Unix(0, minInt64)
+	maxUnixNanoTime = time.Unix(0, maxInt64)
+)
+
+func safeUnixNano(t time.Time) int64 {
+	if t.Before(minUnixNanoTime) {
+		return minInt64
+	}
+	if t.After(maxUnixNanoTime) {
+		return maxInt64
+	}
+	return t.UnixNano()
 }
 
 func (s *Store) AddTask(t *Task) error {
