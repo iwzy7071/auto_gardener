@@ -19,13 +19,15 @@ func watchdogBlockedAfter() time.Duration {
 	return getenvDurationSeconds("AUTO_GARDENER_WATCHDOG_BLOCKED_SECONDS", 30*time.Minute)
 }
 
+const maxWatchdogDurationSeconds int64 = 7 * 24 * 60 * 60
+
 func getenvDurationSeconds(key string, fallback time.Duration) time.Duration {
 	v := os.Getenv(key)
 	if v == "" {
 		return fallback
 	}
-	n, err := strconv.Atoi(v)
-	if err != nil || n <= 0 {
+	n, err := strconv.ParseInt(v, 10, 64)
+	if err != nil || n <= 0 || n > maxWatchdogDurationSeconds {
 		return fallback
 	}
 	return time.Duration(n) * time.Second
