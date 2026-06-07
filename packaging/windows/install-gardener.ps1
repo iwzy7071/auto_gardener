@@ -48,7 +48,7 @@ function Unblock-GardenerPath([string]$Path) {
       Unblock-File -Path $Path -ErrorAction SilentlyContinue
     }
   } catch {
-    Write-Host "Warning: could not unblock $Path: $_" -ForegroundColor Yellow
+    Write-Host "Warning: could not unblock a Gardener file." -ForegroundColor Yellow
   }
 }
 
