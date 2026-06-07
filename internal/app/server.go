@@ -376,9 +376,9 @@ func (s *Server) handleTaskSubroutes(w http.ResponseWriter, r *http.Request) {
 		}
 		switch parts[2] {
 		case "schedule.md":
-			s.serveMarkdown(w, r, task.SchedulePath)
+			s.serveTaskMarkdown(w, r, taskID, task.SchedulePath)
 		case "log.md":
-			s.serveMarkdown(w, r, task.LogPath)
+			s.serveTaskMarkdown(w, r, taskID, task.LogPath)
 		default:
 			writeError(w, http.StatusNotFound, "not found")
 		}
@@ -401,7 +401,7 @@ func (s *Server) handleTaskSubroutes(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "fruit.md 尚不存在")
 			return
 		}
-		s.serveMarkdown(w, r, tree.FruitPath)
+		s.serveTaskMarkdown(w, r, taskID, tree.FruitPath)
 		return
 	}
 
@@ -651,6 +651,33 @@ func containsString(items []string, target string) bool {
 		}
 	}
 	return false
+}
+
+func (s *Server) serveTaskMarkdown(w http.ResponseWriter, r *http.Request, taskID, path string) {
+	if !httpPathWithinRoot(s.store.forestDir(taskID), path) {
+		writeError(w, http.StatusForbidden, "只能读取当前任务目录内的报告文件")
+		return
+	}
+	s.serveMarkdown(w, r, path)
+}
+
+func httpPathWithinRoot(root, path string) bool {
+	if strings.TrimSpace(root) == "" || strings.TrimSpace(path) == "" {
+		return false
+	}
+	rootAbs, err := filepath.Abs(filepath.Clean(root))
+	if err != nil {
+		return false
+	}
+	pathAbs, err := filepath.Abs(filepath.Clean(path))
+	if err != nil {
+		return false
+	}
+	if pathAbs == rootAbs {
+		return true
+	}
+	rel, err := filepath.Rel(rootAbs, pathAbs)
+	return err == nil && rel != "." && !strings.HasPrefix(rel, "..") && !filepath.IsAbs(rel)
 }
 
 func (s *Server) serveMarkdown(w http.ResponseWriter, r *http.Request, path string) {
