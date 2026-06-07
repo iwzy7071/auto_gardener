@@ -439,6 +439,18 @@ func (s *Store) WriteSchedule(taskID, content string) error {
 	return nil
 }
 
+func (s *Store) AppendSchedule(taskID, content string) error {
+	t, ok := s.GetTask(taskID)
+	if !ok {
+		return ErrNotFound
+	}
+	if err := appendScheduleFile(t.SchedulePath, content); err != nil {
+		return err
+	}
+	s.events.Publish(taskID, t)
+	return nil
+}
+
 func (s *Store) publishLocked(taskID string) {
 	if s.events == nil {
 		return
@@ -643,6 +655,34 @@ func appendFile(path, s string) error {
 		return err
 	}
 	defer f.Close()
+	_, err = f.WriteString(s)
+	return err
+}
+
+func appendScheduleFile(path, s string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	if info.Size() > 0 {
+		var last [1]byte
+		if _, err := f.ReadAt(last[:], info.Size()-1); err != nil {
+			return err
+		}
+		if last[0] != '\n' {
+			if _, err := f.WriteString("\n"); err != nil {
+				return err
+			}
+		}
+	}
 	_, err = f.WriteString(s)
 	return err
 }
