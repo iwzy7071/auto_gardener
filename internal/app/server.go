@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -48,7 +49,46 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/api/dingtalk/robot", s.handleDingTalkRobot)
 	mux.HandleFunc("/api/tasks/", s.handleTaskSubroutes)
 	mux.HandleFunc("/", s.serveStaticApp)
-	return logRequests(mux)
+	return logRequests(rejectCrossOriginAPIWrites(mux))
+}
+
+func rejectCrossOriginAPIWrites(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if isUnsafeMethod(r.Method) && strings.HasPrefix(r.URL.Path, "/api/") && r.URL.Path != "/api/dingtalk/robot" {
+			if !requestHasSameOrigin(r) {
+				writeError(w, http.StatusForbidden, "跨站请求已被拒绝")
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func isUnsafeMethod(method string) bool {
+	switch method {
+	case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
+		return true
+	default:
+		return false
+	}
+}
+
+func requestHasSameOrigin(r *http.Request) bool {
+	if origin := strings.TrimSpace(r.Header.Get("Origin")); origin != "" {
+		return headerURLMatchesHost(origin, r.Host)
+	}
+	if referer := strings.TrimSpace(r.Header.Get("Referer")); referer != "" {
+		return headerURLMatchesHost(referer, r.Host)
+	}
+	return true
+}
+
+func headerURLMatchesHost(rawURL, host string) bool {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Host == "" {
+		return false
+	}
+	return strings.EqualFold(u.Host, host)
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
