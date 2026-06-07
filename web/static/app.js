@@ -1,5 +1,6 @@
 const state = { powerStatus: null, tasks: [], activeTaskId: null, eventSource: null, recoveryPoller: null, activeRefreshPoller: null, selectedForests: {}, selectedFileTree: {}, selectedFilePath: {}, selectedFileManual: {}, fileListFingerprint: {}, lastFileRefreshAt: {}, treeStatusExpanded: {}, usage: {}, usageFetchedAt: {}, usagePending: {}, renderCache: {}, pendingTaskRender: null, pendingTaskRenderFrame: 0, lastTaskListSig: '', lastHomeSig: '', activeReportText: '', fileViewerToken: 0, previewToken: 0, overviewCollapsed: loadOverviewCollapsed(), editingTitle: false, settings: loadSettings() };
 const $ = (id) => document.getElementById(id);
+const MAX_DASHBOARD_CUE_CHARS = 1000;
 
 const I18N = {
   'zh-CN': {
@@ -561,9 +562,14 @@ function renderTaskDashboard(task) {
     </div>
     <div class="dashboard-cue ${severity}">
       <span>${t('diagnosis')}</span>
-      <p>${escapeHTML(cue || t('askProgressSafe'))}</p>
+      <p>${escapeHTML(truncateDashboardCue(cue || t('askProgressSafe')))}</p>
     </div>
   `;
+}
+
+function truncateDashboardCue(content) {
+  const text = String(content || '');
+  return text.length > MAX_DASHBOARD_CUE_CHARS ? text.slice(0, MAX_DASHBOARD_CUE_CHARS) + '…' : text;
 }
 
 function humanizePhase(phase) {
