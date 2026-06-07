@@ -172,6 +172,6 @@ Write-Host "Gardener installed to $InstallDir" -ForegroundColor Green
 if ($Provision) {
   Write-Host "Remote URL: $($Provision.publicUrl)" -ForegroundColor Cyan
   Write-Host "Login user: $($Provision.webUsername)" -ForegroundColor Cyan
-  Write-Host "Login password: $($Provision.webPassword)" -ForegroundColor Cyan
+  Write-Host "Login password: stored in local relay configuration; do not share it." -ForegroundColor Cyan
 }
 if ($StartAfterInstall) { Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$StartScript`"" }
