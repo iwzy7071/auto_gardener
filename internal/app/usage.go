@@ -18,6 +18,8 @@ import (
 
 const pricingNote = "仅统计底层 CLI token 消耗和使用模型；界面不展示费用估算。"
 
+const maxModelPricesJSONBytes = 64 * 1024
+
 type usageLogEvent struct {
 	Time       time.Time `json:"time"`
 	TaskID     string    `json:"taskId"`
@@ -378,7 +380,7 @@ func modelPrices() map[string]ModelPrice {
 		"gpt-5.4-mini": {InputPerMTok: 0.75, CachedInputPerMTok: 0.075, OutputPerMTok: 4.50},
 	}
 	raw := strings.TrimSpace(os.Getenv("AUTO_GARDENER_MODEL_PRICES_JSON"))
-	if raw == "" {
+	if raw == "" || len(raw) > maxModelPricesJSONBytes {
 		return prices
 	}
 	var overrides map[string]ModelPrice
