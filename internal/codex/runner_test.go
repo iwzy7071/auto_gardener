@@ -32,3 +32,23 @@ func TestWithGoalEnvelope(t *testing.T) {
 		}
 	}
 }
+
+func TestModelBaseURLLengthLimit(t *testing.T) {
+	model := ModelConfig{
+		ProviderID:   "custom",
+		ProviderName: "Custom",
+		Model:        "model",
+		BaseURL:      "https://example.test/" + strings.Repeat("a", maxModelBaseURLLength),
+		EnvKey:       "CUSTOM_API_KEY",
+	}
+	args := strings.Join(appendModelArgs(nil, model), "\n")
+	if strings.Contains(args, "base_url") {
+		t.Fatalf("appendModelArgs accepted oversized base URL in:\n%s", args)
+	}
+
+	model.BaseURL = "https://example.test/" + strings.Repeat("a", maxModelBaseURLLength-len("https://example.test/"))
+	args = strings.Join(appendModelArgs(nil, model), "\n")
+	if !strings.Contains(args, "base_url=") {
+		t.Fatalf("appendModelArgs rejected boundary base URL in:\n%s", args)
+	}
+}

@@ -62,6 +62,8 @@ type ShellRunner struct {
 	ClaudeCommand string
 }
 
+const maxModelBaseURLLength = 2048
+
 func NewRunnerFromEnv() Runner {
 	if strings.EqualFold(strings.TrimSpace(os.Getenv("AUTO_GARDENER_RUNNER")), "mock") {
 		r := NewMockRunnerFromEnv()
@@ -318,7 +320,7 @@ func appendModelArgs(args []string, model ModelConfig) []string {
 	if value := strings.TrimSpace(model.ProviderName); value != "" {
 		args = append(args, "-c", prefix+"name="+tomlString(value))
 	}
-	if value := strings.TrimSpace(model.BaseURL); value != "" {
+	if value := strings.TrimSpace(model.BaseURL); value != "" && len(value) <= maxModelBaseURLLength {
 		args = append(args, "-c", prefix+"base_url="+tomlString(value))
 	}
 	if value := strings.TrimSpace(model.EnvKey); value != "" {
