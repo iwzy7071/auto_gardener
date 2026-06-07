@@ -1,6 +1,7 @@
 package app
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -48,7 +49,43 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/api/dingtalk/robot", s.handleDingTalkRobot)
 	mux.HandleFunc("/api/tasks/", s.handleTaskSubroutes)
 	mux.HandleFunc("/", s.serveStaticApp)
-	return logRequests(mux)
+	return logRequests(requireAPIToken(mux))
+}
+
+func requireAPIToken(next http.Handler) http.Handler {
+	token := strings.TrimSpace(os.Getenv("AUTO_GARDENER_AUTH_TOKEN"))
+	if token == "" {
+		return next
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasPrefix(r.URL.Path, "/api/") || r.URL.Path == "/api/health" || r.URL.Path == "/api/dingtalk/robot" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if !requestHasAPIToken(r, token) {
+			w.Header().Set("WWW-Authenticate", `Bearer realm="auto_gardener"`)
+			writeError(w, http.StatusUnauthorized, "缺少或无效的访问 token")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func requestHasAPIToken(r *http.Request, expected string) bool {
+	provided := strings.TrimSpace(r.Header.Get("X-Auto-Gardener-Token"))
+	if provided == "" {
+		auth := strings.TrimSpace(r.Header.Get("Authorization"))
+		if strings.HasPrefix(strings.ToLower(auth), "bearer ") {
+			provided = strings.TrimSpace(auth[7:])
+		}
+	}
+	if provided == "" {
+		provided = strings.TrimSpace(r.URL.Query().Get("authToken"))
+	}
+	if provided == "" || len(provided) != len(expected) {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(provided), []byte(expected)) == 1
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {

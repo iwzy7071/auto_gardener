@@ -1,5 +1,46 @@
-const state = { powerStatus: null, tasks: [], activeTaskId: null, eventSource: null, recoveryPoller: null, activeRefreshPoller: null, selectedForests: {}, selectedFileTree: {}, selectedFilePath: {}, selectedFileManual: {}, fileListFingerprint: {}, lastFileRefreshAt: {}, treeStatusExpanded: {}, usage: {}, usageFetchedAt: {}, usagePending: {}, renderCache: {}, pendingTaskRender: null, pendingTaskRenderFrame: 0, lastTaskListSig: '', lastHomeSig: '', activeReportText: '', fileViewerToken: 0, previewToken: 0, overviewCollapsed: loadOverviewCollapsed(), editingTitle: false, settings: loadSettings() };
+const state = { authToken: loadAuthToken(), powerStatus: null, tasks: [], activeTaskId: null, eventSource: null, recoveryPoller: null, activeRefreshPoller: null, selectedForests: {}, selectedFileTree: {}, selectedFilePath: {}, selectedFileManual: {}, fileListFingerprint: {}, lastFileRefreshAt: {}, treeStatusExpanded: {}, usage: {}, usageFetchedAt: {}, usagePending: {}, renderCache: {}, pendingTaskRender: null, pendingTaskRenderFrame: 0, lastTaskListSig: '', lastHomeSig: '', activeReportText: '', fileViewerToken: 0, previewToken: 0, overviewCollapsed: loadOverviewCollapsed(), editingTitle: false, settings: loadSettings() };
 const $ = (id) => document.getElementById(id);
+
+function captureAuthTokenFromURL() {
+  try {
+    const url = new URL(window.location.href);
+    const hashParams = new URLSearchParams(url.hash.startsWith('#') ? url.hash.slice(1) : url.hash);
+    const token = url.searchParams.get('authToken') || hashParams.get('authToken');
+    if (token) {
+      localStorage.setItem('autoGardenerAuthToken', token);
+      url.searchParams.delete('authToken');
+      if (hashParams.has('authToken')) {
+        hashParams.delete('authToken');
+        url.hash = hashParams.toString();
+      }
+      history.replaceState(null, '', url.pathname + url.search + url.hash);
+      return token;
+    }
+  } catch {}
+  return '';
+}
+
+function loadAuthToken() {
+  const captured = captureAuthTokenFromURL();
+  if (captured) return captured;
+  try { return localStorage.getItem('autoGardenerAuthToken') || ''; } catch { return ''; }
+}
+
+function authHeaders() {
+  return state.authToken ? { Authorization: `Bearer ${state.authToken}` } : {};
+}
+
+function withAuthTokenURL(path) {
+  if (!state.authToken) return path;
+  try {
+    const url = new URL(path, window.location.origin);
+    url.searchParams.set('authToken', state.authToken);
+    return url.pathname + url.search + url.hash;
+  } catch {
+    const sep = path.includes('?') ? '&' : '?';
+    return `${path}${sep}authToken=${encodeURIComponent(state.authToken)}`;
+  }
+}
 
 const I18N = {
   'zh-CN': {
@@ -28,7 +69,7 @@ function applyI18n() {
 }
 
 async function api(path, options = {}) {
-  const res = await fetch(path, { headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }, ...options });
+  const res = await fetch(path, { headers: { 'Content-Type': 'application/json', ...authHeaders(), ...(options.headers || {}) }, ...options });
   if (!res.ok) {
     let msg = `HTTP ${res.status}`;
     try { msg = (await res.json()).error || msg; } catch {}
@@ -38,7 +79,7 @@ async function api(path, options = {}) {
 }
 
 async function fetchText(path) {
-  const res = await fetch(path);
+  const res = await fetch(path, { headers: authHeaders() });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const buf = await res.arrayBuffer();
   return decodeTextBuffer(buf);
@@ -410,7 +451,7 @@ function connectEvents(taskId) {
   state.activeRefreshPoller = setInterval(() => {
     if (state.activeTaskId === taskId && !document.hidden) loadActiveTask(true);
   }, viewportRefreshMs());
-  const es = new EventSource(`/api/tasks/${taskId}/events`);
+  const es = new EventSource(withAuthTokenURL(`/api/tasks/${taskId}/events`));
   state.eventSource = es;
   es.addEventListener('open', () => setConnected(true));
   es.addEventListener('task', (ev) => {
@@ -1119,7 +1160,7 @@ async function previewFile(taskId, path, renderToken = 0) {
   preview.textContent = t('loadingFiles');
   try {
     if (isBinaryPreviewPath(path)) {
-      const href = `/api/tasks/${taskId}/files?path=${encodeURIComponent(path)}&download=1`;
+      const href = withAuthTokenURL(`/api/tasks/${taskId}/files?path=${encodeURIComponent(path)}&download=1`);
       if (state.activeTaskId !== taskId || previewToken !== state.previewToken || (renderToken && renderToken !== state.fileViewerToken)) return;
       preview.className = 'file-preview plain-preview';
       preview.innerHTML = `<div class="file-empty">${escapeHTML(t('binaryFile'))}<br><br><a class="primary small" href="${href}" target="_blank" rel="noopener">${escapeHTML(t('downloadFile'))}</a></div>`;
@@ -1299,13 +1340,13 @@ function renderTrees(task) {
 }
 
 function setTaskReportLink(anchor, url, title) {
-  anchor.href = url;
+  anchor.href = withAuthTokenURL(url);
   anchor.onclick = e => { e.preventDefault(); openReport(url, title); };
 }
 
 function setFruitLink(anchor, taskId, tree) {
   const url = `/api/tasks/${taskId}/trees/${tree.id}/fruit.md`;
-  anchor.href = url;
+  anchor.href = withAuthTokenURL(url);
   anchor.removeAttribute('target');
   anchor.removeAttribute('rel');
   if (!tree.fruitPath) {
