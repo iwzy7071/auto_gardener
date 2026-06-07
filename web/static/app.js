@@ -750,10 +750,15 @@ function setSelectedForest(task, forestNo) {
 }
 
 
+function isValidDeleteTaskResponse(data) {
+  return !!data && typeof data === 'object' && data.deleted === true;
+}
+
 async function deleteTask(taskId) {
   if (!confirm(t('deleteConfirm'))) return;
   try {
-    await api(`/api/tasks/${taskId}`, { method:'DELETE' });
+    const data = await api(`/api/tasks/${taskId}`, { method:'DELETE' });
+    if (!isValidDeleteTaskResponse(data)) throw new Error('Invalid delete response');
     state.tasks = state.tasks.filter(task => task.id !== taskId);
     if (state.activeTaskId === taskId) backToList({ replaceRoute: true });
     renderTaskList();
@@ -1620,7 +1625,7 @@ $('sendMessageBtn').onclick = async () => {
 };
 $('resumeTaskBtn').onclick = resumeActiveTask;
 $('stopTaskBtn').onclick = async () => { if (!state.activeTaskId) return; if (!confirm(t('stopConfirm'))) return; $('stopTaskBtn').disabled = true; try { await api(`/api/tasks/${state.activeTaskId}/stop`, { method:'POST', body:'{}' }); } catch(err){ alert(err.message); } };
-$('deleteTaskBtn').onclick = async () => { if (!state.activeTaskId) return; if (!confirm(t('deleteConfirm'))) return; const deleted = state.activeTaskId; $('deleteTaskBtn').disabled = true; try { await api(`/api/tasks/${deleted}`, { method:'DELETE' }); state.tasks = state.tasks.filter(t => t.id !== deleted); backToList({ replaceRoute: true }); renderTaskList(); renderHomeGarden(); } catch(err){ alert((t('deleteFailed') || 'Delete failed: ') + err.message); } finally { $('deleteTaskBtn').disabled = false; } };
+$('deleteTaskBtn').onclick = async () => { if (!state.activeTaskId) return; if (!confirm(t('deleteConfirm'))) return; const deleted = state.activeTaskId; $('deleteTaskBtn').disabled = true; try { const data = await api(`/api/tasks/${deleted}`, { method:'DELETE' }); if (!isValidDeleteTaskResponse(data)) throw new Error('Invalid delete response'); state.tasks = state.tasks.filter(t => t.id !== deleted); backToList({ replaceRoute: true }); renderTaskList(); renderHomeGarden(); } catch(err){ alert((t('deleteFailed') || 'Delete failed: ') + err.message); } finally { $('deleteTaskBtn').disabled = false; } };
 $('renameTaskBtn').addEventListener('mousedown', e => { if (state.editingTitle) e.preventDefault(); });
 $('renameTaskBtn').onclick = () => { state.editingTitle ? commitTitleEdit() : beginTitleEdit(); };
 $('pageTitle').ondblclick = beginTitleEdit;
