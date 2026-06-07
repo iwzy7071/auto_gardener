@@ -982,6 +982,18 @@ function isActiveFileRender(taskId, token) {
   return state.activeTaskId === taskId && (!token || token === state.fileViewerToken);
 }
 
+function isValidFileListResponse(data) {
+  const files = data?.files;
+  if (!Array.isArray(files) || files.length > 1000) return false;
+  for (const file of files) {
+    if (!file || typeof file !== 'object' || Array.isArray(file)) return false;
+    if (typeof file.path !== 'string' || !file.path) return false;
+    if (file.size !== undefined && (typeof file.size !== 'number' || !Number.isFinite(file.size) || file.size < 0)) return false;
+    if (file.modTime !== undefined && typeof file.modTime !== 'string') return false;
+  }
+  return true;
+}
+
 function fileListFingerprint(files) {
   return (files || []).map(f => `${f.path}:${f.size || 0}:${f.modTime || ''}`).join('|');
 }
@@ -1066,7 +1078,8 @@ async function renderFileViewer(task) {
     const qs = params.toString() ? `?${params.toString()}` : '';
     const data = await api(`/api/tasks/${task.id}/files${qs}`);
     if (!isActiveFileRender(task.id, token)) return;
-    const files = data.files || [];
+    if (!isValidFileListResponse(data)) throw new Error('Invalid file list response');
+    const files = data.files;
     fileSelect.innerHTML = '';
     if (!files.length) {
       const opt = document.createElement('option');
