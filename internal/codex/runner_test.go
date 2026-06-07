@@ -1,6 +1,8 @@
 package codex
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -30,5 +32,20 @@ func TestWithGoalEnvelope(t *testing.T) {
 		if !strings.Contains(prompt, want) {
 			t.Fatalf("goal envelope missing %q in:\n%s", want, prompt)
 		}
+	}
+}
+
+func TestReadLimitedOutputFileRejectsOversizedFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "output.txt")
+	if err := os.WriteFile(path, []byte("abcdef"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	got, ok, err := readLimitedOutputFile(path, 6)
+	if err != nil || !ok || got != "abcdef" {
+		t.Fatalf("readLimitedOutputFile small = %q, %v, %v", got, ok, err)
+	}
+	_, ok, err = readLimitedOutputFile(path, 5)
+	if err == nil || ok {
+		t.Fatalf("readLimitedOutputFile oversized ok=%v err=%v, want error", ok, err)
 	}
 }

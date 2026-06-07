@@ -62,6 +62,8 @@ type ShellRunner struct {
 	ClaudeCommand string
 }
 
+const maxOutputFileBytes = 1024 * 1024
+
 func NewRunnerFromEnv() Runner {
 	if strings.EqualFold(strings.TrimSpace(os.Getenv("AUTO_GARDENER_RUNNER")), "mock") {
 		r := NewMockRunnerFromEnv()
@@ -211,12 +213,15 @@ func (r ShellRunner) runCodex(ctx context.Context, req RunRequest) RunResult {
 	output := out.String()
 	mu.Unlock()
 	if req.OutputFile != "" {
-		if b, readErr := os.ReadFile(req.OutputFile); readErr == nil && len(b) > 0 {
+		fileOutput, ok, readErr := readLimitedOutputFile(req.OutputFile, maxOutputFileBytes)
+		if readErr != nil && err == nil {
+			err = readErr
+		} else if ok {
 			// The Codex final message is the authoritative output. stdout/stderr is
 			// already streamed through OnLine into log.md/progress.log. Keeping only
 			// the final message here prevents Gardener JSON parsing from being polluted
 			// by CLI progress text.
-			output = string(b)
+			output = fileOutput
 		}
 	}
 	return RunResult{Output: output, Err: err}
@@ -300,6 +305,28 @@ func (r ShellRunner) runClaude(ctx context.Context, req RunRequest) RunResult {
 		_ = os.WriteFile(req.OutputFile, []byte(output), 0644)
 	}
 	return RunResult{Output: output, Err: err}
+}
+
+func readLimitedOutputFile(path string, maxBytes int64) (string, bool, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", false, nil
+		}
+		return "", false, err
+	}
+	defer f.Close()
+	data, err := io.ReadAll(io.LimitReader(f, maxBytes+1))
+	if err != nil {
+		return "", false, err
+	}
+	if int64(len(data)) > maxBytes {
+		return "", false, fmt.Errorf("codex output file is too large")
+	}
+	if len(data) == 0 {
+		return "", false, nil
+	}
+	return string(data), true, nil
 }
 
 func appendModelArgs(args []string, model ModelConfig) []string {
