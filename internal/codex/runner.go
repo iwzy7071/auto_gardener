@@ -444,6 +444,9 @@ func resolveCommand(command, label, envVar string) (string, []string, error) {
 		return path, env, nil
 	}
 	if filepath.IsAbs(command) || strings.ContainsAny(command, `/\`) {
+		if !filepath.IsAbs(command) {
+			return "", env, fmt.Errorf("%s 命令路径必须是绝对路径：%q", label, command)
+		}
 		if st, err := os.Stat(command); err == nil && !st.IsDir() {
 			return command, env, nil
 		}

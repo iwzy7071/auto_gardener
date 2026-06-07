@@ -32,3 +32,10 @@ func TestWithGoalEnvelope(t *testing.T) {
 		}
 	}
 }
+
+func TestResolveCommandRejectsRelativePaths(t *testing.T) {
+	_, _, err := resolveCommand("./codex", "Codex CLI", "AUTO_GARDENER_CODEX_CMD")
+	if err == nil || !strings.Contains(err.Error(), "绝对路径") {
+		t.Fatalf("expected relative command path to be rejected, got %v", err)
+	}
+}
