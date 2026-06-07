@@ -7,6 +7,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
+$MaxPathLength = 8192
 $Exe = Join-Path $Root "gardener.exe"
 $Config = Join-Path $Root "gardener.config.ps1"
 $RelayJson = Join-Path $Root "gardener.relay.json"
@@ -59,7 +60,12 @@ try {
   Write-Host "Warning: could not unblock downloaded Gardener files: $_" -ForegroundColor Yellow
 }
 
-$env:PATH = "$env:APPDATA\npm;$env:ProgramFiles\nodejs;${env:ProgramFiles(x86)}\nodejs;$env:PATH"
+$existingPath = [string]$env:PATH
+if ($existingPath.Length -gt $MaxPathLength) {
+  Write-Host "Warning: PATH is too long; not inheriting the existing PATH." -ForegroundColor Yellow
+  $existingPath = ""
+}
+$env:PATH = "$env:APPDATA\npm;$env:ProgramFiles\nodejs;${env:ProgramFiles(x86)}\nodejs;$existingPath"
 if (-not $env:AUTO_GARDENER_ADDR) { $env:AUTO_GARDENER_ADDR = $Addr }
 if (-not $env:AUTO_GARDENER_STATIC) { $env:AUTO_GARDENER_STATIC = Join-Path $Root "web\static" }
 if (-not $env:AUTO_GARDENER_DATA) { $env:AUTO_GARDENER_DATA = Join-Path ([Environment]::GetFolderPath("Desktop")) "forest_data" }
