@@ -21,7 +21,7 @@ function Test-GardenerPlaceholderUrl([string]$Url) {
 
 function Invoke-GardenerDownload($Uri, $OutFile) {
   Write-Host "Downloading $Uri" -ForegroundColor Green
-  Invoke-WebRequest -Uri $Uri -OutFile $OutFile
+  Invoke-WebRequest -Uri $Uri -OutFile $OutFile -TimeoutSec 120
   Unblock-GardenerPath -Path $OutFile
 }
 
