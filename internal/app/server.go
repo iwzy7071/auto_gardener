@@ -36,7 +36,16 @@ type Server struct {
 }
 
 func NewServer(store *Store, orchestrator *Orchestrator, staticDir string, events *EventHub) *Server {
-	return &Server{store: store, orchestrator: orchestrator, staticDir: staticDir, events: events, dingTalkSessions: make(map[string]string), httpClient: &http.Client{Timeout: 10 * time.Second}}
+	return &Server{store: store, orchestrator: orchestrator, staticDir: staticDir, events: events, dingTalkSessions: make(map[string]string), httpClient: newDingTalkHTTPClient()}
+}
+
+func newDingTalkHTTPClient() *http.Client {
+	return &http.Client{
+		Timeout: 10 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
 }
 
 func (s *Server) Routes() http.Handler {
