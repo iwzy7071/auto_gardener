@@ -2,6 +2,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 uid="$(id -u)"
+RELAY_CONFIG_MAX_BYTES=$((64 * 1024))
 
 check_power_warning() {
   if ! command -v pmset >/dev/null 2>&1; then
@@ -37,12 +38,17 @@ if [[ -f "$ROOT/frpc.toml" && -f "$HOME/Library/LaunchAgents/com.gardener.relay.
 fi
 url="http://127.0.0.1:8080"
 if [[ -f "$ROOT/gardener.relay.json" ]]; then
-  u="$(python3 - "$ROOT/gardener.relay.json" <<'PY'
+  relay_config_size="$(wc -c < "$ROOT/gardener.relay.json" | tr -d '[:space:]')"
+  if [[ "$relay_config_size" -le "$RELAY_CONFIG_MAX_BYTES" ]]; then
+    u="$(python3 - "$ROOT/gardener.relay.json" <<'PY'
 import json,sys
 print(json.load(open(sys.argv[1])).get('publicUrl',''))
 PY
 )"
-  [[ -n "$u" ]] && url="$u"
+    [[ -n "$u" ]] && url="$u"
+  else
+    echo "Warning: relay config is too large; opening local URL instead." >&2
+  fi
 fi
 open "$url" >/dev/null 2>&1 || true
 echo "Gardener started: $url"
