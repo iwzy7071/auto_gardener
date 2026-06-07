@@ -32,3 +32,19 @@ func TestWithGoalEnvelope(t *testing.T) {
 		}
 	}
 }
+
+func TestWindowsNPMDirsSkipsRelativePrefixes(t *testing.T) {
+	t.Setenv("NPM_CONFIG_PREFIX", "relative-npm")
+	t.Setenv("npm_config_prefix", "./also-relative")
+	t.Setenv("APPDATA", "")
+	t.Setenv("USERPROFILE", "")
+	t.Setenv("LOCALAPPDATA", "")
+	t.Setenv("ProgramFiles", "")
+	t.Setenv("ProgramFiles(x86)", "")
+
+	for _, dir := range windowsNPMDirs() {
+		if dir == "relative-npm" || dir == "./also-relative" {
+			t.Fatalf("relative npm prefix should not be trusted: %#v", windowsNPMDirs())
+		}
+	}
+}

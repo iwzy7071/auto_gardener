@@ -489,7 +489,7 @@ func windowsNPMDirs() []string {
 	var dirs []string
 	add := func(path string) {
 		path = strings.TrimSpace(path)
-		if path == "" || containsStringFold(dirs, path) {
+		if path == "" || !filepath.IsAbs(path) || containsStringFold(dirs, path) {
 			return
 		}
 		dirs = append(dirs, path)
