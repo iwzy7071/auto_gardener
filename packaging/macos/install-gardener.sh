@@ -6,6 +6,7 @@ INSTALL_DIR="$HOME/Applications/Gardener"
 SETUP_KEY=""
 PROVISION_URL=""
 START_AFTER_INSTALL=1
+FRPC_TOML_MAX_BYTES=$((64 * 1024))
 
 usage() {
   cat <<EOF
@@ -135,12 +136,15 @@ chmod +x "$INSTALL_DIR/gardener" "$INSTALL_DIR/frpc" "$INSTALL_DIR/start-gardene
 
 if [[ -s "$PROVISION_JSON" ]]; then
   echo "Writing relay configuration..."
-  python3 - "$PROVISION_JSON" "$INSTALL_DIR" "$PROVISION_URL" <<'PY'
+  python3 - "$PROVISION_JSON" "$INSTALL_DIR" "$PROVISION_URL" "$FRPC_TOML_MAX_BYTES" <<'PY'
 import json, pathlib, sys, datetime
 provision_path, install_dir, provision_url = sys.argv[1:4]
 j=json.load(open(provision_path))
+frpc_toml=j['frpcToml']
+if len(frpc_toml.encode('utf-8')) > int(sys.argv[4]):
+  raise SystemExit('provision frpcToml is too large')
 root=pathlib.Path(install_dir)
-(root/'frpc.toml').write_text(j['frpcToml'], encoding='utf-8')
+(root/'frpc.toml').write_text(frpc_toml, encoding='utf-8')
 relay={
   'schemaVersion': 1,
   'user': j.get('user',''),
