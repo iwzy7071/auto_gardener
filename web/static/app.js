@@ -473,7 +473,7 @@ function renderTask(task, options = {}) {
     cache.chromeSig = chromeSig;
     if (!state.editingTitle) $('pageTitle').textContent = task.title;
     $('forestStatus').textContent = statusText(task.status);
-    $('forestStatus').className = 'status-pill ' + task.status;
+    $('forestStatus').className = 'status-pill ' + statusClass(task.status);
     setTaskReportLink($('scheduleLink'), `/api/tasks/${task.id}/gardener/schedule.md`, t('taskPlan'));
     setTaskReportLink($('logLink'), `/api/tasks/${task.id}/gardener/log.md`, t('workRecord'));
     $('stopTaskBtn').disabled = task.status === 'Finished';
@@ -609,7 +609,7 @@ function renderOverviewMini(task) {
   const tokenLabel = tokens ? formatTokenCount(tokens) : '—';
   panel.innerHTML = `
     <span class="overview-mini-title">${t('overview')}</span>
-    <span class="overview-mini-chip ${task.status || 'Running'}">${t('gardenerProgress')} · ${progressLabel}</span>
+    <span class="overview-mini-chip ${statusClass(task.status)}">${t('gardenerProgress')} · ${progressLabel}</span>
     <span class="overview-mini-chip">${t('tokenUsage')} · ${tokenLabel}</span>
     <span class="overview-mini-chip">${t('treeStatus')} · ${statusText('Running')} ${running} / ${statusText('Finished')} ${finished}</span>
   `;
@@ -941,7 +941,7 @@ function renderTreeStatus(task) {
   const expanded = !!state.treeStatusExpanded[key];
   const running = forest.items.filter(tree => tree.status !== 'Finished').length;
   const finished = forest.items.length - running;
-  const dots = forest.items.slice(0, 24).map(tree => `<span class="tree-mini-dot ${tree.status || 'Running'}${tree.isValidation ? ' validation' : ''}" title="${escapeHTML(humanizeText(tree.name || t('subtask')))}"></span>`).join('');
+  const dots = forest.items.slice(0, 24).map(tree => `<span class="tree-mini-dot ${statusClass(tree.status)}${tree.isValidation ? ' validation' : ''}" title="${escapeHTML(humanizeText(tree.name || t('subtask')))}"></span>`).join('');
   panel.className = `tree-status-panel compact${expanded ? ' expanded' : ''}`;
   panel.innerHTML = `
     <div class="tree-status-main">
@@ -956,7 +956,7 @@ function renderTreeStatus(task) {
   if (!expanded) return;
   forest.items.forEach(tree => {
     const item = document.createElement('div');
-    item.className = `tree-status-chip ${tree.status || 'Running'}${tree.isValidation ? ' validation' : ''}`;
+    item.className = `tree-status-chip ${statusClass(tree.status)}${tree.isValidation ? ' validation' : ''}`;
     const name = humanizeText(tree.name || (tree.isValidation ? t('validationTeam') : t('subtask')));
     item.innerHTML = `<span class="tree-dot"></span><span class="tree-status-name">${escapeHTML(name)}</span><span class="tree-status-pill">${statusText(tree.status)}</span>`;
     list.appendChild(item);
@@ -1288,7 +1288,7 @@ function renderTrees(task) {
     node.querySelector('.tree-badge').textContent = tree.isValidation ? 'V' : 'T';
     node.querySelector('h4').textContent = humanizeText(tree.name);
     node.querySelector('p').textContent = tree.isValidation ? t('validationTeam') : t('team');
-    const pill = node.querySelector('.status-pill'); pill.textContent = statusText(tree.status); pill.className = 'status-pill ' + tree.status;
+    const pill = node.querySelector('.status-pill'); pill.textContent = statusText(tree.status); pill.className = 'status-pill ' + statusClass(tree.status);
     const scopeText = [(tree.scope || []).join(' / '), tree.objective || ''].filter(Boolean).join('\n');
     node.querySelector('.scope').textContent = humanizeText(scopeText || '等待 Gardener 分配范围');
     const ul = node.querySelector('ul');
@@ -1481,6 +1481,7 @@ function inline(s) {
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
 }
 
+function statusClass(status) { return status === 'Finished' ? 'Finished' : 'Running'; }
 function statusText(status) { return status === 'Finished' ? t('done') : t('inProgress'); }
 
 function humanizeText(s) {
