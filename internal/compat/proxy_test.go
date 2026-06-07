@@ -1,8 +1,10 @@
 package compat
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -52,5 +54,19 @@ func TestNormalizeChatMessagesMergesSystem(t *testing.T) {
 	}
 	if got[1].Role != "user" {
 		t.Fatalf("unexpected second message: %#v", got[1])
+	}
+}
+
+func TestValidateFunctionCallNamesRejectsInvalidNames(t *testing.T) {
+	cases := []string{"", strings.Repeat("a", 65), "bad name", "bad.name", "工具"}
+	for _, name := range cases {
+		raw := json.RawMessage(`[{"type":"function_call","name":` + strconv.Quote(name) + `}]`)
+		if err := validateFunctionCallNames(raw); err == nil {
+			t.Fatalf("validateFunctionCallNames accepted %q", name)
+		}
+	}
+	raw := json.RawMessage(`[{"type":"function_call","name":"valid_tool-1"}]`)
+	if err := validateFunctionCallNames(raw); err != nil {
+		t.Fatalf("validateFunctionCallNames rejected valid name: %v", err)
 	}
 }

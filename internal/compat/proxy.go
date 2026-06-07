@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode"
 )
 
 type Proxy struct {
@@ -81,6 +82,10 @@ func (p *Proxy) handle(w http.ResponseWriter, r *http.Request) {
 	var req responseRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeProxyError(w, http.StatusBadRequest, "invalid responses request")
+		return
+	}
+	if err := validateFunctionCallNames(req.Input); err != nil {
+		writeProxyError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if err := p.forwardChatStream(w, r, spec, token, req); err != nil {
@@ -262,6 +267,34 @@ type responseInputItem struct {
 	Name      string          `json:"name,omitempty"`
 	Arguments string          `json:"arguments,omitempty"`
 	Output    string          `json:"output,omitempty"`
+}
+
+func validateFunctionCallNames(raw json.RawMessage) error {
+	if len(raw) == 0 || raw[0] != '[' {
+		return nil
+	}
+	var items []responseInputItem
+	if err := json.Unmarshal(raw, &items); err != nil {
+		return nil
+	}
+	for _, item := range items {
+		if item.Type == "function_call" && !validCompatFunctionName(item.Name) {
+			return fmt.Errorf("invalid function call name")
+		}
+	}
+	return nil
+}
+
+func validCompatFunctionName(name string) bool {
+	if name == "" || len(name) > 64 {
+		return false
+	}
+	for _, r := range name {
+		if r > unicode.MaxASCII || !(unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' || r == '-') {
+			return false
+		}
+	}
+	return true
 }
 
 func contentText(raw json.RawMessage) string {
