@@ -59,7 +59,7 @@ func (o *Orchestrator) newUsageRecorder(taskID, runID, sourceType, sourceID, sou
 		runID:      runID,
 		sourceType: sourceType,
 		sourceID:   sourceID,
-		sourceName: sourceName,
+		sourceName: safeUsageSourceName(sourceType),
 	}
 }
 
@@ -176,11 +176,7 @@ func parseLegacyUsage(task *Task, forestDir string) []TokenUsageRecord {
 			continue
 		}
 		path := filepath.Join(forestDir, "trees", tr.ID, "progress.log")
-		name := tr.Name
-		if name == "" {
-			name = "Tree"
-		}
-		records = append(records, parseLegacyUsageFile(task.ID, path, "tree", tr.ID, name)...)
+		records = append(records, parseLegacyUsageFile(task.ID, path, "tree", tr.ID, safeUsageSourceName("tree"))...)
 	}
 	return records
 }
@@ -253,6 +249,17 @@ func consumeUsageLine(st *usageStreamState, line string, when time.Time, taskID 
 	return TokenUsageRecord{}, false
 }
 
+func safeUsageSourceName(sourceType string) string {
+	switch strings.ToLower(strings.TrimSpace(sourceType)) {
+	case "gardener":
+		return "Gardener"
+	case "tree":
+		return "Tree"
+	default:
+		return "Agent"
+	}
+}
+
 func buildUsageRecord(st *usageStreamState, taskID string, total int64, when time.Time) TokenUsageRecord {
 	model := st.model
 	if model == "" {
@@ -271,7 +278,7 @@ func buildUsageRecord(st *usageStreamState, taskID string, total int64, when tim
 		RunID:             runID,
 		SourceType:        firstNonEmpty(st.sourceType, "agent"),
 		SourceID:          st.sourceID,
-		SourceName:        firstNonEmpty(st.sourceName, st.sourceType),
+		SourceName:        safeUsageSourceName(st.sourceType),
 		Model:             model,
 		TotalTokens:       total,
 		InputTokens:       st.inputTokens,
