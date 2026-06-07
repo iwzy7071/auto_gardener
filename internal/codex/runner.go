@@ -15,6 +15,8 @@ import (
 	"time"
 )
 
+const maxRunnerOutputFileBytes int64 = 2 * 1024 * 1024
+
 type ModelConfig struct {
 	ProviderID   string
 	ProviderName string
@@ -211,12 +213,14 @@ func (r ShellRunner) runCodex(ctx context.Context, req RunRequest) RunResult {
 	output := out.String()
 	mu.Unlock()
 	if req.OutputFile != "" {
-		if b, readErr := os.ReadFile(req.OutputFile); readErr == nil && len(b) > 0 {
+		if b, readErr := readRunnerOutputFile(req.OutputFile); readErr == nil && len(b) > 0 {
 			// The Codex final message is the authoritative output. stdout/stderr is
 			// already streamed through OnLine into log.md/progress.log. Keeping only
 			// the final message here prevents Gardener JSON parsing from being polluted
 			// by CLI progress text.
 			output = string(b)
+		} else if readErr != nil && err == nil {
+			err = readErr
 		}
 	}
 	return RunResult{Output: output, Err: err}
@@ -417,6 +421,22 @@ func ensureNoProxyKey(env []string, key, host string) []string {
 		}
 	}
 	return append(env, key+"="+host)
+}
+
+func readRunnerOutputFile(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	b, err := io.ReadAll(io.LimitReader(f, maxRunnerOutputFileBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(b)) > maxRunnerOutputFileBytes {
+		return nil, fmt.Errorf("runner output file too large")
+	}
+	return b, nil
 }
 
 func envListContains(value, target string) bool {
