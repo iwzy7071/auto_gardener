@@ -202,15 +202,9 @@ func (s *Server) dingTalkTaskStatus(taskID string) string {
 	if task.LastProgressAt != nil {
 		b.WriteString("\n最近进展时间：" + task.LastProgressAt.Format("2006-01-02 15:04:05"))
 	}
-	progress := append([]string(nil), task.GardenerProgress...)
-	if len(progress) > 4 {
-		progress = progress[len(progress)-4:]
-	}
-	if len(progress) > 0 {
-		b.WriteString("\n最近进展：")
-		for _, line := range progress {
-			b.WriteString("\n- " + line)
-		}
+	progressCount := len(task.GardenerProgress)
+	if progressCount > 0 {
+		b.WriteString(fmt.Sprintf("\n最近进展：已有 %d 条更新。", progressCount))
 	}
 	if task.Status == StatusFinished {
 		b.WriteString("\n如未完成，可发送：继续")
