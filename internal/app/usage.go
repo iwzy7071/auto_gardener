@@ -18,6 +18,8 @@ import (
 
 const pricingNote = "仅统计底层 CLI token 消耗和使用模型；界面不展示费用估算。"
 
+const maxAggregateUsageTasks = 200
+
 type usageLogEvent struct {
 	Time       time.Time `json:"time"`
 	TaskID     string    `json:"taskId"`
@@ -123,6 +125,9 @@ func (s *Store) TaskUsage(taskID string) (TokenUsageSummary, error) {
 
 func (s *Store) AllUsage() []TokenUsageSummary {
 	tasks := s.ListTasks()
+	if len(tasks) > maxAggregateUsageTasks {
+		tasks = tasks[:maxAggregateUsageTasks]
+	}
 	out := make([]TokenUsageSummary, 0, len(tasks))
 	for _, task := range tasks {
 		summary, err := s.TaskUsage(task.ID)
