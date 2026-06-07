@@ -6,6 +6,28 @@ FRP_VERSION="${FRP_VERSION:-0.52.3}"
 ARCHES="${ARCHES:-arm64 amd64}"
 mkdir -p "$OUT_DIR"
 
+verify_sha256() {
+  local file="$1" expected="$2" label="$3"
+  if [[ -z "$expected" ]]; then
+    echo "Missing SHA256 for $label; set FRPC_SHA256_DARWIN_ARM64 / FRPC_SHA256_DARWIN_AMD64 before DOWNLOAD_FRPC=1." >&2
+    exit 1
+  fi
+  local actual
+  actual="$(sha256sum "$file" | awk '{print $1}')"
+  if [[ "${actual,,}" != "${expected,,}" ]]; then
+    echo "SHA256 mismatch for $label: expected $expected, got $actual" >&2
+    exit 1
+  fi
+}
+
+frpc_sha256_for_arch() {
+  case "$1" in
+    arm64) printf '%s' "${FRPC_SHA256_DARWIN_ARM64:-}" ;;
+    amd64) printf '%s' "${FRPC_SHA256_DARWIN_AMD64:-}" ;;
+    *) printf '' ;;
+  esac
+}
+
 fetch_frpc() {
   local arch="$1"
   local cache="packaging/macos/frpc-darwin-${arch}"
@@ -19,10 +41,8 @@ fetch_frpc() {
   local url="https://github.com/fatedier/frp/releases/download/v${FRP_VERSION}/frp_${FRP_VERSION}_darwin_${url_arch}.tar.gz"
   if [[ "${DOWNLOAD_FRPC:-0}" == "1" ]]; then
     echo "Downloading frpc for darwin/$arch from $url" >&2
-    if ! curl -L --fail --connect-timeout 20 --max-time 240 -o "$tmp/frp.tgz" "$url"; then
-      url="https://gh-proxy.com/https://github.com/fatedier/frp/releases/download/v${FRP_VERSION}/frp_${FRP_VERSION}_darwin_${url_arch}.tar.gz"
-      curl -L --fail --connect-timeout 20 --max-time 240 -o "$tmp/frp.tgz" "$url"
-    fi
+    curl -L --fail --connect-timeout 20 --max-time 240 -o "$tmp/frp.tgz" "$url"
+    verify_sha256 "$tmp/frp.tgz" "$(frpc_sha256_for_arch "$arch")" "frp darwin/$arch archive"
     tar -xzf "$tmp/frp.tgz" -C "$tmp"
     local found
     found="$(find "$tmp" -name frpc -type f | head -n 1)"

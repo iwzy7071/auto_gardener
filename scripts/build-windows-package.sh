@@ -5,6 +5,20 @@ OUT_DIR="${OUT_DIR:-dist}"
 PKG_DIR="$OUT_DIR/Gardener-Windows"
 ZIP_PATH="$OUT_DIR/Gardener-Windows.zip"
 
+verify_sha256() {
+  local file="$1" expected="$2" label="$3"
+  if [[ -z "$expected" ]]; then
+    echo "Missing SHA256 for $label; set FRPC_SHA256_WINDOWS_AMD64 before DOWNLOAD_FRPC=1." >&2
+    exit 1
+  fi
+  local actual
+  actual="$(sha256sum "$file" | awk '{print $1}')"
+  if [[ "${actual,,}" != "${expected,,}" ]]; then
+    echo "SHA256 mismatch for $label: expected $expected, got $actual" >&2
+    exit 1
+  fi
+}
+
 rm -rf "$PKG_DIR" "$ZIP_PATH"
 mkdir -p "$PKG_DIR/web"
 
@@ -29,6 +43,7 @@ elif [[ "${DOWNLOAD_FRPC:-0}" == "1" ]]; then
   url="https://github.com/fatedier/frp/releases/download/v${FRP_VERSION}/frp_${FRP_VERSION}_windows_amd64.zip"
   echo "Downloading frpc.exe from $url"
   curl -L --fail --connect-timeout 20 --max-time 240 -o "$tmp/frp.zip" "$url"
+  verify_sha256 "$tmp/frp.zip" "${FRPC_SHA256_WINDOWS_AMD64:-}" "frp windows amd64 archive"
   unzip -q "$tmp/frp.zip" -d "$tmp/frp"
   found="$(find "$tmp/frp" -name frpc.exe -type f | head -n 1)"
   if [[ -z "$found" ]]; then
