@@ -11,6 +11,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$FrpcDownloadMaxBytes = 64MB
 
 if (-not $RelayBaseUrl -and $env:GARDENER_RELAY_BASE_URL) { $RelayBaseUrl = $env:GARDENER_RELAY_BASE_URL }
 if (-not $RelayBaseUrl) { $RelayBaseUrl = "http://YOUR_RELAY_SERVER" }
@@ -19,9 +20,13 @@ function Test-GardenerPlaceholderUrl([string]$Url) {
   return [string]::IsNullOrWhiteSpace($Url) -or $Url -match 'YOUR_RELAY_SERVER|YOUR_SERVER_IP|example\.com'
 }
 
-function Invoke-GardenerDownload($Uri, $OutFile) {
+function Invoke-GardenerDownload($Uri, $OutFile, [long]$MaxBytes = 0) {
   Write-Host "Downloading $Uri" -ForegroundColor Green
   Invoke-WebRequest -Uri $Uri -OutFile $OutFile
+  if ($MaxBytes -gt 0 -and (Get-Item $OutFile).Length -gt $MaxBytes) {
+    Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
+    throw "Downloaded file is too large."
+  }
   Unblock-GardenerPath -Path $OutFile
 }
 
@@ -114,7 +119,7 @@ $FrpcExe = Join-Path $InstallDir "frpc.exe"
 if (-not (Test-Path $FrpcExe)) {
   $FrpcUrl = "$($RelayBaseUrl.TrimEnd('/'))/downloads/frpc.exe"
   try {
-    Invoke-GardenerDownload -Uri $FrpcUrl -OutFile $FrpcExe
+    Invoke-GardenerDownload -Uri $FrpcUrl -OutFile $FrpcExe -MaxBytes $FrpcDownloadMaxBytes
   } catch {
     Write-Host "Warning: could not download frpc.exe automatically: $_" -ForegroundColor Yellow
   }
