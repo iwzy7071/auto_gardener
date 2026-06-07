@@ -13,6 +13,8 @@ import (
 	"time"
 )
 
+const maxCompatStreamBufferBytes = 4 * 1024 * 1024
+
 type Proxy struct {
 	baseURL string
 	server  *http.Server
@@ -394,7 +396,7 @@ func streamChatAsResponses(w http.ResponseWriter, body io.Reader, model string) 
 					writeSSE(w, "response.content_part.added", map[string]any{"type": "response.content_part.added", "item_id": msgID, "output_index": outputIndex, "content_index": 0, "part": map[string]any{"type": "output_text", "text": ""}})
 					textStarted = true
 				}
-				text.WriteString(choice.Delta.Content)
+				appendLimitedStreamBuffer(&text, choice.Delta.Content, maxCompatStreamBufferBytes)
 				writeSSE(w, "response.output_text.delta", map[string]any{"type": "response.output_text.delta", "item_id": msgID, "output_index": outputIndex, "content_index": 0, "delta": choice.Delta.Content})
 				flush()
 			}
@@ -416,7 +418,7 @@ func streamChatAsResponses(w http.ResponseWriter, body io.Reader, model string) 
 					call.Started = true
 				}
 				if tc.Function.Arguments != "" {
-					call.Arguments.WriteString(tc.Function.Arguments)
+					appendLimitedStreamBuffer(&call.Arguments, tc.Function.Arguments, maxCompatStreamBufferBytes)
 					writeSSE(w, "response.function_call_arguments.delta", map[string]any{"type": "response.function_call_arguments.delta", "item_id": call.ItemID, "output_index": outputIndex, "delta": tc.Function.Arguments})
 					flush()
 				}
@@ -447,6 +449,17 @@ func streamChatAsResponses(w http.ResponseWriter, body io.Reader, model string) 
 	_, _ = io.WriteString(w, "data: [DONE]\n\n")
 	flush()
 	return scanner.Err()
+}
+
+func appendLimitedStreamBuffer(out *strings.Builder, chunk string, maxBytes int) {
+	if out == nil || maxBytes <= 0 || out.Len() >= maxBytes {
+		return
+	}
+	remaining := maxBytes - out.Len()
+	if len(chunk) > remaining {
+		chunk = chunk[:remaining]
+	}
+	out.WriteString(chunk)
 }
 
 func orderedToolCalls(calls map[int]*pendingToolCall) []*pendingToolCall {
