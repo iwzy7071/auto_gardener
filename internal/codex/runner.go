@@ -485,11 +485,13 @@ func findWindowsNPMCommand(command string) string {
 	return ""
 }
 
+const maxWindowsNPMDirLength = 1024
+
 func windowsNPMDirs() []string {
 	var dirs []string
 	add := func(path string) {
 		path = strings.TrimSpace(path)
-		if path == "" || containsStringFold(dirs, path) {
+		if path == "" || len(path) > maxWindowsNPMDirLength || containsStringFold(dirs, path) {
 			return
 		}
 		dirs = append(dirs, path)

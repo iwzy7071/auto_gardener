@@ -32,3 +32,14 @@ func TestWithGoalEnvelope(t *testing.T) {
 		}
 	}
 }
+
+func TestWindowsNPMDirsSkipsOverlongEnvPaths(t *testing.T) {
+	longPath := "C:\\" + strings.Repeat("a", maxWindowsNPMDirLength+1)
+	t.Setenv("NPM_CONFIG_PREFIX", longPath)
+	dirs := windowsNPMDirs()
+	for _, dir := range dirs {
+		if dir == longPath {
+			t.Fatalf("windowsNPMDirs included overlong path")
+		}
+	}
+}
