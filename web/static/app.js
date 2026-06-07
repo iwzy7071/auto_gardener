@@ -1,5 +1,6 @@
 const state = { powerStatus: null, tasks: [], activeTaskId: null, eventSource: null, recoveryPoller: null, activeRefreshPoller: null, selectedForests: {}, selectedFileTree: {}, selectedFilePath: {}, selectedFileManual: {}, fileListFingerprint: {}, lastFileRefreshAt: {}, treeStatusExpanded: {}, usage: {}, usageFetchedAt: {}, usagePending: {}, renderCache: {}, pendingTaskRender: null, pendingTaskRenderFrame: 0, lastTaskListSig: '', lastHomeSig: '', activeReportText: '', fileViewerToken: 0, previewToken: 0, overviewCollapsed: loadOverviewCollapsed(), editingTitle: false, settings: loadSettings() };
 const $ = (id) => document.getElementById(id);
+const MAX_RENDERED_MESSAGE_CHARS = 20000;
 
 const I18N = {
   'zh-CN': {
@@ -1227,7 +1228,7 @@ function renderMessages(messages, task) {
     el.className = `chat-message ${isUser ? 'user' : (isSystem ? 'system' : 'gardener')}`;
     const bubble = document.createElement('div');
     bubble.className = 'bubble';
-    bubble.innerHTML = `<div>${escapeHTML(humanizeText(m.content))}</div>`;
+    bubble.innerHTML = `<div>${escapeHTML(humanizeText(truncateRenderedMessage(m.content)))}</div>`;
     if (!isUser && m.createdAt) {
       const timeEl = document.createElement('time');
       timeEl.className = 'message-time';
@@ -1268,6 +1269,11 @@ function formatMessageDateTime(value) {
   if (Number.isNaN(d.getTime())) return '';
   const pad = n => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function truncateRenderedMessage(content) {
+  const text = String(content || '');
+  return text.length > MAX_RENDERED_MESSAGE_CHARS ? text.slice(0, MAX_RENDERED_MESSAGE_CHARS) + '…' : text;
 }
 
 function renderTrees(task) {
