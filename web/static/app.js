@@ -1339,15 +1339,21 @@ function closeReport() {
   $('reportOverlay').setAttribute('aria-hidden', 'true');
 }
 
+const MAX_JSON_FORMAT_CHARS = 200000;
+const MAX_JSONL_FORMAT_LINES = 1000;
+
 function renderJSON(text) {
   const raw = String(text || '');
   if (!raw.trim()) return `<div class="report-loading">${t('emptyResult')}</div>`;
   let formatted = raw;
   try {
-    if (/\.jsonl$/i.test(state.selectedFilePath[state.activeTaskId] || '')) {
-      formatted = raw.split(/\r?\n/).filter(Boolean).map(line => JSON.stringify(JSON.parse(line), null, 2)).join('\n');
-    } else {
-      formatted = JSON.stringify(JSON.parse(raw), null, 2);
+    if (raw.length <= MAX_JSON_FORMAT_CHARS) {
+      if (/\.jsonl$/i.test(state.selectedFilePath[state.activeTaskId] || '')) {
+        const lines = raw.split(/\r?\n/).filter(Boolean);
+        if (lines.length <= MAX_JSONL_FORMAT_LINES) formatted = lines.map(line => JSON.stringify(JSON.parse(line), null, 2)).join('\n');
+      } else {
+        formatted = JSON.stringify(JSON.parse(raw), null, 2);
+      }
     }
   } catch {
     formatted = raw;
