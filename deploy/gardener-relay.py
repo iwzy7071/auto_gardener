@@ -227,6 +227,18 @@ def reload_nginx():
     run(['systemctl', 'reload', 'nginx'])
 
 
+def redact_add_result(result):
+    redacted = dict(result)
+    for key in ['password', 'setupKey', 'provisionUrl', 'provisionPath']:
+        if redacted.get(key):
+            redacted[key] = '<redacted>'
+    redacted.pop('installCommand', None)
+    redacted.pop('macInstallCommand', None)
+    redacted['secretsRedacted'] = True
+    redacted['nextStep'] = 'Run show --with-provision for explicit secret retrieval if needed.'
+    return redacted
+
+
 def add_user(args):
     require_relay_configured()
     user = sanitize_user(args.user)
@@ -281,6 +293,8 @@ def add_user(args):
         conf_path.unlink(missing_ok=True)
         raise
     result = {**instance, 'password': password, 'installCommand': install_command(setup_key), 'macInstallCommand': mac_install_command(setup_key)}
+    if not args.show_secrets:
+        result = redact_add_result(result)
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
@@ -347,6 +361,7 @@ def main():
     a.add_argument('--remote-port', type=int)
     a.add_argument('--password')
     a.add_argument('--setup-key', help='optional preselected secret setup key, default: random sk_*')
+    a.add_argument('--show-secrets', action='store_true', help='print generated password, setup key and install commands')
     a.set_defaults(func=add_user)
     r = sub.add_parser('remove')
     r.add_argument('user')
