@@ -116,7 +116,7 @@ if (-not (Test-Path $FrpcExe)) {
   try {
     Invoke-GardenerDownload -Uri $FrpcUrl -OutFile $FrpcExe
   } catch {
-    Write-Host "Warning: could not download frpc.exe automatically: $_" -ForegroundColor Yellow
+    Write-Host "Warning: could not download frpc.exe automatically." -ForegroundColor Yellow
   }
 }
 
