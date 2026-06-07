@@ -934,6 +934,8 @@ func (o *Orchestrator) writeTreeGoal(task *Task, tr *Tree, status string, start 
 	return os.WriteFile(path, []byte(b.String()), 0644)
 }
 
+const maxFruitOutputRunes = 4000
+
 func (o *Orchestrator) writeFruit(task *Task, tr *Tree, output string, runErr error, start, end time.Time) (string, error) {
 	dir := filepath.Join(o.dataDir, "forests", task.ID, "trees", tr.ID)
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -987,7 +989,7 @@ func (o *Orchestrator) writeFruit(task *Task, tr *Tree, output string, runErr er
 ## 8. 后续建议
 
 由 Gardener 读取本报告和验证报告后决定是否派出新的子任务修复或继续。
-`, tr.ID, task.ID, task.Title, tr.Name, start.Format(time.RFC3339), end.Format(time.RFC3339), task.WorkspacePath, taskWorkDir(task), strings.Join(tr.Scope, ", "), tr.IsValidation, tr.Objective, strings.TrimSpace(output), errText, codex.Truncate(output, 1200))
+`, tr.ID, task.ID, task.Title, tr.Name, start.Format(time.RFC3339), end.Format(time.RFC3339), task.WorkspacePath, taskWorkDir(task), strings.Join(tr.Scope, ", "), tr.IsValidation, tr.Objective, codex.Truncate(output, maxFruitOutputRunes), errText, codex.Truncate(output, 1200))
 	return path, os.WriteFile(path, []byte(body), 0644)
 }
 
