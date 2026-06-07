@@ -81,7 +81,7 @@ if (Test-Path $RelayJson) {
 Write-Host "Starting Gardener..." -ForegroundColor Green
 Write-Host "Local URL: $localUrl"
 if ($Relay -and $Relay.publicUrl) {
-  Write-Host "Remote URL: $($Relay.publicUrl)" -ForegroundColor Cyan
+  Write-Host "Remote URL: configured" -ForegroundColor Cyan
   Write-Host "Remote login: $($Relay.webUsername) / $($Relay.webPassword)" -ForegroundColor Cyan
 }
 Write-Host "Data: $env:AUTO_GARDENER_DATA"
