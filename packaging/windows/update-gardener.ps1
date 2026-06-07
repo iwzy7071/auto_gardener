@@ -5,6 +5,11 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$GardenerDownloadTimeoutSeconds = 300
+
+function Invoke-GardenerDownload([string]$Uri, [string]$OutFile) {
+  Invoke-WebRequest -Uri $Uri -OutFile $OutFile -TimeoutSec $GardenerDownloadTimeoutSeconds
+}
 
 function Test-GardenerAdmin {
   try {
@@ -53,7 +58,7 @@ $Backup = Join-Path $InstallDir ("backup-" + (Get-Date -Format "yyyyMMdd-HHmmss"
 
 New-Item -ItemType Directory -Force -Path $Temp, $Extract | Out-Null
 Write-Host "Downloading $PackageUrl" -ForegroundColor Green
-Invoke-WebRequest -Uri $PackageUrl -OutFile $Zip
+Invoke-GardenerDownload -Uri $PackageUrl -OutFile $Zip
 Unblock-GardenerPath -Path $Zip
 Expand-Archive -Path $Zip -DestinationPath $Extract -Force
 Unblock-GardenerPath -Path $Extract
