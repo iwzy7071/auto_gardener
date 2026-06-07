@@ -54,3 +54,15 @@ func TestNormalizeChatMessagesMergesSystem(t *testing.T) {
 		t.Fatalf("unexpected second message: %#v", got[1])
 	}
 }
+
+func TestValidateModelNameRejectsOversizedModel(t *testing.T) {
+	if err := validateModelName(strings.Repeat("a", maxCompatModelBytes+1)); err == nil {
+		t.Fatal("validateModelName accepted oversized model")
+	}
+	if err := validateModelName(strings.Repeat("你", maxCompatModelBytes/3+1)); err == nil {
+		t.Fatal("validateModelName accepted oversized multibyte model")
+	}
+	if err := validateModelName(strings.Repeat("a", maxCompatModelBytes)); err != nil {
+		t.Fatalf("validateModelName rejected boundary value: %v", err)
+	}
+}
