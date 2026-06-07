@@ -6,6 +6,7 @@ INSTALL_DIR="$HOME/Applications/Gardener"
 SETUP_KEY=""
 PROVISION_URL=""
 START_AFTER_INSTALL=1
+RELAY_CONFIG_MAX_BYTES=$((64 * 1024))
 
 usage() {
   cat <<EOF
@@ -236,21 +237,22 @@ public_url=""
 web_user=""
 web_pass=""
 if [[ -f "$INSTALL_DIR/gardener.relay.json" ]]; then
-  public_url="$(python3 - "$INSTALL_DIR/gardener.relay.json" <<'PY'
+  relay_config_size="$(wc -c < "$INSTALL_DIR/gardener.relay.json" | tr -d '[:space:]')"
+  if [[ "$relay_config_size" -le "$RELAY_CONFIG_MAX_BYTES" ]]; then
+    relay_summary="$(python3 - "$INSTALL_DIR/gardener.relay.json" <<'PY'
 import json,sys
-j=json.load(open(sys.argv[1])); print(j.get('publicUrl',''))
+j=json.load(open(sys.argv[1]))
+print(j.get('publicUrl',''))
+print(j.get('webUsername',''))
+print(j.get('webPassword',''))
 PY
 )"
-  web_user="$(python3 - "$INSTALL_DIR/gardener.relay.json" <<'PY'
-import json,sys
-j=json.load(open(sys.argv[1])); print(j.get('webUsername',''))
-PY
-)"
-  web_pass="$(python3 - "$INSTALL_DIR/gardener.relay.json" <<'PY'
-import json,sys
-j=json.load(open(sys.argv[1])); print(j.get('webPassword',''))
-PY
-)"
+    public_url="$(printf '%s\n' "$relay_summary" | sed -n '1p')"
+    web_user="$(printf '%s\n' "$relay_summary" | sed -n '2p')"
+    web_pass="$(printf '%s\n' "$relay_summary" | sed -n '3p')"
+  else
+    echo "Warning: relay config is too large; skipping remote login summary." >&2
+  fi
 fi
 
 echo "Gardener installed."
