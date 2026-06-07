@@ -29,6 +29,15 @@ function Unblock-GardenerPath([string]$Path) {
   }
 }
 
+function Unblock-GardenerPackageFiles([string]$Dir) {
+  foreach ($name in @("gardener.exe", "frpc.exe", "start-gardener.ps1", "start-gardener.bat", "update-gardener.ps1", "install-gardener.ps1", "README-Windows.txt", "gardener.config.example.ps1", "frpc.example.toml")) {
+    $path = Join-Path $Dir $name
+    if (Test-Path -LiteralPath $path -PathType Leaf) {
+      Unblock-GardenerPath -Path $path
+    }
+  }
+}
+
 function Set-GardenerFirewallPolicy([string]$ExePath) {
   if (-not (Test-Path $ExePath)) { return }
   if (-not (Test-GardenerAdmin)) {
@@ -56,7 +65,7 @@ Write-Host "Downloading $PackageUrl" -ForegroundColor Green
 Invoke-WebRequest -Uri $PackageUrl -OutFile $Zip
 Unblock-GardenerPath -Path $Zip
 Expand-Archive -Path $Zip -DestinationPath $Extract -Force
-Unblock-GardenerPath -Path $Extract
+Unblock-GardenerPackageFiles -Dir $Extract
 
 $Source = Get-ChildItem -Path $Extract -Directory | Select-Object -First 1
 if ($null -eq $Source) { $Source = Get-Item $Extract }
@@ -83,7 +92,7 @@ foreach ($name in @("gardener.config.example.ps1", "frpc.example.toml", "update-
   if (Test-Path $src) { Copy-Item -Path $src -Destination (Join-Path $InstallDir $name) -Force }
 }
 
-Unblock-GardenerPath -Path $InstallDir
+Unblock-GardenerPackageFiles -Dir $InstallDir
 Set-GardenerFirewallPolicy -ExePath (Join-Path $InstallDir "gardener.exe")
 
 Remove-Item -Path $Temp -Recurse -Force -ErrorAction SilentlyContinue
