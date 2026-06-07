@@ -682,6 +682,10 @@ func (s *Server) serveMarkdown(w http.ResponseWriter, r *http.Request, path stri
 		writeError(w, http.StatusForbidden, "只能读取 forest_data 内的报告文件")
 		return
 	}
+	if strings.ToLower(filepath.Ext(realPath)) != ".md" {
+		writeError(w, http.StatusForbidden, "只能读取 Markdown 报告文件")
+		return
+	}
 	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
 	w.Header().Set("Content-Disposition", "inline; filename="+filepath.Base(realPath))
 	http.ServeFile(w, r, realPath)
