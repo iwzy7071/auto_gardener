@@ -1207,22 +1207,62 @@ func parsePlan(s string) (GardenerPlan, error) {
 	return p, nil
 }
 
+const (
+	maxPlanMessageRunes   = 900
+	maxPlanNameRunes      = 80
+	maxPlanObjectiveRunes = 500
+	maxPlanPromptRunes    = 4000
+	maxPlanScopeItems     = 20
+	maxPlanScopeRunes     = 200
+)
+
 func normalizePlan(p GardenerPlan, t *Task, instruction string) GardenerPlan {
+	p.MessageToUser = trimPlanText(p.MessageToUser, maxPlanMessageRunes)
 	for i := range p.Trees {
+		p.Trees[i].Name = trimPlanText(p.Trees[i].Name, maxPlanNameRunes)
 		if strings.TrimSpace(p.Trees[i].Name) == "" {
 			p.Trees[i].Name = fmt.Sprintf("Tree %d", i+1)
 		}
+		p.Trees[i].Objective = trimPlanText(p.Trees[i].Objective, maxPlanObjectiveRunes)
 		if strings.TrimSpace(p.Trees[i].Objective) == "" {
 			p.Trees[i].Objective = p.Trees[i].Name
 		}
+		p.Trees[i].Scope = normalizePlanScope(p.Trees[i].Scope)
 		if len(p.Trees[i].Scope) == 0 {
 			p.Trees[i].Scope = []string{"相关文件"}
 		}
+		p.Trees[i].Prompt = trimPlanText(p.Trees[i].Prompt, maxPlanPromptRunes)
 		if strings.TrimSpace(p.Trees[i].Prompt) == "" {
 			p.Trees[i].Prompt = fmt.Sprintf("你是 Gardener 派出的子任务执行 agent。请完成子任务：%s。本次用户指令：%s。报告中使用任务、阶段、子任务、验证、报告、文件、工作区、进展等专业工作语言，不要使用 Forest/Tree/Fruit 等隐喻，也不要使用小队称呼。", p.Trees[i].Objective, instruction)
 		}
 	}
 	return p
+}
+
+func normalizePlanScope(scope []string) []string {
+	if len(scope) > maxPlanScopeItems {
+		scope = scope[:maxPlanScopeItems]
+	}
+	out := make([]string, 0, len(scope))
+	for _, item := range scope {
+		item = trimPlanText(item, maxPlanScopeRunes)
+		if item != "" {
+			out = append(out, item)
+		}
+	}
+	return out
+}
+
+func trimPlanText(s string, maxRunes int) string {
+	s = strings.TrimSpace(s)
+	if maxRunes <= 0 {
+		return ""
+	}
+	r := []rune(s)
+	if len(r) <= maxRunes {
+		return s
+	}
+	return string(r[:maxRunes])
 }
 
 func treeSummary(t *Task) string {
