@@ -420,7 +420,9 @@ func (s *Store) AppendGardenerLog(taskID, line string) {
 	cp := cloneTask(t)
 	s.mu.Unlock()
 
-	_ = appendFile(logPath, fmt.Sprintf("\n[%s] %s\n", now.Format(time.RFC3339), line))
+	if !isSymlink(logPath) {
+		_ = appendFile(logPath, fmt.Sprintf("\n[%s] %s\n", now.Format(time.RFC3339), line))
+	}
 	s.events.Publish(taskID, cp)
 }
 
@@ -632,6 +634,11 @@ func shouldDeleteManagedScratch(dataDir, taskID, scratchPath string) bool {
 		return base == taskID || strings.HasPrefix(base, taskID+"_")
 	}
 	return false
+}
+
+func isSymlink(path string) bool {
+	info, err := os.Lstat(path)
+	return err == nil && info.Mode()&os.ModeSymlink != 0
 }
 
 func appendFile(path, s string) error {
