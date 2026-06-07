@@ -637,6 +637,13 @@ func (o *Orchestrator) finishTreeBeforeRun(taskID, treeID, reason string) {
 	})
 }
 
+func treeErrorProgressLine(err error) string {
+	if err == nil {
+		return ""
+	}
+	return compactProgressLine("处理结束，但有异常：" + err.Error())
+}
+
 func (o *Orchestrator) runValidationTree(ctx context.Context, taskID string, forest int) {
 	t, ok := o.store.GetTask(taskID)
 	if !ok {
@@ -720,7 +727,7 @@ func (o *Orchestrator) runTree(ctx context.Context, taskID, treeID string) {
 		tr.CompletedAt = &end
 		tr.FruitPath = fruitPath
 		if result.Err != nil {
-			tr.Progress = append(tr.Progress, "处理结束，但有异常："+result.Err.Error())
+			tr.Progress = append(tr.Progress, treeErrorProgressLine(result.Err))
 		} else {
 			tr.Progress = append(tr.Progress, "处理完成，成果已生成。")
 		}
