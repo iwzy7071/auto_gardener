@@ -32,8 +32,8 @@ func main() {
 	server := app.NewServer(store, orch, staticDir, events)
 
 	log.Printf("auto_gardener listening on %s", listenURL(addr))
-	log.Printf("data dir: %s", dataDir)
-	log.Printf("static dir: %s", staticDir)
+	log.Printf("data dir: configured")
+	log.Printf("static dir: configured")
 	log.Printf("codex command: %s", getenv("AUTO_GARDENER_CODEX_CMD", "codex"))
 	log.Printf("claude command: %s", getenv("AUTO_GARDENER_CLAUDE_CMD", "claude"))
 	log.Printf("compat proxy: %s", proxy.BaseURL())
