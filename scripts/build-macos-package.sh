@@ -4,6 +4,7 @@ VERSION="${VERSION:-dev}"
 OUT_DIR="${OUT_DIR:-dist}"
 FRP_VERSION="${FRP_VERSION:-0.52.3}"
 ARCHES="${ARCHES:-arm64 amd64}"
+FRPC_ARCHIVE_MAX_BYTES=$((128 * 1024 * 1024))
 mkdir -p "$OUT_DIR"
 
 fetch_frpc() {
@@ -19,9 +20,9 @@ fetch_frpc() {
   local url="https://github.com/fatedier/frp/releases/download/v${FRP_VERSION}/frp_${FRP_VERSION}_darwin_${url_arch}.tar.gz"
   if [[ "${DOWNLOAD_FRPC:-0}" == "1" ]]; then
     echo "Downloading frpc for darwin/$arch from $url" >&2
-    if ! curl -L --fail --connect-timeout 20 --max-time 240 -o "$tmp/frp.tgz" "$url"; then
+    if ! curl -L --fail --connect-timeout 20 --max-time 240 --max-filesize "$FRPC_ARCHIVE_MAX_BYTES" -o "$tmp/frp.tgz" "$url"; then
       url="https://gh-proxy.com/https://github.com/fatedier/frp/releases/download/v${FRP_VERSION}/frp_${FRP_VERSION}_darwin_${url_arch}.tar.gz"
-      curl -L --fail --connect-timeout 20 --max-time 240 -o "$tmp/frp.tgz" "$url"
+      curl -L --fail --connect-timeout 20 --max-time 240 --max-filesize "$FRPC_ARCHIVE_MAX_BYTES" -o "$tmp/frp.tgz" "$url"
     fi
     tar -xzf "$tmp/frp.tgz" -C "$tmp"
     local found
