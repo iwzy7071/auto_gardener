@@ -9,12 +9,29 @@ NGINX_DIR = Path('/etc/nginx/conf.d')
 FRPS_CONF = Path('/etc/frp/frps.toml')
 DOWNLOAD_ROOT = Path('/srv/gardener-downloads/public')
 PROVISION_ROOT = DOWNLOAD_ROOT / 'provision'
+
+
+def env_port(name, default):
+    raw = os.environ.get(name, str(default)).strip()
+    try:
+        port = int(raw, 10)
+    except ValueError:
+        raise SystemExit(f'error: {name} must be an integer TCP port')
+    if port < 1 or port > 65535:
+        raise SystemExit(f'error: {name} must be in TCP port range 1..65535')
+    return port
+
+
 SERVER_ADDR = os.environ.get('GARDENER_RELAY_SERVER_ADDR', 'YOUR_RELAY_SERVER')
-FRPS_PORT = int(os.environ.get('GARDENER_RELAY_FRPS_PORT', '27000'))
-PUBLIC_START = int(os.environ.get('GARDENER_RELAY_PUBLIC_START', '28081'))
-PUBLIC_END = int(os.environ.get('GARDENER_RELAY_PUBLIC_END', '28100'))
-REMOTE_START = int(os.environ.get('GARDENER_RELAY_REMOTE_START', '18081'))
-REMOTE_END = int(os.environ.get('GARDENER_RELAY_REMOTE_END', '18100'))
+FRPS_PORT = env_port('GARDENER_RELAY_FRPS_PORT', 27000)
+PUBLIC_START = env_port('GARDENER_RELAY_PUBLIC_START', 28081)
+PUBLIC_END = env_port('GARDENER_RELAY_PUBLIC_END', 28100)
+REMOTE_START = env_port('GARDENER_RELAY_REMOTE_START', 18081)
+REMOTE_END = env_port('GARDENER_RELAY_REMOTE_END', 18100)
+if PUBLIC_START > PUBLIC_END:
+    raise SystemExit('error: GARDENER_RELAY_PUBLIC_START must be <= GARDENER_RELAY_PUBLIC_END')
+if REMOTE_START > REMOTE_END:
+    raise SystemExit('error: GARDENER_RELAY_REMOTE_START must be <= GARDENER_RELAY_REMOTE_END')
 RELAY_PUBLIC_BASE_URL = os.environ.get('GARDENER_RELAY_PUBLIC_BASE_URL', f'http://{SERVER_ADDR}')
 PACKAGE_URL = os.environ.get('GARDENER_RELAY_WINDOWS_PACKAGE_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/Gardener-Windows.zip')
 INSTALL_SCRIPT_URL = os.environ.get('GARDENER_RELAY_WINDOWS_INSTALL_SCRIPT_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/install-gardener.ps1')
