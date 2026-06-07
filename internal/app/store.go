@@ -284,6 +284,20 @@ func (s *Store) ListTasks() []*Task {
 	return out
 }
 
+func (s *Store) ListRunningTasks() []*Task {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]*Task, 0)
+	for _, t := range s.tasks {
+		if t.Status != StatusRunning {
+			continue
+		}
+		out = append(out, cloneTask(t))
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
+	return out
+}
+
 func (s *Store) GetTask(id string) (*Task, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

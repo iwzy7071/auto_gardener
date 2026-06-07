@@ -46,8 +46,8 @@ func (o *Orchestrator) RunWatchdogOnce(now time.Time) {
 	if o == nil || o.store == nil {
 		return
 	}
-	for _, t := range o.store.ListTasks() {
-		if t == nil || t.Status != StatusRunning {
+	for _, t := range o.store.ListRunningTasks() {
+		if t == nil {
 			continue
 		}
 		rt := buildTaskRuntime(t, now)
