@@ -220,18 +220,26 @@ func (s *Server) dingTalkTaskStatus(taskID string) string {
 	return b.String()
 }
 
-func dingTalkSessionKey(msg dingTalkIncomingMessage) string {
-	conversation := strings.TrimSpace(msg.ConversationID)
-	if conversation == "" {
-		conversation = "direct"
+const maxDingTalkSessionKeyPartRunes = 128
+
+func limitDingTalkSessionKeyPart(value, fallback string) string {
+	chars := []rune(strings.TrimSpace(value))
+	if len(chars) == 0 {
+		return fallback
 	}
+	if len(chars) <= maxDingTalkSessionKeyPartRunes {
+		return string(chars)
+	}
+	return string(chars[:maxDingTalkSessionKeyPartRunes])
+}
+
+func dingTalkSessionKey(msg dingTalkIncomingMessage) string {
+	conversation := limitDingTalkSessionKeyPart(msg.ConversationID, "direct")
 	sender := strings.TrimSpace(msg.SenderID)
 	if sender == "" {
-		sender = strings.TrimSpace(msg.SenderNick)
+		sender = msg.SenderNick
 	}
-	if sender == "" {
-		sender = "anonymous"
-	}
+	sender = limitDingTalkSessionKeyPart(sender, "anonymous")
 	return conversation + ":" + sender
 }
 
