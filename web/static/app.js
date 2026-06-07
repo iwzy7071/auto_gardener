@@ -271,10 +271,15 @@ async function loadTasks(options = {}) {
   } catch (err) { setConnected(false); console.error(err); }
 }
 
+function isValidTaskResponsePayload(task) {
+  return !!task && typeof task === 'object' && typeof task.id === 'string' && task.id.trim() !== '';
+}
+
 async function loadActiveTask(render = true) {
   if (!state.activeTaskId) return false;
   try {
     const data = await api(`/api/tasks/${state.activeTaskId}`);
+    if (!isValidTaskResponsePayload(data.task)) return false;
     const previous = state.tasks.find(t => t.id === data.task.id);
     upsertTask(data.task);
     if (render) renderTask(data.task, { skipFileViewer: shouldSkipFileViewer(previous, data.task) });
