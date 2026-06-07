@@ -18,6 +18,8 @@ import (
 
 const pricingNote = "仅统计底层 CLI token 消耗和使用模型；界面不展示费用估算。"
 
+const maxUsageModelSummaries = 20
+
 type usageLogEvent struct {
 	Time       time.Time `json:"time"`
 	TaskID     string    `json:"taskId"`
@@ -352,6 +354,9 @@ func summarizeUsage(taskID string, records []TokenUsageRecord) TokenUsageSummary
 	sort.Slice(summary.Models, func(i, j int) bool {
 		return summary.Models[i].TotalTokens > summary.Models[j].TotalTokens
 	})
+	if len(summary.Models) > maxUsageModelSummaries {
+		summary.Models = summary.Models[:maxUsageModelSummaries]
+	}
 	if len(records) == 0 {
 		summary.ExactCost = false
 	}
