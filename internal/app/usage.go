@@ -18,6 +18,8 @@ import (
 
 const pricingNote = "仅统计底层 CLI token 消耗和使用模型；界面不展示费用估算。"
 
+const maxUsageResponseRecords = 200
+
 type usageLogEvent struct {
 	Time       time.Time `json:"time"`
 	TaskID     string    `json:"taskId"`
@@ -119,6 +121,13 @@ func (s *Store) TaskUsage(taskID string) (TokenUsageSummary, error) {
 	records = append(records, parseLegacyUsage(task, s.forestDir(taskID))...)
 	records = dedupeUsageRecords(records)
 	return summarizeUsage(taskID, records), nil
+}
+
+func limitUsageResponseRecords(summary TokenUsageSummary) TokenUsageSummary {
+	if len(summary.Records) > maxUsageResponseRecords {
+		summary.Records = summary.Records[len(summary.Records)-maxUsageResponseRecords:]
+	}
+	return summary
 }
 
 func (s *Store) AllUsage() []TokenUsageSummary {

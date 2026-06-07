@@ -303,7 +303,7 @@ func (s *Server) handleTaskSubroutes(w http.ResponseWriter, r *http.Request) {
 			writeError(w, status, err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"usage": usage})
+		writeJSON(w, http.StatusOK, map[string]any{"usage": limitUsageResponseRecords(usage)})
 		return
 	}
 
