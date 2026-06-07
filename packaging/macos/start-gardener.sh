@@ -36,13 +36,18 @@ if [[ -f "$ROOT/frpc.toml" && -f "$HOME/Library/LaunchAgents/com.gardener.relay.
   launchctl kickstart -k "gui/$uid/com.gardener.relay" 2>/dev/null || true
 fi
 url="http://127.0.0.1:8080"
+MAX_OPEN_URL_LEN=2048
 if [[ -f "$ROOT/gardener.relay.json" ]]; then
   u="$(python3 - "$ROOT/gardener.relay.json" <<'PY'
 import json,sys
 print(json.load(open(sys.argv[1])).get('publicUrl',''))
 PY
 )"
-  [[ -n "$u" ]] && url="$u"
+  if [[ -n "$u" && ${#u} -le $MAX_OPEN_URL_LEN ]]; then
+    url="$u"
+  elif [[ -n "$u" ]]; then
+    echo "Warning: remote URL is too long; opening local Gardener instead." >&2
+  fi
 fi
 open "$url" >/dev/null 2>&1 || true
 echo "Gardener started: $url"
