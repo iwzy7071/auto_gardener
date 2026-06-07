@@ -46,7 +46,13 @@ PACKAGE_URL="${RELAY_BASE_URL:+$RELAY_BASE_URL/downloads/Gardener-macOS-$pkg_arc
 
 # Capture the interactive shell PATH/CLI locations at install time. LaunchAgent's
 # default PATH is too small on macOS and otherwise cannot find Homebrew CLIs.
-INSTALL_PATH="$PATH:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:$HOME/.local/bin"
+MAX_INSTALL_PATH_LEN=8192
+BASE_INSTALL_PATH="$PATH"
+if (( ${#BASE_INSTALL_PATH} > MAX_INSTALL_PATH_LEN )); then
+  echo "Warning: PATH is too long; not inheriting the existing PATH." >&2
+  BASE_INSTALL_PATH=""
+fi
+INSTALL_PATH="$BASE_INSTALL_PATH:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:$HOME/.local/bin"
 CODEX_CMD="$(PATH="$INSTALL_PATH" command -v codex || true)"
 CLAUDE_CMD="$(PATH="$INSTALL_PATH" command -v claude || true)"
 
