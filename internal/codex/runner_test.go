@@ -32,3 +32,19 @@ func TestWithGoalEnvelope(t *testing.T) {
 		}
 	}
 }
+
+func TestSanitizedRunnerEnvStripsRelaySecrets(t *testing.T) {
+	env := sanitizedRunnerEnv([]string{
+		"GARDENER_RELAY_SETUP_KEY=sk_secret",
+		"GARDENER_RELAY_BASE_URL=https://relay.example.invalid",
+		"PATH=/usr/bin",
+	})
+	for _, item := range env {
+		if strings.HasPrefix(item, "GARDENER_RELAY_") {
+			t.Fatalf("relay secret leaked into runner env: %s", item)
+		}
+	}
+	if !containsString(env, "PATH=/usr/bin") {
+		t.Fatalf("non-secret env was not preserved: %#v", env)
+	}
+}

@@ -428,6 +428,18 @@ func envListContains(value, target string) bool {
 	return false
 }
 
+func sanitizedRunnerEnv(env []string) []string {
+	out := env[:0]
+	for _, item := range env {
+		key, _, ok := strings.Cut(item, "=")
+		if ok && strings.HasPrefix(strings.ToUpper(strings.TrimSpace(key)), "GARDENER_RELAY_") {
+			continue
+		}
+		out = append(out, item)
+	}
+	return out
+}
+
 func resolveCommand(command, label, envVar string) (string, []string, error) {
 	command = strings.TrimSpace(command)
 	if command == "" {
@@ -436,7 +448,7 @@ func resolveCommand(command, label, envVar string) (string, []string, error) {
 			command = "claude"
 		}
 	}
-	env := os.Environ()
+	env := sanitizedRunnerEnv(os.Environ())
 	if runtime.GOOS == "windows" {
 		env = withWindowsNPMPath(env)
 	}
