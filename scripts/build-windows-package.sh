@@ -4,6 +4,20 @@ VERSION="${VERSION:-dev}"
 OUT_DIR="${OUT_DIR:-dist}"
 PKG_DIR="$OUT_DIR/Gardener-Windows"
 ZIP_PATH="$OUT_DIR/Gardener-Windows.zip"
+BUNDLED_FRPC_EXE="packaging/windows/frpc.exe"
+MAX_BUNDLED_FRPC_BYTES=$((64 * 1024 * 1024))
+
+file_size() {
+  stat -c %s "$1" 2>/dev/null || stat -f %z "$1"
+}
+
+if [[ -f "$BUNDLED_FRPC_EXE" ]]; then
+  bundled_frpc_size="$(file_size "$BUNDLED_FRPC_EXE")"
+  if [[ ! "$bundled_frpc_size" =~ ^[0-9]+$ ]] || (( bundled_frpc_size <= 0 || bundled_frpc_size > MAX_BUNDLED_FRPC_BYTES )); then
+    echo "packaging/windows/frpc.exe must be a non-empty file no larger than 64 MiB" >&2
+    exit 1
+  fi
+fi
 
 rm -rf "$PKG_DIR" "$ZIP_PATH"
 mkdir -p "$PKG_DIR/web"
@@ -21,8 +35,8 @@ cp packaging/windows/frpc.example.toml "$PKG_DIR/frpc.example.toml"
 FRP_VERSION="${FRP_VERSION:-0.52.3}"
 if [[ -n "${FRPC_EXE:-}" && -f "$FRPC_EXE" ]]; then
   cp "$FRPC_EXE" "$PKG_DIR/frpc.exe"
-elif [[ -f packaging/windows/frpc.exe ]]; then
-  cp packaging/windows/frpc.exe "$PKG_DIR/frpc.exe"
+elif [[ -f "$BUNDLED_FRPC_EXE" ]]; then
+  cp "$BUNDLED_FRPC_EXE" "$PKG_DIR/frpc.exe"
 elif [[ "${DOWNLOAD_FRPC:-0}" == "1" ]]; then
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' EXIT
