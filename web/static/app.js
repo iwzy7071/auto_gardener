@@ -39,14 +39,48 @@ function applyI18n() {
   document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
 }
 
+const MAX_API_JSON_BYTES = 6 * 1024 * 1024;
+
 async function api(path, options = {}) {
   const res = await fetch(path, { headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }, ...options });
   if (!res.ok) {
     let msg = `HTTP ${res.status}`;
-    try { msg = (await res.json()).error || msg; } catch {}
+    try {
+      const text = await readLimitedResponseText(res, MAX_API_JSON_BYTES);
+      msg = (JSON.parse(text).error) || msg;
+    } catch {}
     throw new Error(msg);
   }
-  return res.json();
+  const text = await readLimitedResponseText(res, MAX_API_JSON_BYTES);
+  return JSON.parse(text);
+}
+
+async function readLimitedResponseText(res, maxBytes) {
+  const length = Number(res.headers.get('Content-Length') || 0);
+  if (Number.isFinite(length) && length > maxBytes) throw new Error('API response too large');
+  if (!res.body || !res.body.getReader) {
+    const text = await res.text();
+    if (new Blob([text]).size > maxBytes) throw new Error('API response too large');
+    return text;
+  }
+  const reader = res.body.getReader();
+  const chunks = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      try { await reader.cancel(); } catch {}
+      throw new Error('API response too large');
+    }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(total);
+  let offset = 0;
+  chunks.forEach(chunk => { out.set(chunk, offset); offset += chunk.byteLength; });
+  return new TextDecoder('utf-8').decode(out);
 }
 
 async function fetchText(path) {
