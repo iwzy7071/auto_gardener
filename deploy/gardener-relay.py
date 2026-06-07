@@ -116,6 +116,12 @@ def make_password():
     return ''.join(secrets.choice(alphabet) for _ in range(18))
 
 
+def sanitize_password(password):
+    if any(ord(c) < 32 or ord(c) == 127 for c in password):
+        raise SystemExit('error: password must not contain control characters')
+    return password
+
+
 def htpasswd_hash(password):
     salt = '$6$' + secrets.token_urlsafe(12)
     return crypt.crypt(password, salt)
@@ -241,7 +247,7 @@ def add_user(args):
         raise SystemExit('error: requested port already assigned')
     if port_listening(public, '0.0.0.0') or port_listening(remote, '127.0.0.1'):
         raise SystemExit('error: requested port already in use')
-    password = args.password or make_password()
+    password = sanitize_password(args.password) if args.password else make_password()
     user_dir = USERS / user
     user_dir.mkdir(parents=True, exist_ok=False)
     ensure_permissions(user_dir)
