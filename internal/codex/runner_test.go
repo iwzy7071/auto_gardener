@@ -32,3 +32,13 @@ func TestWithGoalEnvelope(t *testing.T) {
 		}
 	}
 }
+
+func TestResolveCommandRejectsOversizedCommand(t *testing.T) {
+	_, _, err := resolveCommand(strings.Repeat("a", maxRunnerCommandLength+1), "Codex CLI", "AUTO_GARDENER_CODEX_CMD")
+	if err == nil {
+		t.Fatal("resolveCommand accepted oversized command")
+	}
+	if !strings.Contains(err.Error(), "命令过长") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

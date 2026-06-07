@@ -62,6 +62,8 @@ type ShellRunner struct {
 	ClaudeCommand string
 }
 
+const maxRunnerCommandLength = 512
+
 func NewRunnerFromEnv() Runner {
 	if strings.EqualFold(strings.TrimSpace(os.Getenv("AUTO_GARDENER_RUNNER")), "mock") {
 		r := NewMockRunnerFromEnv()
@@ -435,6 +437,9 @@ func resolveCommand(command, label, envVar string) (string, []string, error) {
 		if strings.Contains(strings.ToLower(label), "claude") {
 			command = "claude"
 		}
+	}
+	if len(command) > maxRunnerCommandLength {
+		return "", nil, fmt.Errorf("%s 命令过长；请检查 %s", label, envVar)
 	}
 	env := os.Environ()
 	if runtime.GOOS == "windows" {
