@@ -11,6 +11,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$UpdaterDownloadMaxBytes = 1MB
 
 if (-not $RelayBaseUrl -and $env:GARDENER_RELAY_BASE_URL) { $RelayBaseUrl = $env:GARDENER_RELAY_BASE_URL }
 if (-not $RelayBaseUrl) { $RelayBaseUrl = "http://YOUR_RELAY_SERVER" }
@@ -19,9 +20,13 @@ function Test-GardenerPlaceholderUrl([string]$Url) {
   return [string]::IsNullOrWhiteSpace($Url) -or $Url -match 'YOUR_RELAY_SERVER|YOUR_SERVER_IP|example\.com'
 }
 
-function Invoke-GardenerDownload($Uri, $OutFile) {
+function Invoke-GardenerDownload($Uri, $OutFile, [long]$MaxBytes = 0) {
   Write-Host "Downloading $Uri" -ForegroundColor Green
   Invoke-WebRequest -Uri $Uri -OutFile $OutFile
+  if ($MaxBytes -gt 0 -and (Get-Item $OutFile).Length -gt $MaxBytes) {
+    Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
+    throw "Downloaded file is too large."
+  }
   Unblock-GardenerPath -Path $OutFile
 }
 
@@ -103,7 +108,7 @@ if (-not (Test-Path $Updater)) {
     Unblock-GardenerPath -Path $Updater
   } else {
     $UpdaterUrl = "$($RelayBaseUrl.TrimEnd('/'))/downloads/update-gardener.ps1"
-    Invoke-GardenerDownload -Uri $UpdaterUrl -OutFile $Updater
+    Invoke-GardenerDownload -Uri $UpdaterUrl -OutFile $Updater -MaxBytes $UpdaterDownloadMaxBytes
   }
 }
 
