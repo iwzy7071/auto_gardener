@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"net/http"
@@ -14,6 +15,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+)
+
+const (
+	maxDirectoryBrowseDirs        = 500
+	maxDirectoryBrowseScanEntries = 5000
 )
 
 type workspaceFileEntry struct {
@@ -156,17 +162,36 @@ func (s *Server) handleDirectoryBrowse(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "目录不存在或不可访问")
 		return
 	}
-	entries, _ := os.ReadDir(abs)
+	dirFile, err := os.Open(abs)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "目录不存在或不可访问")
+		return
+	}
+	defer dirFile.Close()
 	dirs := make([]directoryEntry, 0)
-	for _, entry := range entries {
-		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
-			continue
+	scanned := 0
+	for scanned < maxDirectoryBrowseScanEntries && len(dirs) < maxDirectoryBrowseDirs {
+		entries, err := dirFile.ReadDir(100)
+		for _, entry := range entries {
+			scanned++
+			if scanned > maxDirectoryBrowseScanEntries || len(dirs) >= maxDirectoryBrowseDirs {
+				break
+			}
+			if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
+				continue
+			}
+			path := filepath.Join(abs, entry.Name())
+			if _, err := os.Stat(path); err != nil {
+				continue
+			}
+			dirs = append(dirs, directoryEntry{Name: entry.Name(), Path: path})
 		}
-		path := filepath.Join(abs, entry.Name())
-		if _, err := os.Stat(path); err != nil {
-			continue
+		if err == io.EOF {
+			break
 		}
-		dirs = append(dirs, directoryEntry{Name: entry.Name(), Path: path})
+		if err != nil {
+			break
+		}
 	}
 	sort.Slice(dirs, func(i, j int) bool { return strings.ToLower(dirs[i].Name) < strings.ToLower(dirs[j].Name) })
 	parent := filepath.Dir(abs)
