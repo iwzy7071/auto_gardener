@@ -634,6 +634,11 @@ func shouldDeleteManagedScratch(dataDir, taskID, scratchPath string) bool {
 	return false
 }
 
+func isSymlink(path string) bool {
+	info, err := os.Lstat(path)
+	return err == nil && info.Mode()&os.ModeSymlink != 0
+}
+
 func appendFile(path, s string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err

@@ -97,6 +97,9 @@ func (s *Store) AppendUsageEvent(taskID string, event usageLogEvent) {
 		return
 	}
 	path := filepath.Join(s.dataDir, "forests", taskID, "usage.jsonl")
+	if isSymlink(path) {
+		return
+	}
 	b, err := json.Marshal(event)
 	if err != nil {
 		return
