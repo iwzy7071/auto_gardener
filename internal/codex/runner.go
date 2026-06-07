@@ -361,7 +361,7 @@ func appendClaudeEnv(env []string, model ModelConfig) []string {
 	if strings.TrimSpace(model.ProviderID) == "gardener-kimi" && token != "" {
 		env = upsertEnv(env, "ANTHROPIC_BASE_URL", firstNonEmpty(os.Getenv("AUTO_GARDENER_KIMI_CLAUDE_BASE_URL"), "https://api.kimi.com/coding/"))
 		env = upsertEnv(env, "ANTHROPIC_API_KEY", token)
-		env = upsertEnv(env, "ENABLE_TOOL_SEARCH", firstNonEmpty(os.Getenv("AUTO_GARDENER_KIMI_ENABLE_TOOL_SEARCH"), "false"))
+		env = upsertEnv(env, "ENABLE_TOOL_SEARCH", normalizeBoolEnv(os.Getenv("AUTO_GARDENER_KIMI_ENABLE_TOOL_SEARCH"), "false"))
 	}
 	return env
 }
@@ -388,6 +388,17 @@ func firstNonEmpty(items ...string) string {
 		}
 	}
 	return ""
+}
+
+func normalizeBoolEnv(value, fallback string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "true", "1":
+		return "true"
+	case "false", "0", "":
+		return fallback
+	default:
+		return fallback
+	}
 }
 
 func usesLocalhost(rawURL string) bool {

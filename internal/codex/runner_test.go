@@ -32,3 +32,26 @@ func TestWithGoalEnvelope(t *testing.T) {
 		}
 	}
 }
+
+func TestClaudeToolSearchEnvValidation(t *testing.T) {
+	t.Setenv("AUTO_GARDENER_KIMI_ENABLE_TOOL_SEARCH", strings.Repeat("x", 1024))
+	env := appendClaudeEnv(nil, ModelConfig{ProviderID: "gardener-kimi", Token: "secret"})
+	if got := envValue(env, "ENABLE_TOOL_SEARCH"); got != "false" {
+		t.Fatalf("appendClaudeEnv accepted invalid tool search value %q", got)
+	}
+
+	t.Setenv("AUTO_GARDENER_KIMI_ENABLE_TOOL_SEARCH", "1")
+	env = appendClaudeEnv(nil, ModelConfig{ProviderID: "gardener-kimi", Token: "secret"})
+	if got := envValue(env, "ENABLE_TOOL_SEARCH"); got != "true" {
+		t.Fatalf("appendClaudeEnv rejected truthy tool search value %q", got)
+	}
+}
+
+func envValue(env []string, key string) string {
+	for _, item := range env {
+		if k, v, ok := strings.Cut(item, "="); ok && k == key {
+			return v
+		}
+	}
+	return ""
+}
