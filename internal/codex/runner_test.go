@@ -32,3 +32,19 @@ func TestWithGoalEnvelope(t *testing.T) {
 		}
 	}
 }
+
+func TestRunnerModelNameLengthLimit(t *testing.T) {
+	model := ModelConfig{
+		Model: strings.Repeat("a", maxRunnerModelNameLength+1),
+	}
+	args := strings.Join(appendModelArgs(nil, model), "\n")
+	if strings.Contains(args, "-m") {
+		t.Fatalf("appendModelArgs accepted oversized model name in:\n%s", args)
+	}
+
+	model.Model = strings.Repeat("a", maxRunnerModelNameLength)
+	args = strings.Join(appendModelArgs(nil, model), "\n")
+	if !strings.Contains(args, "-m") || !strings.Contains(args, model.Model) {
+		t.Fatalf("appendModelArgs rejected boundary model name in:\n%s", args)
+	}
+}
