@@ -544,7 +544,7 @@ function renderTaskDashboard(task) {
   const totalTrees = Number(rt.totalTrees ?? (task.trees || []).length);
   const runningTrees = Number(rt.runningTrees ?? (task.trees || []).filter(tr => tr.status !== 'Finished').length);
   const finishedTrees = Number(rt.finishedTrees ?? Math.max(0, totalTrees - runningTrees));
-  const severity = String(rt.severity || 'ok');
+  const severity = severityClass(rt.severity);
   const cue = String(rt.cue || '').trim();
   const phase = humanizePhase(rt.phase || (task.status === 'Finished' ? 'finished' : 'running'));
   panel.className = `task-dashboard-panel ${severity}`;
@@ -1481,6 +1481,7 @@ function inline(s) {
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
 }
 
+function severityClass(severity) { return ['ok', 'info', 'warning', 'blocked'].includes(severity) ? severity : 'ok'; }
 function statusText(status) { return status === 'Finished' ? t('done') : t('inProgress'); }
 
 function humanizeText(s) {
