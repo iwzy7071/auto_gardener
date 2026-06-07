@@ -83,6 +83,10 @@ func (p *Proxy) handle(w http.ResponseWriter, r *http.Request) {
 		writeProxyError(w, http.StatusBadRequest, "invalid responses request")
 		return
 	}
+	if err := validateInputMessageRoles(req.Input); err != nil {
+		writeProxyError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	if err := p.forwardChatStream(w, r, spec, token, req); err != nil {
 		log.Printf("compat proxy %s error: %v", spec.Name, err)
 	}
@@ -262,6 +266,27 @@ type responseInputItem struct {
 	Name      string          `json:"name,omitempty"`
 	Arguments string          `json:"arguments,omitempty"`
 	Output    string          `json:"output,omitempty"`
+}
+
+func validateInputMessageRoles(raw json.RawMessage) error {
+	if len(raw) == 0 || raw[0] != '[' {
+		return nil
+	}
+	var items []responseInputItem
+	if err := json.Unmarshal(raw, &items); err != nil {
+		return nil
+	}
+	for _, item := range items {
+		if item.Type != "message" {
+			continue
+		}
+		switch item.Role {
+		case "", "user", "assistant", "system", "developer":
+		default:
+			return fmt.Errorf("invalid message role")
+		}
+	}
+	return nil
 }
 
 func contentText(raw json.RawMessage) string {

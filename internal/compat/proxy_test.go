@@ -54,3 +54,19 @@ func TestNormalizeChatMessagesMergesSystem(t *testing.T) {
 		t.Fatalf("unexpected second message: %#v", got[1])
 	}
 }
+
+func TestValidateInputMessageRolesRejectsInvalidRoles(t *testing.T) {
+	cases := []string{"tool", "function", "admin", " user "}
+	for _, role := range cases {
+		raw := []byte(`[{"type":"message","role":"` + role + `","content":"hi"}]`)
+		if err := validateInputMessageRoles(raw); err == nil {
+			t.Fatalf("validateInputMessageRoles accepted %q", role)
+		}
+	}
+	for _, role := range []string{"", "user", "assistant", "system", "developer"} {
+		raw := []byte(`[{"type":"message","role":"` + role + `","content":"hi"}]`)
+		if err := validateInputMessageRoles(raw); err != nil {
+			t.Fatalf("validateInputMessageRoles rejected %q: %v", role, err)
+		}
+	}
+}
