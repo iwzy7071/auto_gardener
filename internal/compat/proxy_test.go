@@ -54,3 +54,13 @@ func TestNormalizeChatMessagesMergesSystem(t *testing.T) {
 		t.Fatalf("unexpected second message: %#v", got[1])
 	}
 }
+
+func TestHandleRejectsLongRequestPath(t *testing.T) {
+	p := &Proxy{}
+	req := httptest.NewRequest(http.MethodPost, "/"+strings.Repeat("a", maxCompatRequestPathLength+1), nil)
+	rr := httptest.NewRecorder()
+	p.handle(rr, req)
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for long compat path, got %d", rr.Code)
+	}
+}

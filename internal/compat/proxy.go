@@ -19,6 +19,8 @@ type Proxy struct {
 	client  *http.Client
 }
 
+const maxCompatRequestPathLength = 1024
+
 type providerSpec struct {
 	Name                 string
 	BaseURL              string
@@ -61,6 +63,10 @@ func (p *Proxy) BaseURL() string {
 func (p *Proxy) handle(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	if len(r.URL.Path) > maxCompatRequestPathLength {
+		http.NotFound(w, r)
 		return
 	}
 	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
