@@ -220,10 +220,20 @@ def mac_install_command(setup_key):
     return f'curl -fsSL {MAC_INSTALL_SCRIPT_URL} -o install-gardener-macos.sh && bash install-gardener-macos.sh --relay-base-url {RELAY_PUBLIC_BASE_URL} --setup-key {setup_key}'
 
 
+MAX_COMMAND_ERROR_CHARS = 4000
+
+
+def command_error_text(*parts):
+    text = ''.join(p or '' for p in parts).strip()
+    if len(text) <= MAX_COMMAND_ERROR_CHARS:
+        return text
+    return text[:MAX_COMMAND_ERROR_CHARS] + '…'
+
+
 def reload_nginx():
     test = run(['nginx', '-t'], check=False)
     if test.returncode != 0:
-        raise SystemExit(test.stderr + test.stdout)
+        raise SystemExit(command_error_text(test.stderr, test.stdout))
     run(['systemctl', 'reload', 'nginx'])
 
 
