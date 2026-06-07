@@ -34,6 +34,8 @@ type Server struct {
 	httpClient       *http.Client
 }
 
+const maxAPITaskIDLength = 80
+
 func NewServer(store *Store, orchestrator *Orchestrator, staticDir string, events *EventHub) *Server {
 	return &Server{store: store, orchestrator: orchestrator, staticDir: staticDir, events: events, dingTalkSessions: make(map[string]string), httpClient: &http.Client{Timeout: 10 * time.Second}}
 }
@@ -234,6 +236,10 @@ func (s *Server) handleTaskSubroutes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	taskID := parts[0]
+	if !validAPITaskID(taskID) {
+		writeError(w, http.StatusBadRequest, "任务 ID 非法")
+		return
+	}
 	if len(parts) == 1 {
 		if r.Method != http.MethodGet && r.Method != http.MethodDelete && r.Method != http.MethodPatch {
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -469,6 +475,18 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request, taskID str
 			flusher.Flush()
 		}
 	}
+}
+
+func validAPITaskID(id string) bool {
+	if id == "" || len(id) > maxAPITaskIDLength {
+		return false
+	}
+	for _, r := range id {
+		if r != '-' && r != '_' && (r < 'A' || r > 'Z') && (r < 'a' || r > 'z') && (r < '0' || r > '9') {
+			return false
+		}
+	}
+	return true
 }
 
 func writeSSE(w http.ResponseWriter, event string, v any) {
