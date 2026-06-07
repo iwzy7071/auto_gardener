@@ -34,6 +34,8 @@ type Server struct {
 	httpClient       *http.Client
 }
 
+const maxWorkspaceFilePathLength = 4096
+
 func NewServer(store *Store, orchestrator *Orchestrator, staticDir string, events *EventHub) *Server {
 	return &Server{store: store, orchestrator: orchestrator, staticDir: staticDir, events: events, dingTalkSessions: make(map[string]string), httpClient: &http.Client{Timeout: 10 * time.Second}}
 }
@@ -541,6 +543,10 @@ func (s *Server) serveWorkspaceFile(w http.ResponseWriter, r *http.Request, task
 	root, err := filepath.Abs(filepath.Clean(task.WorkspacePath))
 	if err != nil || root == "" {
 		writeError(w, http.StatusBadRequest, "保存位置无效")
+		return
+	}
+	if len(strings.TrimSpace(rel)) > maxWorkspaceFilePathLength {
+		writeError(w, http.StatusBadRequest, "文件路径过长")
 		return
 	}
 	rel = filepath.Clean(strings.TrimPrefix(rel, "/"))
