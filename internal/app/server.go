@@ -118,18 +118,27 @@ func (s *Server) serveStaticApp(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	path := filepath.Clean(strings.TrimPrefix(r.URL.Path, "/"))
-	if path == "." || path == "/" {
-		http.ServeFile(w, r, filepath.Join(s.staticDir, "index.html"))
+	staticRoot, err := filepath.Abs(filepath.Clean(s.staticDir))
+	if err != nil || staticRoot == "" {
+		http.NotFound(w, r)
 		return
 	}
-	abs := filepath.Join(s.staticDir, path)
+	path := filepath.Clean(strings.TrimPrefix(r.URL.Path, "/"))
+	if path == "." || path == "/" {
+		http.ServeFile(w, r, filepath.Join(staticRoot, "index.html"))
+		return
+	}
+	abs, err := filepath.Abs(filepath.Join(staticRoot, path))
+	if err != nil || (abs != staticRoot && !strings.HasPrefix(abs, staticRoot+string(filepath.Separator))) {
+		http.NotFound(w, r)
+		return
+	}
 	if info, err := os.Stat(abs); err == nil && !info.IsDir() {
 		http.ServeFile(w, r, abs)
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/forests/") {
-		http.ServeFile(w, r, filepath.Join(s.staticDir, "index.html"))
+		http.ServeFile(w, r, filepath.Join(staticRoot, "index.html"))
 		return
 	}
 	http.NotFound(w, r)
