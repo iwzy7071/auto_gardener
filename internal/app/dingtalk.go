@@ -232,7 +232,7 @@ func dingTalkSessionKey(msg dingTalkIncomingMessage) string {
 	if sender == "" {
 		sender = "anonymous"
 	}
-	return conversation + ":" + sender
+	return strconv.Itoa(len(conversation)) + ":" + conversation + ":" + strconv.Itoa(len(sender)) + ":" + sender
 }
 
 func (s *Server) setDingTalkSessionTask(key, taskID string) {

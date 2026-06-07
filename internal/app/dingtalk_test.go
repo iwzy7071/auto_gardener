@@ -55,3 +55,11 @@ func TestNoDingTalkSecretSkipsVerify(t *testing.T) {
 		t.Fatalf("verification should be skipped without secret: %v", err)
 	}
 }
+
+func TestDingTalkSessionKeySeparatesFields(t *testing.T) {
+	first := dingTalkSessionKey(dingTalkIncomingMessage{ConversationID: "a:b", SenderID: "c"})
+	second := dingTalkSessionKey(dingTalkIncomingMessage{ConversationID: "a", SenderID: "b:c"})
+	if first == second {
+		t.Fatalf("session key collision: %q", first)
+	}
+}
