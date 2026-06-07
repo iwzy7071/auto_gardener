@@ -139,14 +139,27 @@ if [[ -s "$PROVISION_JSON" ]]; then
 import json, pathlib, sys, datetime
 provision_path, install_dir, provision_url = sys.argv[1:4]
 j=json.load(open(provision_path))
+if not isinstance(j, dict):
+  raise SystemExit('provision must be a JSON object')
+if j.get('schemaVersion', 1) != 1:
+  raise SystemExit('unsupported provision schemaVersion')
+def require_string(name):
+  value=j.get(name)
+  if not isinstance(value, str) or not value.strip():
+    raise SystemExit(f'provision is missing required string field: {name}')
+  return value
+frpc_toml=require_string('frpcToml')
+public_url=require_string('publicUrl')
+web_username=require_string('webUsername')
+web_password=require_string('webPassword')
 root=pathlib.Path(install_dir)
-(root/'frpc.toml').write_text(j['frpcToml'], encoding='utf-8')
+(root/'frpc.toml').write_text(frpc_toml, encoding='utf-8')
 relay={
   'schemaVersion': 1,
-  'user': j.get('user',''),
-  'publicUrl': j.get('publicUrl',''),
-  'webUsername': j.get('webUsername',''),
-  'webPassword': j.get('webPassword',''),
+  'user': j.get('user','') if isinstance(j.get('user',''), str) else '',
+  'publicUrl': public_url,
+  'webUsername': web_username,
+  'webPassword': web_password,
   'provisionUrl': provision_url,
   'installedAt': datetime.datetime.now(datetime.timezone.utc).isoformat(),
 }
