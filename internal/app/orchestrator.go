@@ -515,6 +515,10 @@ func (o *Orchestrator) runGardenerPlan(ctx context.Context, taskID, instruction 
 	})
 	if result.Err != nil {
 		msg := "Gardener 规划失败，未创建任何子任务：" + result.Err.Error()
+		if ctx.Err() != nil {
+			o.store.AppendGardenerLog(taskID, msg+"；该 run 已被新的用户指令或继续任务请求取消，不向用户显示模型失败。")
+			return GardenerPlan{ForestFinished: true}
+		}
 		o.store.AppendGardenerLog(taskID, msg)
 		o.appendSystemMessage(taskID, "本次请求没有完成：底层 CLI 或模型连接失败。请检查设置中的 CLI / 模型配置后，点击“继续任务”重试。")
 		return GardenerPlan{ForestFinished: true}
@@ -522,6 +526,10 @@ func (o *Orchestrator) runGardenerPlan(ctx context.Context, taskID, instruction 
 	o.store.AppendGardenerLog(taskID, "Gardener 规划原始输出已保存。")
 	plan, err := parsePlan(result.Output)
 	if err != nil {
+		if ctx.Err() != nil {
+			o.store.AppendGardenerLog(taskID, "Gardener 规划输出解析前 run 已取消，不向用户显示格式异常。")
+			return GardenerPlan{ForestFinished: true}
+		}
 		msg := "Gardener 输出不是有效调度 JSON，未创建任何子任务：" + err.Error()
 		o.store.AppendGardenerLog(taskID, msg)
 		o.store.AppendGardenerLog(taskID, "无效 Gardener 输出摘要："+codex.Truncate(result.Output, 1200))
@@ -553,12 +561,20 @@ func (o *Orchestrator) runGardenerDecision(ctx context.Context, taskID string, f
 		},
 	})
 	if result.Err != nil {
+		if ctx.Err() != nil {
+			o.store.AppendGardenerLog(taskID, "Gardener 决策 run 已被新的用户指令或继续任务请求取消："+result.Err.Error())
+			return GardenerPlan{ForestFinished: true}
+		}
 		o.store.AppendGardenerLog(taskID, "Gardener 决策失败："+result.Err.Error())
 		o.appendSystemMessage(taskID, "后续判断没有完成：底层 CLI 或模型连接失败。请检查设置中的 CLI / 模型配置后，点击“继续任务”重试。")
 		return GardenerPlan{ForestFinished: true}
 	}
 	plan, err := parsePlan(result.Output)
 	if err != nil {
+		if ctx.Err() != nil {
+			o.store.AppendGardenerLog(taskID, "Gardener 决策输出解析前 run 已取消，不向用户显示格式异常。")
+			return GardenerPlan{ForestFinished: true}
+		}
 		o.store.AppendGardenerLog(taskID, "解析 Gardener 决策 JSON 失败，默认任务 Finished："+err.Error())
 		o.appendSystemMessage(taskID, "后续判断结果格式异常，任务已暂停。你可以点击“继续任务”，Gardener 会重新检查当前进度并继续。")
 		return GardenerPlan{ForestFinished: true}
