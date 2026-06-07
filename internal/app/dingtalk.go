@@ -62,8 +62,9 @@ func (s *Server) handleDingTalkRobot(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := s.sendDingTalkReply(msg.SessionWebhook, reply); err != nil {
 		// Even if async/session reply fails, return the text payload so webhook tests
-		// and DingTalk compatible callers can still see the response.
-		writeJSON(w, http.StatusOK, dingTalkTextPayload("发送钉钉回复失败："+err.Error()+"\n\n"+reply))
+		// and DingTalk compatible callers can still see the response. Avoid echoing
+		// transport errors because they may contain signed webhook URLs or tokens.
+		writeJSON(w, http.StatusOK, dingTalkTextPayload("发送钉钉回复失败，请检查服务端配置或网络。\n\n"+reply))
 		return
 	}
 	writeJSON(w, http.StatusOK, dingTalkTextPayload(reply))
