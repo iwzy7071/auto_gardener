@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestForwardChatStreamAsResponses(t *testing.T) {
@@ -52,5 +53,19 @@ func TestNormalizeChatMessagesMergesSystem(t *testing.T) {
 	}
 	if got[1].Role != "user" {
 		t.Fatalf("unexpected second message: %#v", got[1])
+	}
+}
+
+func TestNewUpstreamHTTPClientLimitsHeaderWait(t *testing.T) {
+	client := newUpstreamHTTPClient()
+	transport, ok := client.Transport.(*http.Transport)
+	if !ok {
+		t.Fatalf("expected *http.Transport, got %T", client.Transport)
+	}
+	if transport.ResponseHeaderTimeout <= 0 || transport.ResponseHeaderTimeout > time.Minute {
+		t.Fatalf("unexpected response header timeout: %v", transport.ResponseHeaderTimeout)
+	}
+	if client.Timeout != 0 {
+		t.Fatalf("streaming client should not use whole-request timeout, got %v", client.Timeout)
 	}
 }

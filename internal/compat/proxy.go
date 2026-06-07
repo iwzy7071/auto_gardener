@@ -38,7 +38,7 @@ func Start() (*Proxy, error) {
 	}
 	p := &Proxy{
 		baseURL: "http://" + ln.Addr().String(),
-		client:  &http.Client{Timeout: 0},
+		client:  newUpstreamHTTPClient(),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", p.handle)
@@ -49,6 +49,13 @@ func Start() (*Proxy, error) {
 		}
 	}()
 	return p, nil
+}
+
+func newUpstreamHTTPClient() *http.Client {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.ResponseHeaderTimeout = 30 * time.Second
+	transport.ExpectContinueTimeout = 5 * time.Second
+	return &http.Client{Transport: transport}
 }
 
 func (p *Proxy) BaseURL() string {
