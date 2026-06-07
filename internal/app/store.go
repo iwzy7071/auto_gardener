@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -13,6 +14,8 @@ import (
 )
 
 var ErrNotFound = errors.New("not found")
+
+const maxStartupTaskDirs = 1000
 
 type taskDiskCompat struct {
 	Task
@@ -148,7 +151,7 @@ func (s *Store) persistSettingsLocked() error {
 
 func (s *Store) Load() error {
 	root := filepath.Join(s.dataDir, "forests")
-	entries, err := os.ReadDir(root)
+	entries, err := readDirEntriesLimited(root, maxStartupTaskDirs)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
@@ -219,6 +222,37 @@ func (s *Store) Load() error {
 		_ = s.persistTaskLocked(&t)
 	}
 	return nil
+}
+
+func readDirEntriesLimited(path string, limit int) ([]os.DirEntry, error) {
+	if limit <= 0 {
+		return nil, nil
+	}
+	dir, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer dir.Close()
+	entries := make([]os.DirEntry, 0)
+	for len(entries) < limit {
+		batch, err := dir.ReadDir(min(100, limit-len(entries)))
+		entries = append(entries, batch...)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return entries, err
+		}
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
+	return entries, nil
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func normalizeForestFields(t *Task, legacyWave, legacyMaxTreesPerWave int) {
