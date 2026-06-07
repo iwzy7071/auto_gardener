@@ -1,5 +1,6 @@
 const state = { powerStatus: null, tasks: [], activeTaskId: null, eventSource: null, recoveryPoller: null, activeRefreshPoller: null, selectedForests: {}, selectedFileTree: {}, selectedFilePath: {}, selectedFileManual: {}, fileListFingerprint: {}, lastFileRefreshAt: {}, treeStatusExpanded: {}, usage: {}, usageFetchedAt: {}, usagePending: {}, renderCache: {}, pendingTaskRender: null, pendingTaskRenderFrame: 0, lastTaskListSig: '', lastHomeSig: '', activeReportText: '', fileViewerToken: 0, previewToken: 0, overviewCollapsed: loadOverviewCollapsed(), editingTitle: false, settings: loadSettings() };
 const $ = (id) => document.getElementById(id);
+const MAX_RENDERED_TASK_TITLE_CHARS = 300;
 
 const I18N = {
   'zh-CN': {
@@ -123,6 +124,11 @@ function setConnected() {}
 
 function taskURL(taskId) {
   return `/forests/${encodeURIComponent(taskId)}`;
+}
+
+function renderedTaskTitle(title) {
+  const text = String(title || '');
+  return text.length > MAX_RENDERED_TASK_TITLE_CHARS ? text.slice(0, MAX_RENDERED_TASK_TITLE_CHARS) + '…' : text;
 }
 
 function routeTaskId() {
@@ -361,7 +367,7 @@ function renderTaskList() {
   state.tasks.forEach(task => {
     const item = document.createElement('button');
     item.className = 'task-item' + (task.id === state.activeTaskId ? ' active' : '');
-    item.innerHTML = `<span class="task-title">${escapeHTML(task.title)}</span><span class="task-meta">${statusText(task.status)}</span>`;
+    item.innerHTML = `<span class="task-title">${escapeHTML(renderedTaskTitle(task.title))}</span><span class="task-meta">${statusText(task.status)}</span>`;
     item.onclick = () => selectTask(task.id);
     list.appendChild(item);
   });
@@ -453,7 +459,7 @@ function renderHomeGarden() {
     const forests = getForests(task.trees || []);
     item.innerHTML = `
       <button type="button" class="home-forest-delete" title="${t('delete')}" aria-label="${t('delete')}">×</button>
-      <span class="home-forest-title">${escapeHTML(task.title || t('genericTask'))}</span>
+      <span class="home-forest-title">${escapeHTML(renderedTaskTitle(task.title || t('genericTask')))}</span>
       <span class="home-forest-meta"><b>${statusText(task.status)}</b>${forests.length ? ` · ${t('stage')} ${forests.length}` : ''}</span>
     `;
     item.onclick = () => selectTask(task.id);
@@ -471,7 +477,7 @@ function renderTask(task, options = {}) {
   const chromeSig = [task.title || '', task.status || '', state.settings.language || ''].join('::');
   if (cache.chromeSig !== chromeSig) {
     cache.chromeSig = chromeSig;
-    if (!state.editingTitle) $('pageTitle').textContent = task.title;
+    if (!state.editingTitle) $('pageTitle').textContent = renderedTaskTitle(task.title);
     $('forestStatus').textContent = statusText(task.status);
     $('forestStatus').className = 'status-pill ' + task.status;
     setTaskReportLink($('scheduleLink'), `/api/tasks/${task.id}/gardener/schedule.md`, t('taskPlan'));
@@ -629,7 +635,7 @@ function beginTitleEdit() {
   const wrap = document.querySelector('.title-editor');
   const input = $('titleEditInput');
   if (wrap) wrap.classList.add('editing');
-  input.value = task.title || '';
+  input.value = renderedTaskTitle(task.title || '');
   input.classList.remove('hidden');
   $('renameTaskBtn').textContent = '✓';
   $('renameTaskBtn').setAttribute('aria-label', t('save'));
@@ -653,7 +659,7 @@ function cancelTitleEdit(restoreTitle = true) {
   }
   if (restoreTitle) {
     const task = state.tasks.find(t => t.id === state.activeTaskId);
-    if (task) $('pageTitle').textContent = task.title || t('genericTask');
+    if (task) $('pageTitle').textContent = renderedTaskTitle(task.title || t('genericTask'));
   }
 }
 
