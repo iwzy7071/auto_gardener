@@ -6,6 +6,16 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+
+function Assert-GardenerHttpsUrl([string]$Url, [string]$Label) {
+  if ($env:GARDENER_ALLOW_INSECURE_HTTP -eq "1") { return }
+  try {
+    $uri = [Uri]$Url
+    if ($uri.Scheme -eq "https") { return }
+  } catch {}
+  throw "$Label must use https://. Set GARDENER_ALLOW_INSECURE_HTTP=1 only for local testing."
+}
+
 function Test-GardenerAdmin {
   try {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -50,6 +60,8 @@ $Temp = Join-Path $env:TEMP ("gardener-update-" + [guid]::NewGuid().ToString("N"
 $Zip = Join-Path $Temp "Gardener-Windows.zip"
 $Extract = Join-Path $Temp "extract"
 $Backup = Join-Path $InstallDir ("backup-" + (Get-Date -Format "yyyyMMdd-HHmmss"))
+
+Assert-GardenerHttpsUrl -Url $PackageUrl -Label "PackageUrl"
 
 New-Item -ItemType Directory -Force -Path $Temp, $Extract | Out-Null
 Write-Host "Downloading $PackageUrl" -ForegroundColor Green

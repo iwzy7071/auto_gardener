@@ -4,6 +4,16 @@ RELAY_BASE_URL="${GARDENER_RELAY_BASE_URL:-}"
 INSTALL_DIR="$HOME/Applications/Gardener"
 START_AFTER_UPDATE=1
 PACKAGE_URL=""
+
+require_https_url() {
+  local url="${1:-}" label="${2:-URL}"
+  [[ "${GARDENER_ALLOW_INSECURE_HTTP:-0}" == "1" ]] && return 0
+  if [[ "$url" != https://* ]]; then
+    echo "$label must use https://. Set GARDENER_ALLOW_INSECURE_HTTP=1 only for local testing." >&2
+    exit 1
+  fi
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --package-url) PACKAGE_URL="${2:-}"; shift 2 ;;
@@ -21,6 +31,7 @@ if [[ -z "$PACKAGE_URL" ]]; then
   fi
   PACKAGE_URL="${RELAY_BASE_URL%/}/downloads/Gardener-macOS-$arch.tar.gz"
 fi
+require_https_url "$PACKAGE_URL" "Package URL"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 curl -fL --connect-timeout 20 --max-time 300 "$PACKAGE_URL" -o "$TMP/gardener.tar.gz"
 mkdir -p "$TMP/extract"; tar -xzf "$TMP/gardener.tar.gz" -C "$TMP/extract"

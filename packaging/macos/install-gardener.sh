@@ -28,6 +28,15 @@ done
 
 RELAY_BASE_URL="${RELAY_BASE_URL%/}"
 is_placeholder_relay_url() { [[ -z "${1:-}" || "$1" == *YOUR_RELAY_SERVER* || "$1" == *YOUR_SERVER_IP* || "$1" == *example.com* ]]; }
+
+require_https_url() {
+  local url="${1:-}" label="${2:-URL}"
+  [[ "${GARDENER_ALLOW_INSECURE_HTTP:-0}" == "1" ]] && return 0
+  if [[ "$url" != https://* ]]; then
+    echo "$label must use https://. Set GARDENER_ALLOW_INSECURE_HTTP=1 only for local testing." >&2
+    exit 1
+  fi
+}
 if [[ -z "$PROVISION_URL" && -n "$SETUP_KEY" ]]; then
   if is_placeholder_relay_url "$RELAY_BASE_URL"; then
     echo "Relay base URL is not configured. Re-run with --relay-base-url http://YOUR_SERVER or set GARDENER_RELAY_BASE_URL." >&2
@@ -56,6 +65,7 @@ trap cleanup EXIT
 
 PROVISION_JSON="$TMP/provision.json"
 if [[ -n "$PROVISION_URL" ]]; then
+  require_https_url "$PROVISION_URL" "Provision URL"
   echo "Loading Gardener relay provision: $PROVISION_URL"
   curl -fsSL --connect-timeout 20 --max-time 120 "$PROVISION_URL" -o "$PROVISION_JSON"
 fi
@@ -103,6 +113,8 @@ if [[ -z "$PACKAGE_URL" ]]; then
   echo "Package URL is not configured. Re-run with --relay-base-url http://YOUR_SERVER or set GARDENER_RELAY_BASE_URL." >&2
   exit 1
 fi
+
+require_https_url "$PACKAGE_URL" "Package URL"
 
 echo "Installing Gardener to $INSTALL_DIR"
 mkdir -p "$INSTALL_DIR"

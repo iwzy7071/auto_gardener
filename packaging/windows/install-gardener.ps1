@@ -19,6 +19,16 @@ function Test-GardenerPlaceholderUrl([string]$Url) {
   return [string]::IsNullOrWhiteSpace($Url) -or $Url -match 'YOUR_RELAY_SERVER|YOUR_SERVER_IP|example\.com'
 }
 
+
+function Assert-GardenerHttpsUrl([string]$Url, [string]$Label) {
+  if ($env:GARDENER_ALLOW_INSECURE_HTTP -eq "1") { return }
+  try {
+    $uri = [Uri]$Url
+    if ($uri.Scheme -eq "https") { return }
+  } catch {}
+  throw "$Label must use https://. Set GARDENER_ALLOW_INSECURE_HTTP=1 only for local testing."
+}
+
 function Invoke-GardenerDownload($Uri, $OutFile) {
   Write-Host "Downloading $Uri" -ForegroundColor Green
   Invoke-WebRequest -Uri $Uri -OutFile $OutFile
@@ -78,6 +88,7 @@ if (-not $ProvisionUrl -and $SetupKey) {
 }
 
 if ($ProvisionUrl) {
+  Assert-GardenerHttpsUrl -Url $ProvisionUrl -Label "ProvisionUrl"
   Write-Host "Loading Gardener relay provision..." -ForegroundColor Green
   $Provision = Invoke-RestMethod -Uri $ProvisionUrl
   if ($User -and $Provision.user -and ($User.ToLowerInvariant() -ne [string]($Provision.user).ToLowerInvariant())) {
@@ -93,6 +104,8 @@ if (-not $PackageUrl) {
   $PackageUrl = "$($RelayBaseUrl.TrimEnd('/'))/downloads/Gardener-Windows.zip"
 }
 
+Assert-GardenerHttpsUrl -Url $PackageUrl -Label "PackageUrl"
+
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Updater = Join-Path $InstallDir "update-gardener.ps1"
@@ -103,6 +116,7 @@ if (-not (Test-Path $Updater)) {
     Unblock-GardenerPath -Path $Updater
   } else {
     $UpdaterUrl = "$($RelayBaseUrl.TrimEnd('/'))/downloads/update-gardener.ps1"
+    Assert-GardenerHttpsUrl -Url $UpdaterUrl -Label "UpdaterUrl"
     Invoke-GardenerDownload -Uri $UpdaterUrl -OutFile $Updater
   }
 }
@@ -114,6 +128,7 @@ $FrpcExe = Join-Path $InstallDir "frpc.exe"
 if (-not (Test-Path $FrpcExe)) {
   $FrpcUrl = "$($RelayBaseUrl.TrimEnd('/'))/downloads/frpc.exe"
   try {
+    Assert-GardenerHttpsUrl -Url $FrpcUrl -Label "FrpcUrl"
     Invoke-GardenerDownload -Uri $FrpcUrl -OutFile $FrpcExe
   } catch {
     Write-Host "Warning: could not download frpc.exe automatically: $_" -ForegroundColor Yellow
