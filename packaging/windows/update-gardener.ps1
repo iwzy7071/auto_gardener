@@ -58,8 +58,8 @@ Unblock-GardenerPath -Path $Zip
 Expand-Archive -Path $Zip -DestinationPath $Extract -Force
 Unblock-GardenerPath -Path $Extract
 
-$Source = Get-ChildItem -Path $Extract -Directory | Select-Object -First 1
-if ($null -eq $Source) { $Source = Get-Item $Extract }
+$Source = Get-ChildItem -Path $Extract -Directory | Where-Object { $_.Name -eq "Gardener-Windows" } | Select-Object -First 1
+if ($null -eq $Source) { throw "Package is missing expected Gardener-Windows directory" }
 
 Write-Host "Stopping running gardener.exe/frpc.exe if any..."
 Get-Process gardener -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
