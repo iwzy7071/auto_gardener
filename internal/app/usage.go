@@ -115,7 +115,7 @@ func (s *Store) TaskUsage(taskID string) (TokenUsageSummary, error) {
 		return TokenUsageSummary{}, ErrNotFound
 	}
 	records := make([]TokenUsageRecord, 0)
-	records = append(records, parseUsageJSONL(filepath.Join(s.forestDir(taskID), "usage.jsonl"))...)
+	records = append(records, parseUsageJSONL(filepath.Join(s.forestDir(taskID), "usage.jsonl"), taskID)...)
 	records = append(records, parseLegacyUsage(task, s.forestDir(taskID))...)
 	records = dedupeUsageRecords(records)
 	return summarizeUsage(taskID, records), nil
@@ -134,7 +134,7 @@ func (s *Store) AllUsage() []TokenUsageSummary {
 	return out
 }
 
-func parseUsageJSONL(path string) []TokenUsageRecord {
+func parseUsageJSONL(path, taskID string) []TokenUsageRecord {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil
@@ -150,6 +150,10 @@ func parseUsageJSONL(path string) []TokenUsageRecord {
 		if err := json.Unmarshal(scanner.Bytes(), &ev); err != nil {
 			continue
 		}
+		if strings.TrimSpace(ev.TaskID) != "" && ev.TaskID != taskID {
+			continue
+		}
+		ev.TaskID = taskID
 		key := ev.RunID
 		if key == "" {
 			key = ev.SourceType + ":" + ev.SourceID
