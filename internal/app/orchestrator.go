@@ -105,6 +105,9 @@ func (o *Orchestrator) CreateTask(prompt, workspacePath string) (*Task, error) {
 	if err != nil {
 		return nil, err
 	}
+	if !o.isAllowedWorkspacePath(absWorkspace) {
+		return nil, fmt.Errorf("保存位置不在允许的工作区范围内；如需使用外部目录，请设置 AUTO_GARDENER_ALLOWED_WORKSPACE_ROOTS")
+	}
 	if err := os.MkdirAll(absWorkspace, 0755); err != nil {
 		return nil, fmt.Errorf("创建交付目录失败：%w", err)
 	}
@@ -146,6 +149,44 @@ func (o *Orchestrator) CreateTask(prompt, workspacePath string) (*Task, error) {
 	o.startForestRun(id, prompt)
 	created, _ := o.store.GetTask(id)
 	return created, nil
+}
+
+func (o *Orchestrator) isAllowedWorkspacePath(path string) bool {
+	if os.Getenv("AUTO_GARDENER_ALLOW_ANY_WORKSPACE") == "1" {
+		return true
+	}
+	abs, err := filepath.Abs(filepath.Clean(path))
+	if err != nil {
+		return false
+	}
+	roots := o.allowedWorkspaceRoots()
+	for _, root := range roots {
+		rootAbs, err := filepath.Abs(filepath.Clean(expandHome(root)))
+		if err != nil || strings.TrimSpace(rootAbs) == "" {
+			continue
+		}
+		if abs == rootAbs || strings.HasPrefix(abs, rootAbs+string(filepath.Separator)) {
+			return true
+		}
+	}
+	return false
+}
+
+func (o *Orchestrator) allowedWorkspaceRoots() []string {
+	var roots []string
+	if home, err := os.UserHomeDir(); err == nil && strings.TrimSpace(home) != "" {
+		roots = append(roots, home)
+	}
+	if strings.TrimSpace(o.dataDir) != "" {
+		roots = append(roots, filepath.Join(o.dataDir, "workspaces"))
+	}
+	roots = append(roots, filepath.Join(os.TempDir(), "GardenerOutputs"))
+	for _, root := range filepath.SplitList(os.Getenv("AUTO_GARDENER_ALLOWED_WORKSPACE_ROOTS")) {
+		if strings.TrimSpace(root) != "" {
+			roots = append(roots, root)
+		}
+	}
+	return roots
 }
 
 func (o *Orchestrator) SendMessage(taskID, content string) (*Task, error) {
