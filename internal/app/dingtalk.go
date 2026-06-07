@@ -99,7 +99,7 @@ func (s *Server) handleDingTalkCommand(msg dingTalkIncomingMessage, content stri
 			return "创建任务失败：" + err.Error()
 		}
 		s.setDingTalkSessionTask(key, task.ID)
-		return fmt.Sprintf("已创建任务：%s\n任务 ID：%s\n你可以发送“状态”“继续”“停止”，或直接补充要求。", task.Title, task.ID)
+		return fmt.Sprintf("已创建任务。\n任务 ID：%s\n你可以发送“状态”“继续”“停止”，或直接补充要求。", task.ID)
 	case "状态", "进度", "status", "progress":
 		taskID := strings.TrimSpace(arg)
 		if taskID == "" {
@@ -146,7 +146,7 @@ func (s *Server) handleDingTalkCommand(msg dingTalkIncomingMessage, content stri
 		return "创建任务失败：" + err.Error()
 	}
 	s.setDingTalkSessionTask(key, task.ID)
-	return fmt.Sprintf("已按你的消息创建新任务：%s\n任务 ID：%s\n之后可发送“状态”“继续”“停止”。", task.Title, task.ID)
+	return fmt.Sprintf("已按你的消息创建新任务。\n任务 ID：%s\n之后可发送“状态”“继续”“停止”。", task.ID)
 }
 
 func splitDingTalkCommand(content string) (string, string) {
