@@ -314,13 +314,9 @@ func (o *Orchestrator) DeleteTask(taskID string) error {
 }
 
 func (o *Orchestrator) RenameTask(taskID, title string) (*Task, error) {
-	title = strings.TrimSpace(title)
+	title = normalizeTaskTitle(title, 80)
 	if title == "" {
 		return nil, fmt.Errorf("任务名称不能为空")
-	}
-	runes := []rune(title)
-	if len(runes) > 80 {
-		title = string(runes[:80])
 	}
 	task, err := o.store.UpdateTask(taskID, func(t *Task) {
 		t.Title = title
@@ -1277,14 +1273,27 @@ func (o *Orchestrator) unregisterCancel(key string) {
 }
 
 func titleFromPrompt(prompt string) string {
-	r := []rune(strings.TrimSpace(prompt))
-	if len(r) == 0 {
+	title := normalizeTaskTitle(prompt, 0)
+	if title == "" {
 		return "未命名森林"
 	}
-	if len(r) > 28 {
-		return string(r[:28]) + "..."
+	runes := []rune(title)
+	if len(runes) > 28 {
+		return string(runes[:28]) + "..."
 	}
-	return string(r)
+	return title
+}
+
+func normalizeTaskTitle(title string, maxRunes int) string {
+	title = strings.Join(strings.Fields(title), " ")
+	if maxRunes <= 0 {
+		return title
+	}
+	runes := []rune(title)
+	if len(runes) > maxRunes {
+		return string(runes[:maxRunes])
+	}
+	return title
 }
 
 func newID(prefix string) string {
