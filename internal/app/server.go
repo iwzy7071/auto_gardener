@@ -34,6 +34,8 @@ type Server struct {
 	httpClient       *http.Client
 }
 
+const maxAPITreeIDLength = 80
+
 func NewServer(store *Store, orchestrator *Orchestrator, staticDir string, events *EventHub) *Server {
 	return &Server{store: store, orchestrator: orchestrator, staticDir: staticDir, events: events, dingTalkSessions: make(map[string]string), httpClient: &http.Client{Timeout: 10 * time.Second}}
 }
@@ -386,6 +388,10 @@ func (s *Server) handleTaskSubroutes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(parts) == 3 && parts[1] == "trees" && r.Method == http.MethodGet {
+		if !validAPITreeID(parts[2]) {
+			writeError(w, http.StatusBadRequest, "Tree ID 非法")
+			return
+		}
 		tree, err := s.store.FindTree(taskID, parts[2])
 		if err != nil {
 			writeError(w, http.StatusNotFound, "Tree 不存在")
@@ -396,6 +402,10 @@ func (s *Server) handleTaskSubroutes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(parts) == 4 && parts[1] == "trees" && parts[3] == "fruit.md" && r.Method == http.MethodGet {
+		if !validAPITreeID(parts[2]) {
+			writeError(w, http.StatusBadRequest, "Tree ID 非法")
+			return
+		}
 		tree, err := s.store.FindTree(taskID, parts[2])
 		if err != nil || tree.FruitPath == "" {
 			writeError(w, http.StatusNotFound, "fruit.md 尚不存在")
@@ -469,6 +479,18 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request, taskID str
 			flusher.Flush()
 		}
 	}
+}
+
+func validAPITreeID(id string) bool {
+	if id == "" || len(id) > maxAPITreeIDLength {
+		return false
+	}
+	for _, r := range id {
+		if r != '-' && r != '_' && (r < 'A' || r > 'Z') && (r < 'a' || r > 'z') && (r < '0' || r > '9') {
+			return false
+		}
+	}
+	return true
 }
 
 func writeSSE(w http.ResponseWriter, event string, v any) {
