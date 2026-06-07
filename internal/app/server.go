@@ -16,6 +16,8 @@ import (
 	"time"
 )
 
+const maxTaskListResponseTasks = 500
+
 type workspaceFileEntry struct {
 	Path    string   `json:"path"`
 	Size    int64    `json:"size"`
@@ -93,6 +95,13 @@ func (s *Server) serveStaticApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.NotFound(w, r)
+}
+
+func limitTaskList(tasks []*Task) []*Task {
+	if len(tasks) <= maxTaskListResponseTasks {
+		return tasks
+	}
+	return tasks[:maxTaskListResponseTasks]
 }
 
 func compactTaskList(tasks []*Task) []*Task {
@@ -183,7 +192,7 @@ func (s *Server) handleDirectoryBrowse(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		tasks := s.store.ListTasks()
+		tasks := limitTaskList(s.store.ListTasks())
 		if r.URL.Query().Get("compact") == "1" {
 			tasks = compactTaskList(tasks)
 		}
