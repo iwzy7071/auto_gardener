@@ -183,11 +183,25 @@ function normalizeSettingsCompatibility() {
   state.settings.cliEngine = compatibleCLIEngineValue(state.settings.cliEngine || 'codex', state.settings.modelMode || 'default');
 }
 
+function normalizeClientSettingsValues(settings) {
+  const normalized = { ...settings };
+  normalized.defaultWorkspace = typeof normalized.defaultWorkspace === 'string' ? normalized.defaultWorkspace : '';
+  normalized.showSavePath = normalized.showSavePath === true;
+  normalized.showWorkRecord = normalized.showWorkRecord === true;
+  normalized.language = normalized.language === 'en' ? 'en' : 'zh-CN';
+  normalized.logLevel = ['quiet', 'normal', 'detailed'].includes(normalized.logLevel) ? normalized.logLevel : 'quiet';
+  normalized.modelMode = ['default', 'minimaxm2.7', 'kimik2.6'].includes(normalized.modelMode) ? normalized.modelMode : 'default';
+  normalized.cliEngine = normalizeCLIEngineValue(normalized.cliEngine || 'codex');
+  normalized.minimaxToken = typeof normalized.minimaxToken === 'string' ? normalized.minimaxToken : '';
+  normalized.kimiToken = typeof normalized.kimiToken === 'string' ? normalized.kimiToken : '';
+  return normalized;
+}
+
 function loadSettings() {
   try {
-    return { defaultWorkspace: '', showSavePath: false, showWorkRecord: false, logLevel: 'quiet', language: 'zh-CN', cliEngine: 'codex', modelMode: 'default', minimaxToken: '', kimiToken: '', ...JSON.parse(localStorage.getItem('autoGardenerSettings') || '{}') };
+    return normalizeClientSettingsValues({ defaultWorkspace: '', showSavePath: false, showWorkRecord: false, logLevel: 'quiet', language: 'zh-CN', cliEngine: 'codex', modelMode: 'default', minimaxToken: '', kimiToken: '', ...JSON.parse(localStorage.getItem('autoGardenerSettings') || '{}') });
   } catch {
-    return { defaultWorkspace: '', showSavePath: false, showWorkRecord: false, logLevel: 'quiet', language: 'zh-CN', cliEngine: 'codex', modelMode: 'default', minimaxToken: '', kimiToken: '' };
+    return normalizeClientSettingsValues({ defaultWorkspace: '', showSavePath: false, showWorkRecord: false, logLevel: 'quiet', language: 'zh-CN', cliEngine: 'codex', modelMode: 'default', minimaxToken: '', kimiToken: '' });
   }
 }
 
