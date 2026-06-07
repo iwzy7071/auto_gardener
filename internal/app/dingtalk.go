@@ -198,7 +198,7 @@ func (s *Server) dingTalkTaskStatus(taskID string) string {
 		return "任务不存在：" + taskID
 	}
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("任务：%s\nID：%s\n状态：%s\n阶段：%d", task.Title, task.ID, task.Status, task.Forest))
+	b.WriteString(fmt.Sprintf("任务 ID：%s\n状态：%s\n阶段：%d", task.ID, task.Status, task.Forest))
 	if task.LastProgressAt != nil {
 		b.WriteString("\n最近进展时间：" + task.LastProgressAt.Format("2006-01-02 15:04:05"))
 	}
