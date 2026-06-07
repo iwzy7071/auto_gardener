@@ -1,0 +1,52 @@
+# Local secrets / machine-specific config
+.env
+.env.*
+!.env.example
+*.local
+*.local.*
+.gardener_*.local
+config/*.local
+config/*.local.*
+DEPLOY_SERVER_MEMORY.local.md
+
+# Relay private material
+deploy/private/
+/etc/
+
+# Build outputs and packaged binaries
+/bin/
+/dist/
+/dist-test/
+*.exe
+*.dll
+*.dylib
+*.so
+*.zip
+*.tar.gz
+*.tgz
+
+# Bundled third-party tunnel binaries (provide locally when packaging)
+packaging/windows/frpc.exe
+packaging/macos/frpc-darwin-*
+
+# Runtime data
+/data/
+forest_data/
+workspaces/
+scratch/
+settings.json
+usage.jsonl
+*.log
+*.out.log
+*.err.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# Python
+__pycache__/
+*.py[cod]

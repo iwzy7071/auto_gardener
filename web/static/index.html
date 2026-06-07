@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gardener</title>
+  <link rel="icon" type="image/svg+xml" href="/assets/gardener-logo.svg" />
+  <link rel="shortcut icon" type="image/svg+xml" href="/assets/gardener-logo.svg" />
+  <meta property="og:title" content="Gardener" />
+  <meta property="og:image" content="/assets/gardener-logo.svg" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div id="appShell" class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <img class="brand-logo" src="/assets/gardener-logo.svg" alt="Gardener" />
+        <div><h1>Gardener</h1></div><button id="settingsBtn" class="icon-btn" data-i18n-title="settings" title="设置">⚙</button>
+      </div>
+
+      <section class="forest-nav">
+        <div class="section-title"><span data-i18n="tasks">任务</span><button id="refreshBtn" class="ghost-mini" data-i18n="refresh">刷新</button></div>
+        <div id="taskList" class="task-list"></div>
+      </section>
+    </aside>
+
+    <main class="main">
+      <header class="main-topbar">
+        <div class="top-left">
+          <button id="backBtn" class="back-btn hidden" data-i18n-title="back" title="返回">←</button>
+          <img class="top-logo" src="/assets/gardener-logo.svg" alt="" aria-hidden="true" />
+          <div class="title-editor">
+            <h2 id="pageTitle" title="双击重命名">Gardener</h2>
+            <input id="titleEditInput" class="title-edit-input hidden" autocomplete="off" />
+            <button id="renameTaskBtn" class="title-edit-btn hidden" type="button" data-i18n-title="rename" title="重命名" aria-label="重命名">✎</button>
+          </div>
+        </div>
+        <button id="detailSettingsBtn" class="icon-btn top-settings-btn" data-i18n-title="settings" title="设置">⚙</button>
+      </header>
+      <div id="powerBanner" class="power-banner hidden" role="alert"></div>
+
+      <section id="emptyState" class="home-garden simple-home">
+        <section class="home-compose">
+          <div class="home-compose-copy">
+            <div class="home-compose-title-row">
+              <div>
+                <span class="home-kicker">Gardener</span>
+                <h2 data-i18n="homeTitle">你想完成什么？</h2>
+              </div>
+              <button id="homeSettingsBtn" class="icon-btn home-settings-inline" data-i18n-title="settings" title="设置">⚙</button>
+            </div>
+          </div>
+          <label for="taskInput" class="home-task-label"><span data-i18n="taskLabel">任务</span></label>
+          <textarea id="taskInput" class="home-task-input" data-i18n-placeholder="taskPlaceholder" placeholder="告诉 Gardener 你的目标、要求和交付物" rows="7"></textarea>
+          <div class="home-save-row">
+            <label for="workspaceInput"><span data-i18n="saveLocation">保存位置</span></label>
+            <div class="workspace-picker-row">
+              <input id="workspaceInput" data-i18n-placeholder="defaultSave" placeholder="默认保存" />
+              <button id="browseWorkspaceBtn" type="button" class="soft-btn browse-btn" data-i18n="browse">选择</button>
+            </div>
+          </div>
+          <button id="createTaskBtn" class="primary-btn home-create-btn" data-i18n="create">创建</button>
+        </section>
+
+        <section class="home-forests">
+          <div class="home-forests-head">
+            <h3 data-i18n="recentForests">已有任务</h3>
+            <button id="homeRefreshBtn" class="ghost-mini" data-i18n="refresh">刷新</button>
+          </div>
+          <div id="homeForestList" class="home-forest-list"></div>
+        </section>
+      </section>
+
+      <section id="forestView" class="hidden forest-detail-layout">
+        <section class="phone-card chat-pane">
+          <div class="phone-header">
+            <div class="avatar gardener">G</div>
+            <div><h3>Gardener</h3></div>
+          </div>
+          <div id="messages" class="messages phone-messages"></div>
+          <div class="chat-box phone-input">
+            <textarea id="messageInput" class="chat-textarea" data-i18n-placeholder="messagePlaceholder" placeholder="给 Gardener 发消息" rows="1"></textarea>
+            <button id="sendMessageBtn" class="primary-btn" data-i18n="send">发送</button>
+          </div>
+        </section>
+
+        <section class="right-pane">
+          <section class="forest-summary">
+            <div class="forest-summary-head">
+              <div class="forest-status-line">
+                <span id="forestStatus" class="status-pill"></span>
+                <span id="treeSummaryText" class="quiet-text"></span>
+              </div>
+              <div class="summary-actions">
+                <button id="toggleOverviewBtn" class="soft-btn overview-toggle-btn" type="button" data-i18n="collapseOverview">收起概览</button>
+                <a id="scheduleLink" class="soft-btn" data-i18n="taskPlan">任务安排</a>
+                <a id="logLink" class="soft-btn" data-i18n="workRecord">工作记录</a>
+                <button id="resumeTaskBtn" class="soft-btn resume-btn" data-i18n="resumeTask">继续任务</button>
+                <button id="stopTaskBtn" class="danger-btn" data-i18n="stop">停止</button>
+                <button id="deleteTaskBtn" class="danger-btn subtle" data-i18n="delete">删除</button>
+              </div>
+            </div>
+
+            <section id="overviewMiniPanel" class="overview-mini-panel hidden" aria-label="Task overview"></section>
+            <section id="gardenerProgressPanel" class="gardener-progress-panel hidden" aria-label="Gardener progress"></section>
+            <section id="usagePanel" class="usage-panel hidden" aria-label="Token usage"></section>
+            <section id="treeStatusPanel" class="tree-status-panel hidden" aria-label="Subtask status"></section>
+
+            <section class="file-zone">
+              <div class="file-zone-head">
+                <h3 data-i18n="files">文件</h3>
+                <div class="file-controls file-switcher">
+                  <div class="switch-field forest-switch">
+                    <span data-i18n="stage">阶段</span>
+                    <div class="forest-control">
+                      <button id="prevForestBtn" class="step-btn" type="button" aria-label="Previous stage">‹</button>
+                      <select id="forestSelect" aria-label="Stage"></select>
+                      <button id="nextForestBtn" class="step-btn" type="button" aria-label="Next stage">›</button>
+                    </div>
+                  </div>
+                  <label class="switch-field">
+                    <span data-i18n="subtask">子任务</span>
+                    <select id="fileTreeFilter" aria-label="Subtask files"></select>
+                  </label>
+                  <label class="switch-field file-switch">
+                    <span data-i18n="file">文件</span>
+                    <select id="fileSelect" aria-label="Files"></select>
+                  </label>
+                </div>
+              </div>
+              <div class="file-zone-body">
+                <div id="fileList" class="file-list hidden"></div>
+                <article id="filePreview" class="file-preview plain-preview"></article>
+              </div>
+            </section>
+          </section>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <template id="treeTemplate">
+    <article class="tree-row">
+      <div class="tree-left"><div class="tree-badge"></div><div class="tree-line"></div></div>
+      <div class="tree-body">
+        <div class="tree-row-head"><div><h4></h4><p></p></div><span class="status-pill"></span></div>
+        <div class="scope"></div>
+        <details><summary data-i18n="workProcess">工作过程</summary><ul></ul></details>
+        <div class="tree-actions"><a class="fruit-btn" data-i18n="viewResult">查看成果</a></div>
+      </div>
+    </article>
+  </template>
+
+  <div id="settingsOverlay" class="settings-overlay hidden" aria-hidden="true">
+    <section class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+      <header class="settings-modal-head">
+        <h3 id="settingsTitle" data-i18n="settings">设置</h3>
+        <button id="closeSettingsBtn" class="back-btn" data-i18n-title="close" title="关闭">×</button>
+      </header>
+      <div class="settings-body">
+        <label for="defaultWorkspaceInput"><span data-i18n="defaultSaveLocation">默认保存位置</span></label>
+        <input id="defaultWorkspaceInput" data-i18n-placeholder="autoSave" placeholder="留空则自动保存" />
+        <p class="settings-note"><span data-i18n="saveLocationHelp">不设置也可以正常使用。</span></p>
+        <label class="setting-check"><input id="showSavePathToggle" type="checkbox" /> <span data-i18n="showSaveLocation">创建任务时显示保存位置</span></label>
+        <label class="setting-check"><input id="showWorkRecordToggle" type="checkbox" /> <span data-i18n="showPlanRecord">在任务中显示安排和记录</span></label>
+        <label for="languageSelect"><span data-i18n="language">语言</span></label>
+        <select id="languageSelect">
+          <option value="zh-CN">简体中文</option>
+          <option value="en">English</option>
+        </select>
+        <label for="logLevelSelect"><span data-i18n="logDetail">记录详细程度</span></label>
+        <select id="logLevelSelect">
+          <option value="quiet" data-i18n="logQuiet">简洁</option>
+          <option value="normal" data-i18n="logNormal">标准</option>
+          <option value="detailed" data-i18n="logDetailed">详细</option>
+        </select>
+        <p class="settings-note"><span data-i18n="logHelp">普通使用建议选择“简洁”。需要排查问题时再切换为“详细”。</span></p>
+        <label for="cliEngineSelect"><span data-i18n="cliEngine">底层 CLI</span></label>
+        <select id="cliEngineSelect">
+          <option value="codex" data-i18n="cliCodex">Codex CLI</option>
+          <option value="claude" data-i18n="cliClaude">Claude Code</option>
+        </select>
+        <p class="settings-note"><span data-i18n="cliHelp">创建任务后会固定使用所选 CLI。</span></p>
+        <label for="modelModeSelect"><span data-i18n="model">模型</span></label>
+        <select id="modelModeSelect">
+          <option value="default" data-i18n="modelDefault">CLI 默认模型</option>
+          <option value="minimaxm2.7">minimaxm2.7 / MiniMax-M2.7-highspeed</option>
+          <option value="kimik2.6">kimi-coding</option>
+        </select>
+        <div id="modelTokenSection" class="model-token-section">
+          <label for="modelTokenInput"><span data-i18n="modelToken">Token</span></label>
+          <input id="modelTokenInput" type="password" autocomplete="off" data-i18n-placeholder="modelTokenPlaceholder" placeholder="输入当前模型的 token" />
+        </div>
+        <button id="saveSettingsBtn" class="primary-btn" data-i18n="save">保存</button>
+      </div>
+    </section>
+  </div>
+
+  <div id="directoryOverlay" class="settings-overlay hidden" aria-hidden="true">
+    <section class="settings-modal directory-modal" role="dialog" aria-modal="true" aria-labelledby="directoryTitle">
+      <header class="settings-modal-head">
+        <h3 id="directoryTitle" data-i18n="chooseFolder">选择保存位置</h3>
+        <button id="closeDirectoryBtn" class="back-btn" data-i18n-title="close" title="关闭">×</button>
+      </header>
+      <div class="directory-body">
+        <div id="directoryPath" class="directory-path"></div>
+        <div class="directory-actions">
+          <button id="parentDirectoryBtn" type="button" class="soft-btn" data-i18n="parentFolder">上一级</button>
+          <button id="useDirectoryBtn" type="button" class="primary-btn use-directory-btn" data-i18n="useFolder">使用此目录</button>
+        </div>
+        <div id="directoryList" class="directory-list"></div>
+      </div>
+    </section>
+  </div>
+
+  <div id="reportOverlay" class="report-overlay hidden" aria-hidden="true">
+    <section class="report-modal" role="dialog" aria-modal="true" aria-labelledby="reportTitle">
+      <header class="report-modal-head">
+        <h3 id="reportTitle" data-i18n="result">成果</h3>
+        <div class="report-modal-actions">
+          <button id="copyReportBtn" class="soft-btn" data-i18n="copy">复制</button>
+          <button id="closeReportBtn" class="back-btn" data-i18n-title="close" title="关闭">×</button>
+        </div>
+      </header>
+      <article id="reportBody" class="report-body"></article>
+    </section>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
