@@ -74,7 +74,7 @@ if (Test-Path $RelayJson) {
     $Relay = Get-Content $RelayJson -Raw | ConvertFrom-Json
     if ($Relay.publicUrl) { $openUrl = [string]$Relay.publicUrl }
   } catch {
-    Write-Host "Warning: cannot parse gardener.relay.json: $_" -ForegroundColor Yellow
+    Write-Host "Warning: cannot parse gardener.relay.json." -ForegroundColor Yellow
   }
 }
 
