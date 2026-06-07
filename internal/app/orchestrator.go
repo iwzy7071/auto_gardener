@@ -108,7 +108,7 @@ func (o *Orchestrator) CreateTask(prompt, workspacePath string) (*Task, error) {
 	if err := os.MkdirAll(absWorkspace, 0755); err != nil {
 		return nil, fmt.Errorf("创建交付目录失败：%w", err)
 	}
-	scratchPath := filepath.Join(os.TempDir(), "GardenerScratch", id+"_"+safeName(title))
+	scratchPath := filepath.Join(os.TempDir(), "GardenerScratch", id)
 	absScratch, err := filepath.Abs(scratchPath)
 	if err != nil {
 		return nil, err
@@ -1004,14 +1004,14 @@ func taskWorkDir(t *Task) string {
 func defaultOutputPathForPrompt(prompt, id, title string) string {
 	home, err := os.UserHomeDir()
 	if err != nil || strings.TrimSpace(home) == "" {
-		return filepath.Join(os.TempDir(), "GardenerOutputs", id+"_"+safeName(title))
+		return filepath.Join(os.TempDir(), "GardenerOutputs", id)
 	}
 	desktop := filepath.Join(home, "Desktop")
 	text := strings.ToLower(prompt)
 	if strings.Contains(prompt, "桌面") || strings.Contains(text, "desktop") {
 		return desktop
 	}
-	return filepath.Join(desktop, "Gardener成果", id+"_"+safeName(title))
+	return filepath.Join(desktop, "Gardener成果", id)
 }
 
 func buildGardenerPlanPrompt(t *Task, instruction string) string {
