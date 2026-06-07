@@ -1,21 +1,33 @@
-const state = { powerStatus: null, tasks: [], activeTaskId: null, eventSource: null, recoveryPoller: null, activeRefreshPoller: null, selectedForests: {}, selectedFileTree: {}, selectedFilePath: {}, selectedFileManual: {}, fileListFingerprint: {}, lastFileRefreshAt: {}, treeStatusExpanded: {}, usage: {}, usageFetchedAt: {}, usagePending: {}, renderCache: {}, pendingTaskRender: null, pendingTaskRenderFrame: 0, lastTaskListSig: '', lastHomeSig: '', activeReportText: '', fileViewerToken: 0, previewToken: 0, overviewCollapsed: loadOverviewCollapsed(), editingTitle: false, settings: loadSettings() };
+const state = { powerStatus: null, tasks: [], activeTaskId: null, eventSource: null, recoveryPoller: null, activeRefreshPoller: null, selectedForests: {}, selectedFileTree: {}, selectedFilePath: {}, selectedFileManual: {}, fileListFingerprint: {}, lastFileRefreshAt: {}, treeStatusExpanded: {}, usage: {}, usageFetchedAt: {}, usagePending: {}, renderCache: {}, pendingTaskRender: null, pendingTaskRenderFrame: 0, lastTaskListSig: '', lastHomeSig: '', activeReportText: '', fileViewerToken: 0, previewToken: 0, overviewCollapsed: loadOverviewCollapsed(), chatCollapsed: loadChatCollapsed(), editingTitle: false, settings: loadSettings() };
 const $ = (id) => document.getElementById(id);
 
 const I18N = {
   'zh-CN': {
-    newTask:'新建任务', taskLabel:'任务', homeTitle:'你想完成什么？', garden:'工作台', taskPlaceholder:'告诉 Gardener 你的目标、要求和交付物', saveLocation:'保存位置', defaultSave:'默认保存', create:'创建', tasks:'任务', refresh:'刷新', back:'返回', messagePlaceholder:'给 Gardener 发消息', send:'发送', taskPlan:'任务安排', workRecord:'工作记录', stop:'停止', workProcess:'工作过程', viewResult:'查看报告', settings:'设置', close:'关闭', defaultSaveLocation:'默认保存位置', autoSave:'留空则自动保存', saveLocationHelp:'不设置也可以正常使用。', showSaveLocation:'创建任务时显示保存位置', showPlanRecord:'在任务中显示安排和记录', language:'语言', logDetail:'记录详细程度', logQuiet:'简洁', logNormal:'标准', logDetailed:'详细', logHelp:'普通使用建议选择“简洁”。需要排查问题时再切换为“详细”。', save:'保存', copy:'复制', result:'报告', noTasks:'暂无任务', newTaskShort:'新任务', genericTask:'任务', inProgress:'进行中', done:'已完成', waitingForest:'等待阶段', noForest:'无阶段', gardenerWillContinue:'我会继续处理。', resultNotReady:'报告尚未生成。', openingResult:'正在打开报告', emptyResult:'内容为空', openFailed:'无法打开：', stopConfirm:'停止当前任务？', team:'子任务', validationTeam:'验证任务', files:'文件', recentForests:'已有任务', noRecent:'还没有任务', openForest:'打开', allFiles:'全部文件', allTreeFiles:'全部子任务', noFiles:'暂无可查看文件', loadingFiles:'正在读取文件', selectFile:'选择文件查看内容', fileTooLarge:'文件无法预览', treeStatus:'子任务状态', noTreesInForest:'当前阶段暂无子任务', browse:'选择', chooseFolder:'选择保存位置', parentFolder:'上一级', useFolder:'使用此目录', folderEmpty:'没有可选择的子目录', tokenUsage:'Token 消耗', tokenEstimate:'Token 消耗', tokenMaxEstimate:'', tokenNoData:'暂无 token 记录', delete:'删除', deleteConfirm:'删除这个任务并清除它的数据？', deleteFailed:'删除失败：', viewStatus:'查看状态', hideStatus:'收起状态', rename:'重命名', renamePrompt:'输入新的任务名称', renameFailed:'重命名失败：', model:'模型', modelDefault:'CLI 默认模型', cliEngine:'底层 CLI', cliCodex:'Codex CLI', cliClaude:'Claude Code', cliHelp:'创建任务后会固定使用所选 CLI。', modelToken:'Token', modelTokenPlaceholder:'输入当前模型的 token', gardenerProgress:'工作进展', gardenerWorking:'正在工作', gardenerProgressEmpty:'等待下一步进展', stage:'阶段', subtask:'子任务', file:'文件', resumeTask:'继续任务', resumeTaskHint:'任务已暂停。如未完成，可点击“继续任务”，Gardener 会检查当前进度后接着处理。', resumeFailed:'继续失败：', fileEncodingHint:'已自动尝试文本编码识别。', binaryFile:'文件可能不是文本，无法预览', noOutputYet:'正在等待产出文件或报告。', noOutputStale:'长时间没有新输出，底层 CLI 可能仍在处理。你可以直接询问进度，不会中断任务。', statusQuerySafe:'查看进度不会中断任务。', noOutputMinutes:'%dm 无新输出', collapseOverview:'收起概览', expandOverview:'展开概览', overview:'概览', recentMessagesOnly:'仅显示最近 %d 条消息。', previewTruncated:'文件较大，已仅预览前 %d 个字符。', downloadFile:'下载文件', powerWarningTitle:'远程访问提醒', powerWarningPrefix:'这台电脑的电源设置可能导致 Gardener 离线：', dashboard:'任务驾驶舱', duration:'运行时长', idle:'无输出', askProgressSafe:'询问进度不会中断任务', diagnosis:'诊断提示'
+    newTask:'新建任务', taskLabel:'任务', homeTitle:'你想完成什么？', garden:'工作台', taskPlaceholder:'告诉 Gardener 你的目标、要求和交付物', saveLocation:'保存位置', defaultSave:'默认保存', create:'创建', tasks:'任务', refresh:'刷新', back:'返回', messagePlaceholder:'给 Gardener 发消息', send:'发送', taskPlan:'任务安排', workRecord:'工作记录', stop:'停止', workProcess:'工作过程', viewResult:'查看报告', settings:'设置', close:'关闭', defaultSaveLocation:'默认保存位置', autoSave:'留空则自动保存', saveLocationHelp:'不设置也可以正常使用。', showSaveLocation:'创建任务时显示保存位置', showPlanRecord:'在任务中显示安排和记录', language:'语言', logDetail:'记录详细程度', logQuiet:'简洁', logNormal:'标准', logDetailed:'详细', logHelp:'普通使用建议选择“简洁”。需要排查问题时再切换为“详细”。', save:'保存', copy:'复制', result:'报告', noTasks:'暂无任务', newTaskShort:'新任务', genericTask:'任务', inProgress:'进行中', done:'已完成', waitingForest:'等待阶段', noForest:'无阶段', gardenerWillContinue:'我会继续处理。', resultNotReady:'报告尚未生成。', openingResult:'正在打开报告', emptyResult:'内容为空', openFailed:'无法打开：', stopConfirm:'停止当前任务？', team:'子任务', validationTeam:'验证任务', files:'文件', recentForests:'已有任务', noRecent:'还没有任务', openForest:'打开', allFiles:'全部文件', allTreeFiles:'全部子任务', noFiles:'暂无可查看文件', loadingFiles:'正在读取文件', selectFile:'选择文件查看内容', fileTooLarge:'文件无法预览', treeStatus:'子任务状态', noTreesInForest:'当前阶段暂无子任务', browse:'选择', chooseFolder:'选择保存位置', parentFolder:'上一级', useFolder:'使用此目录', folderEmpty:'没有可选择的子目录', tokenUsage:'Token 消耗', tokenEstimate:'Token 消耗', tokenMaxEstimate:'', tokenNoData:'暂无 token 记录', delete:'删除', deleteConfirm:'删除这个任务并清除它的数据？', deleteFailed:'删除失败：', viewStatus:'查看状态', hideStatus:'收起状态', rename:'重命名', renamePrompt:'输入新的任务名称', renameFailed:'重命名失败：', model:'模型', modelDefault:'CLI 默认模型', cliEngine:'底层 CLI', cliCodex:'Codex CLI', cliClaude:'Claude Code', cliHelp:'创建任务后会固定使用所选 CLI。', modelToken:'Token', modelTokenPlaceholder:'输入当前模型的 token', gardenerProgress:'工作进展', gardenerWorking:'正在工作', gardenerProgressEmpty:'等待下一步进展', stage:'阶段', subtask:'子任务', file:'文件', resumeTask:'继续任务', resumeTaskHint:'任务已暂停。如未完成，可点击“继续任务”，Gardener 会检查当前进度后接着处理。', resumeFailed:'继续失败：', fileEncodingHint:'已自动尝试文本编码识别。', binaryFile:'文件可能不是文本，无法预览', noOutputYet:'正在等待产出文件或报告。', noOutputStale:'长时间没有新输出，底层 CLI 可能仍在处理。你可以直接询问进度，不会中断任务。', statusQuerySafe:'查看进度不会中断任务。', noOutputMinutes:'%dm 无新输出', collapseOverview:'收起概览', expandOverview:'展开概览', overview:'概览', recentMessagesOnly:'仅显示最近 %d 条消息。', previewTruncated:'文件较大，已仅预览前 %d 个字符。', downloadFile:'下载文件', powerWarningTitle:'远程访问提醒', powerWarningPrefix:'这台电脑的电源设置可能导致 Gardener 离线：', dashboard:'任务驾驶舱', duration:'运行时长', idle:'无输出', askProgressSafe:'询问进度不会中断任务', diagnosis:'诊断提示', collapseChat:'收起对话', expandChat:'展开对话', taskNow:'当前状态', taskNext:'是否需要操作', subtaskProgress:'子任务进度', currentStage:'当前阶段', progressDone:'已完成', progressRunning:'处理中', progressPending:'等待中', progressExplain:'蓝色表示正在处理，绿色表示已完成，紫色表示验证检查。', allSubtasksDone:'本阶段子任务都已返回，Gardener 正在整理结果。', noRunningSubtasks:'暂无正在执行的子任务', runningSubtasksNamed:'正在处理：', finishedCount:'已完成 %d / 共 %d', workingNormally:'正在正常处理，你可以等待；如果想了解进展，直接发消息询问，不会中断任务。', checkingResults:'子任务已返回，Gardener 正在检查结果并决定下一步。', planningTask:'Gardener 正在把目标拆成可执行的小任务。', finishedTaskHint:'任务已完成。如需补充或继续迭代，可以点击继续任务。'
   },
   en: {
-    newTask:'New task', taskLabel:'Task', homeTitle:'What do you want to get done?', garden:'Workspace', taskPlaceholder:'Tell Gardener your goal, requirements, and deliverables', saveLocation:'Save location', defaultSave:'Default save location', create:'Create', tasks:'Tasks', refresh:'Refresh', back:'Back', messagePlaceholder:'Message Gardener', send:'Send', taskPlan:'Plan', workRecord:'Activity', stop:'Stop', workProcess:'Activity', viewResult:'View report', settings:'Settings', close:'Close', defaultSaveLocation:'Default save location', autoSave:'Leave blank to save automatically', saveLocationHelp:'You can use Gardener without setting this.', showSaveLocation:'Show save location when creating a task', showPlanRecord:'Show plan and activity inside a task', language:'Language', logDetail:'Activity detail', logQuiet:'Simple', logNormal:'Standard', logDetailed:'Detailed', logHelp:'Simple is recommended. Use Detailed only when troubleshooting.', save:'Save', copy:'Copy', result:'Report', noTasks:'No tasks', newTaskShort:'New task', genericTask:'Task', inProgress:'Running', done:'Done', waitingForest:'Waiting for stage', noForest:'No stage', gardenerWillContinue:'I will keep working on it.', resultNotReady:'Report is not ready yet.', openingResult:'Opening report', emptyResult:'Empty content', openFailed:'Unable to open: ', stopConfirm:'Stop this task?', team:'Subtask', validationTeam:'Validation', files:'Files', recentForests:'Tasks', noRecent:'No tasks yet', openForest:'Open', allFiles:'All files', allTreeFiles:'All subtasks', noFiles:'No files', loadingFiles:'Loading files', selectFile:'Select a file to preview', fileTooLarge:'File cannot be previewed', treeStatus:'Subtask status', noTreesInForest:'No subtasks in this stage', browse:'Choose', chooseFolder:'Choose folder', parentFolder:'Parent', useFolder:'Use this folder', folderEmpty:'No folders', tokenUsage:'Token usage', tokenEstimate:'Token usage', tokenMaxEstimate:'', tokenNoData:'No token records yet', delete:'Delete', deleteConfirm:'Delete this task and clear its data?', deleteFailed:'Delete failed: ', viewStatus:'View status', hideStatus:'Hide status', rename:'Rename', renamePrompt:'Enter a new task name', renameFailed:'Rename failed: ', model:'Model', modelDefault:'CLI default model', cliEngine:'Base CLI', cliCodex:'Codex CLI', cliClaude:'Claude Code', cliHelp:'A task keeps the selected CLI after creation.', modelToken:'Token', modelTokenPlaceholder:'Enter the token for the selected model', gardenerProgress:'Work progress', gardenerWorking:'Working', gardenerProgressEmpty:'Waiting for updates', stage:'Stage', subtask:'Subtask', file:'File', resumeTask:'Continue task', resumeTaskHint:'This task is paused. If it is not done, click Continue task and Gardener will inspect the current progress before continuing.', resumeFailed:'Continue failed: ', fileEncodingHint:'Text encoding was detected automatically.', binaryFile:'This file may not be text and cannot be previewed', noOutputYet:'Waiting for files or reports.', noOutputStale:'No new output for a while. The base CLI may still be working. You can ask for progress without interrupting the task.', statusQuerySafe:'Checking progress will not interrupt the task.', noOutputMinutes:'No output for %dm', collapseOverview:'Collapse', expandOverview:'Expand', overview:'Overview', recentMessagesOnly:'Showing latest %d messages only.', previewTruncated:'Large file: only first %d characters are shown.', downloadFile:'Download file', powerWarningTitle:'Remote access warning', powerWarningPrefix:'This computer may go offline because of its power settings: ', dashboard:'Task dashboard', duration:'Duration', idle:'Idle', askProgressSafe:'Asking progress will not interrupt the task', diagnosis:'Diagnostic cue'
+    newTask:'New task', taskLabel:'Task', homeTitle:'What do you want to get done?', garden:'Workspace', taskPlaceholder:'Tell Gardener your goal, requirements, and deliverables', saveLocation:'Save location', defaultSave:'Default save location', create:'Create', tasks:'Tasks', refresh:'Refresh', back:'Back', messagePlaceholder:'Message Gardener', send:'Send', taskPlan:'Plan', workRecord:'Activity', stop:'Stop', workProcess:'Activity', viewResult:'View report', settings:'Settings', close:'Close', defaultSaveLocation:'Default save location', autoSave:'Leave blank to save automatically', saveLocationHelp:'You can use Gardener without setting this.', showSaveLocation:'Show save location when creating a task', showPlanRecord:'Show plan and activity inside a task', language:'Language', logDetail:'Activity detail', logQuiet:'Simple', logNormal:'Standard', logDetailed:'Detailed', logHelp:'Simple is recommended. Use Detailed only when troubleshooting.', save:'Save', copy:'Copy', result:'Report', noTasks:'No tasks', newTaskShort:'New task', genericTask:'Task', inProgress:'Running', done:'Done', waitingForest:'Waiting for stage', noForest:'No stage', gardenerWillContinue:'I will keep working on it.', resultNotReady:'Report is not ready yet.', openingResult:'Opening report', emptyResult:'Empty content', openFailed:'Unable to open: ', stopConfirm:'Stop this task?', team:'Subtask', validationTeam:'Validation', files:'Files', recentForests:'Tasks', noRecent:'No tasks yet', openForest:'Open', allFiles:'All files', allTreeFiles:'All subtasks', noFiles:'No files', loadingFiles:'Loading files', selectFile:'Select a file to preview', fileTooLarge:'File cannot be previewed', treeStatus:'Subtask status', noTreesInForest:'No subtasks in this stage', browse:'Choose', chooseFolder:'Choose folder', parentFolder:'Parent', useFolder:'Use this folder', folderEmpty:'No folders', tokenUsage:'Token usage', tokenEstimate:'Token usage', tokenMaxEstimate:'', tokenNoData:'No token records yet', delete:'Delete', deleteConfirm:'Delete this task and clear its data?', deleteFailed:'Delete failed: ', viewStatus:'View status', hideStatus:'Hide status', rename:'Rename', renamePrompt:'Enter a new task name', renameFailed:'Rename failed: ', model:'Model', modelDefault:'CLI default model', cliEngine:'Base CLI', cliCodex:'Codex CLI', cliClaude:'Claude Code', cliHelp:'A task keeps the selected CLI after creation.', modelToken:'Token', modelTokenPlaceholder:'Enter the token for the selected model', gardenerProgress:'Work progress', gardenerWorking:'Working', gardenerProgressEmpty:'Waiting for updates', stage:'Stage', subtask:'Subtask', file:'File', resumeTask:'Continue task', resumeTaskHint:'This task is paused. If it is not done, click Continue task and Gardener will inspect the current progress before continuing.', resumeFailed:'Continue failed: ', fileEncodingHint:'Text encoding was detected automatically.', binaryFile:'This file may not be text and cannot be previewed', noOutputYet:'Waiting for files or reports.', noOutputStale:'No new output for a while. The base CLI may still be working. You can ask for progress without interrupting the task.', statusQuerySafe:'Checking progress will not interrupt the task.', noOutputMinutes:'No output for %dm', collapseOverview:'Collapse', expandOverview:'Expand', overview:'Overview', recentMessagesOnly:'Showing latest %d messages only.', previewTruncated:'Large file: only first %d characters are shown.', downloadFile:'Download file', powerWarningTitle:'Remote access warning', powerWarningPrefix:'This computer may go offline because of its power settings: ', dashboard:'Task dashboard', duration:'Duration', idle:'Idle', askProgressSafe:'Asking progress will not interrupt the task', diagnosis:'Diagnostic cue', collapseChat:'Hide chat', expandChat:'Show chat', taskNow:'Current status', taskNext:'Do I need to act?', subtaskProgress:'Subtask progress', currentStage:'Current stage', progressDone:'Done', progressRunning:'Working', progressPending:'Waiting', progressExplain:'Blue means working, green means done, purple means validation.', allSubtasksDone:'All subtasks in this stage have returned; Gardener is summarizing results.', noRunningSubtasks:'No subtask is currently running', runningSubtasksNamed:'Working on: ', finishedCount:'Done %d / %d', workingNormally:'Gardener is working normally. You can wait or ask for progress without interrupting the task.', checkingResults:'Subtasks have returned. Gardener is checking results and deciding next steps.', planningTask:'Gardener is breaking the goal into executable subtasks.', finishedTaskHint:'The task is finished. Click Continue task if you want to add more work.'
   }
 };
 
 function loadOverviewCollapsed() {
-  try { return localStorage.getItem('gardenerOverviewCollapsed') === '1'; }
-  catch { return false; }
+  try {
+    const value = localStorage.getItem('gardenerOverviewCollapsed');
+    if (value === null) return true;
+    return value === '1';
+  }
+  catch { return true; }
 }
 function saveOverviewCollapsed() {
   try { localStorage.setItem('gardenerOverviewCollapsed', state.overviewCollapsed ? '1' : '0'); }
+  catch {}
+}
+function loadChatCollapsed() {
+  try { return localStorage.getItem('gardenerChatCollapsed') === '1'; }
+  catch { return false; }
+}
+function saveChatCollapsed() {
+  try { localStorage.setItem('gardenerChatCollapsed', state.chatCollapsed ? '1' : '0'); }
   catch {}
 }
 
@@ -223,7 +235,7 @@ function applySettings() {
   $('cliEngineSelect').value = compatibleCLIEngineValue(state.settings.cliEngine || 'codex', state.settings.modelMode || 'default');
   $('modelModeSelect').value = state.settings.modelMode || 'default';
   applyModelTokenField();
-  document.body.classList.toggle('hide-save-path', false);
+  document.body.classList.toggle('hide-save-path', !state.settings.showSavePath);
   document.body.classList.toggle('hide-work-record', !state.settings.showWorkRecord);
   if (!$('workspaceInput').value.trim()) $('workspaceInput').value = state.settings.defaultWorkspace || '';
   applyI18n();
@@ -331,7 +343,7 @@ function forestSignature(task) {
 
 function overviewSignature(task) {
   const usage = state.usage[task.id];
-  return [state.overviewCollapsed ? 1 : 0, task.status || '', forestSignature(task), usage?.totalTokens || 0, task.runtime?.phase || '', task.runtime?.severity || '', task.runtime?.idleSeconds || 0].join('::');
+  return [state.overviewCollapsed ? 1 : 0, state.chatCollapsed ? 1 : 0, task.status || '', forestSignature(task), usage?.totalTokens || 0, task.runtime?.phase || '', task.runtime?.severity || '', task.runtime?.idleSeconds || 0].join('::');
 }
 
 function scheduleTaskRender(task, options = {}) {
@@ -466,6 +478,7 @@ function renderHomeGarden() {
 function renderTask(task, options = {}) {
   $('emptyState').classList.add('hidden');
   $('forestView').classList.remove('hidden');
+  applyChatCollapsed();
   ensureSelectedForest(task);
   const cache = state.renderCache[task.id] || (state.renderCache[task.id] = {});
   const chromeSig = [task.title || '', task.status || '', state.settings.language || ''].join('::');
@@ -536,6 +549,28 @@ function applyOverviewCollapsed(task) {
   renderOverviewMini(task);
 }
 
+function applyChatCollapsed() {
+  const layout = $('forestView');
+  const btn = $('toggleChatBtn');
+  if (layout) layout.classList.toggle('chat-collapsed', !!state.chatCollapsed);
+  if (btn) {
+    btn.textContent = state.chatCollapsed ? t('expandChat') : t('collapseChat');
+    btn.setAttribute('aria-pressed', state.chatCollapsed ? 'true' : 'false');
+    btn.setAttribute('aria-expanded', state.chatCollapsed ? 'false' : 'true');
+  }
+}
+
+function toggleChatCollapsed() {
+  state.chatCollapsed = !state.chatCollapsed;
+  saveChatCollapsed();
+  applyChatCollapsed();
+  const active = state.tasks.find(task => task.id === state.activeTaskId);
+  if (active) {
+    invalidateRenderCache(active.id);
+    renderTask(active, { skipFileViewer: true });
+  }
+}
+
 function renderTaskDashboard(task) {
   const panel = $('taskDashboardPanel');
   if (!panel || !task) return;
@@ -547,23 +582,45 @@ function renderTaskDashboard(task) {
   const severity = String(rt.severity || 'ok');
   const cue = String(rt.cue || '').trim();
   const phase = humanizePhase(rt.phase || (task.status === 'Finished' ? 'finished' : 'running'));
+  const selectedForest = ensureSelectedForest(task);
+  const donePct = totalTrees > 0 ? Math.max(0, Math.min(100, Math.round((finishedTrees / totalTrees) * 100))) : (task.status === 'Finished' ? 100 : 0);
+  const actionCue = taskActionCue(task, rt, cue, runningTrees);
+  const countText = t('finishedCount').replace('%d', String(finishedTrees)).replace('%d', String(totalTrees));
   panel.className = `task-dashboard-panel ${severity}`;
   panel.innerHTML = `
     <div class="task-dashboard-head">
-      <strong>${t('dashboard')}</strong>
+      <strong>${t('taskNow')}</strong>
       <span class="dashboard-cue-pill ${severity}">${escapeHTML(phase)}</span>
     </div>
-    <div class="dashboard-grid">
-      <div class="dashboard-metric"><span>${t('duration')}</span><b>${formatDuration(rt.durationSeconds || 0)}</b></div>
-      <div class="dashboard-metric"><span>${t('idle')}</span><b>${formatDuration(rt.idleSeconds || 0)}</b></div>
-      <div class="dashboard-metric"><span>${t('stage')}</span><b>${forests.length || task.forest || 0}</b></div>
-      <div class="dashboard-metric"><span>${t('subtask')}</span><b>${runningTrees}/${finishedTrees}/${totalTrees}</b></div>
+    <div class="dashboard-readable">
+      <div class="dashboard-status-card ${severity}">
+        <div>
+          <span>${t('subtaskProgress')}</span>
+          <strong>${escapeHTML(countText)}</strong>
+        </div>
+        <div class="task-progress-bar" aria-label="${escapeHTML(countText)}"><span style="width:${donePct}%"></span></div>
+      </div>
+      <div class="dashboard-mini-metrics">
+        <span>${t('duration')} ${formatDuration(rt.durationSeconds || 0)}</span>
+        <span>${t('idle')} ${formatDuration(rt.idleSeconds || 0)}</span>
+        <span>${t('currentStage')} ${selectedForest || forests.length || task.forest || 0}</span>
+      </div>
     </div>
     <div class="dashboard-cue ${severity}">
-      <span>${t('diagnosis')}</span>
-      <p>${escapeHTML(cue || t('askProgressSafe'))}</p>
+      <span>${t('taskNext')}</span>
+      <p>${escapeHTML(actionCue)}</p>
     </div>
   `;
+}
+
+function taskActionCue(task, rt, cue, runningTrees) {
+  const phase = String(rt?.phase || '');
+  if (task?.status === 'Finished') return t('finishedTaskHint');
+  if (String(rt?.severity || '') === 'blocked' && cue) return cue;
+  if (phase === 'planning') return t('planningTask');
+  if (phase === 'validating' || phase === 'deciding') return t('checkingResults');
+  if (runningTrees > 0) return t('workingNormally');
+  return cue || t('askProgressSafe');
 }
 
 function humanizePhase(phase) {
@@ -601,17 +658,17 @@ function renderOverviewMini(task) {
   const selected = ensureSelectedForest(task);
   const forest = forests.find(o => o.no === selected) || forests[forests.length - 1];
   const items = forest?.items || [];
-  const running = items.filter(tree => tree.status !== 'Finished').length;
-  const finished = items.length - running;
+  const finished = items.filter(tree => tree.status === 'Finished').length;
   const usage = state.usage[task.id];
   const tokens = Number(usage?.totalTokens || 0);
   const progressLabel = task.status === 'Finished' ? statusText('Finished') : t('gardenerWorking');
   const tokenLabel = tokens ? formatTokenCount(tokens) : '—';
+  const subtaskLabel = items.length ? `${finished}/${items.length}` : '—';
   panel.innerHTML = `
     <span class="overview-mini-title">${t('overview')}</span>
-    <span class="overview-mini-chip ${task.status || 'Running'}">${t('gardenerProgress')} · ${progressLabel}</span>
-    <span class="overview-mini-chip">${t('tokenUsage')} · ${tokenLabel}</span>
-    <span class="overview-mini-chip">${t('treeStatus')} · ${statusText('Running')} ${running} / ${statusText('Finished')} ${finished}</span>
+    <span class="overview-mini-chip ${task.status || 'Running'}"><small>${t('gardenerProgress')}</small><b>${progressLabel}</b></span>
+    <span class="overview-mini-chip"><small>${t('tokenUsage')}</small><b>${tokenLabel}</b></span>
+    <span class="overview-mini-chip"><small>${t('subtaskProgress')}</small><b>${subtaskLabel}</b></span>
   `;
 }
 
@@ -941,13 +998,31 @@ function renderTreeStatus(task) {
   const expanded = !!state.treeStatusExpanded[key];
   const running = forest.items.filter(tree => tree.status !== 'Finished').length;
   const finished = forest.items.length - running;
+  const total = forest.items.length;
+  const donePct = total ? Math.max(0, Math.min(100, Math.round((finished / total) * 100))) : 0;
+  const runningNames = forest.items
+    .filter(tree => tree.status !== 'Finished')
+    .slice(0, 2)
+    .map(tree => humanizeText(tree.name || (tree.isValidation ? t('validationTeam') : t('subtask'))));
+  const nameSeparator = state.settings?.language === 'en' ? ', ' : '、';
+  const runningText = runningNames.length
+    ? `${t('runningSubtasksNamed')}${runningNames.join(nameSeparator)}${running > runningNames.length ? ` +${running - runningNames.length}` : ''}`
+    : (finished === total ? t('allSubtasksDone') : t('noRunningSubtasks'));
   const dots = forest.items.slice(0, 24).map(tree => `<span class="tree-mini-dot ${tree.status || 'Running'}${tree.isValidation ? ' validation' : ''}" title="${escapeHTML(humanizeText(tree.name || t('subtask')))}"></span>`).join('');
-  panel.className = `tree-status-panel compact${expanded ? ' expanded' : ''}`;
+  const countText = t('finishedCount').replace('%d', String(finished)).replace('%d', String(total));
+  panel.className = `tree-status-panel compact novice${expanded ? ' expanded' : ''}`;
   panel.innerHTML = `
     <div class="tree-status-main">
-      <span class="tree-status-title">${t('treeStatus')}</span>
-      <span class="tree-status-count">${statusText('Running')} ${running} · ${statusText('Finished')} ${finished}</span>
-      <span class="tree-status-dots">${dots}</span>
+      <div class="tree-progress-copy">
+        <span class="tree-status-title">${t('subtaskProgress')}</span>
+        <strong>${escapeHTML(countText)}</strong>
+        <p>${escapeHTML(runningText)}</p>
+      </div>
+      <div class="tree-progress-visual">
+        <div class="task-progress-bar"><span style="width:${donePct}%"></span></div>
+        <div class="tree-status-dots" aria-hidden="true">${dots}</div>
+        <small>${escapeHTML(t('progressExplain'))}</small>
+      </div>
       <button type="button" class="tree-status-toggle">${expanded ? t('hideStatus') : t('viewStatus')}</button>
     </div>
     <div class="tree-status-list"></div>`;
@@ -1586,6 +1661,7 @@ $('createTaskBtn').onclick = async () => {
   catch (err) { alert(err.message); } finally { $('createTaskBtn').disabled = false; }
 };
 if ($('toggleOverviewBtn')) $('toggleOverviewBtn').onclick = toggleOverviewCollapsed;
+if ($('toggleChatBtn')) $('toggleChatBtn').onclick = toggleChatCollapsed;
 $('sendMessageBtn').onclick = async () => {
   const input = $('messageInput');
   const content = input.value.trim();
