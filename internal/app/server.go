@@ -207,7 +207,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		writeJSON(w, http.StatusOK, SettingsResponse{Settings: s.store.GetSettings()})
+		writeJSON(w, http.StatusOK, SettingsResponse{Settings: s.store.GetPublicSettings()})
 	case http.MethodPut:
 		var settings AppSettings
 		if !decodeLimitedJSON(w, r, &settings, maxSettingsJSONBodyBytes, "请求体不是合法 JSON") {

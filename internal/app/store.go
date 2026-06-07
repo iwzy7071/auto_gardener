@@ -122,24 +122,38 @@ func (s *Store) loadSettings() error {
 func (s *Store) GetSettings() AppSettings {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	settings := s.settings
-	settings.LogLevel = normalizeLogLevel(settings.LogLevel)
-	settings.ModelMode = normalizeModelMode(settings.ModelMode)
-	settings.CLIEngine = compatibleCLIEngine(settings.CLIEngine, settings.ModelMode)
+	return normalizeSettings(s.settings)
+}
+
+func (s *Store) GetPublicSettings() AppSettings {
+	settings := s.GetSettings()
+	settings.MiniMaxToken = ""
+	settings.KimiToken = ""
 	return settings
 }
 
 func (s *Store) UpdateSettings(settings AppSettings) (AppSettings, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	settings.LogLevel = normalizeLogLevel(settings.LogLevel)
-	settings.ModelMode = normalizeModelMode(settings.ModelMode)
-	settings.CLIEngine = compatibleCLIEngine(settings.CLIEngine, settings.ModelMode)
+	settings = normalizeSettings(settings)
+	if strings.TrimSpace(settings.MiniMaxToken) == "" {
+		settings.MiniMaxToken = s.settings.MiniMaxToken
+	}
+	if strings.TrimSpace(settings.KimiToken) == "" {
+		settings.KimiToken = s.settings.KimiToken
+	}
 	s.settings = settings
 	if err := s.persistSettingsLocked(); err != nil {
 		return s.settings, err
 	}
 	return s.settings, nil
+}
+
+func normalizeSettings(settings AppSettings) AppSettings {
+	settings.LogLevel = normalizeLogLevel(settings.LogLevel)
+	settings.ModelMode = normalizeModelMode(settings.ModelMode)
+	settings.CLIEngine = compatibleCLIEngine(settings.CLIEngine, settings.ModelMode)
+	return settings
 }
 
 func (s *Store) persistSettingsLocked() error {
