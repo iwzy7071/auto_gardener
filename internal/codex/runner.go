@@ -313,6 +313,9 @@ func appendModelArgs(args []string, model ModelConfig) []string {
 	if providerID == "" {
 		return args
 	}
+	if !isValidProviderID(providerID) {
+		return args
+	}
 	args = append(args, "-c", "model_provider="+tomlString(providerID))
 	prefix := "model_providers." + providerID + "."
 	if value := strings.TrimSpace(model.ProviderName); value != "" {
@@ -375,6 +378,18 @@ func upsertEnv(env []string, key, value string) []string {
 		}
 	}
 	return append(env, key+"="+value)
+}
+
+func isValidProviderID(id string) bool {
+	if id == "" || len(id) > 64 {
+		return false
+	}
+	for _, r := range id {
+		if r != '-' && r != '_' && (r < 'A' || r > 'Z') && (r < 'a' || r > 'z') && (r < '0' || r > '9') {
+			return false
+		}
+	}
+	return true
 }
 
 func tomlString(value string) string {

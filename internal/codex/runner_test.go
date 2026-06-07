@@ -32,3 +32,26 @@ func TestWithGoalEnvelope(t *testing.T) {
 		}
 	}
 }
+
+func TestModelProviderIDValidation(t *testing.T) {
+	model := ModelConfig{
+		ProviderID:   `bad.provider"=oops`,
+		ProviderName: "Custom",
+		Model:        "model",
+		BaseURL:      "https://example.test/v1",
+		EnvKey:       "CUSTOM_API_KEY",
+	}
+	args := strings.Join(appendModelArgs(nil, model), "\n")
+	if strings.Contains(args, "model_provider") || strings.Contains(args, "model_providers.") {
+		t.Fatalf("appendModelArgs accepted invalid provider id in:\n%s", args)
+	}
+
+	model.ProviderID = "custom-provider_1"
+	args = strings.Join(appendModelArgs(nil, model), "\n")
+	if !strings.Contains(args, `model_provider="custom-provider_1"`) {
+		t.Fatalf("appendModelArgs rejected valid provider id in:\n%s", args)
+	}
+	if !strings.Contains(args, `model_providers.custom-provider_1.name`) {
+		t.Fatalf("appendModelArgs did not emit provider config for valid id in:\n%s", args)
+	}
+}
