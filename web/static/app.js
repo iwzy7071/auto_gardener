@@ -414,7 +414,14 @@ function connectEvents(taskId) {
   state.eventSource = es;
   es.addEventListener('open', () => setConnected(true));
   es.addEventListener('task', (ev) => {
-    const task = JSON.parse(ev.data);
+    let task;
+    try {
+      task = JSON.parse(ev.data);
+    } catch (err) {
+      console.warn('Ignoring malformed task event', err);
+      loadActiveTask(true);
+      return;
+    }
     const previous = state.tasks.find(t => t.id === task.id);
     upsertTask(task);
     if (task.id === state.activeTaskId) {
