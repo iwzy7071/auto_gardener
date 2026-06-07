@@ -272,7 +272,7 @@ def add_user(args):
         data['instances'].sort(key=lambda x: int(x['publicPort']))
         save_state(data)
         reload_nginx()
-    except Exception:
+    except (Exception, SystemExit, KeyboardInterrupt):
         data['instances'] = [i for i in data.get('instances', []) if i.get('user') != user]
         save_state(data)
         shutil.rmtree(user_dir, ignore_errors=True)
