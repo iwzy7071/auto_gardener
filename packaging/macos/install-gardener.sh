@@ -6,6 +6,7 @@ INSTALL_DIR="$HOME/Applications/Gardener"
 SETUP_KEY=""
 PROVISION_URL=""
 START_AFTER_INSTALL=1
+BACKUP_KEEP=5
 
 usage() {
   cat <<EOF
@@ -259,6 +260,8 @@ if [[ -n "$public_url" ]]; then
   echo "Remote URL: $public_url"
   echo "Login:      $web_user / $web_pass"
 fi
+find "$INSTALL_DIR" -maxdepth 1 -type d -name 'backup-*' | sort -r | tail -n +$((BACKUP_KEEP + 1)) | while IFS= read -r old_backup; do rm -rf "$old_backup"; done
+
 if [[ "$START_AFTER_INSTALL" == "1" ]]; then
   sleep 2
   open "${public_url:-$local_url}" >/dev/null 2>&1 || true
