@@ -38,6 +38,20 @@ func TestForwardChatStreamAsResponses(t *testing.T) {
 	}
 }
 
+func TestHandleRejectsOversizedRequestBody(t *testing.T) {
+	p := &Proxy{client: http.DefaultClient}
+	body := `{"model":"test","input":"` + strings.Repeat("x", maxCompatProxyBodyBytes) + `","stream":true}`
+	req := httptest.NewRequest(http.MethodPost, "/minimax/v1/responses", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer token")
+	rr := httptest.NewRecorder()
+
+	p.handle(rr, req)
+
+	if rr.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("expected 413, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
 func TestNormalizeChatMessagesMergesSystem(t *testing.T) {
 	got := normalizeChatMessages([]chatMessage{
 		{Role: "system", Content: "a"},

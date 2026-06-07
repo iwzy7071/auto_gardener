@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -12,6 +13,8 @@ import (
 	"strings"
 	"time"
 )
+
+const maxCompatProxyBodyBytes = 8 << 20
 
 type Proxy struct {
 	baseURL string
@@ -78,8 +81,17 @@ func (p *Proxy) handle(w http.ResponseWriter, r *http.Request) {
 		writeProxyError(w, http.StatusUnauthorized, "missing provider token")
 		return
 	}
+	if r.ContentLength > maxCompatProxyBodyBytes {
+		writeProxyError(w, http.StatusRequestEntityTooLarge, "responses request body too large")
+		return
+	}
 	var req responseRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxCompatProxyBodyBytes)).Decode(&req); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			writeProxyError(w, http.StatusRequestEntityTooLarge, "responses request body too large")
+			return
+		}
 		writeProxyError(w, http.StatusBadRequest, "invalid responses request")
 		return
 	}
