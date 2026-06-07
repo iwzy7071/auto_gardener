@@ -68,11 +68,19 @@ $displayAddr = $env:AUTO_GARDENER_ADDR
 if ($displayAddr.StartsWith(":")) { $displayAddr = "localhost$displayAddr" }
 $localUrl = "http://$displayAddr"
 $openUrl = $localUrl
+$MaxOpenUrlLength = 2048
 $Relay = $null
 if (Test-Path $RelayJson) {
   try {
     $Relay = Get-Content $RelayJson -Raw | ConvertFrom-Json
-    if ($Relay.publicUrl) { $openUrl = [string]$Relay.publicUrl }
+    if ($Relay.publicUrl) {
+      $candidateUrl = [string]$Relay.publicUrl
+      if ($candidateUrl.Length -le $MaxOpenUrlLength) {
+        $openUrl = $candidateUrl
+      } else {
+        Write-Host "Warning: remote URL is too long; opening local Gardener instead." -ForegroundColor Yellow
+      }
+    }
   } catch {
     Write-Host "Warning: cannot parse gardener.relay.json: $_" -ForegroundColor Yellow
   }
