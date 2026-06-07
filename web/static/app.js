@@ -1510,6 +1510,11 @@ function humanizeText(s) {
 }
 function escapeHTML(s) { return String(s || '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
 
+const MAX_RENDERED_RESUME_TASK_ERROR_CHARS = 300;
+function renderedResumeTaskErrorMessage(err) {
+  const chars = Array.from(String(err?.message || err || ''));
+  return chars.length > MAX_RENDERED_RESUME_TASK_ERROR_CHARS ? chars.slice(0, MAX_RENDERED_RESUME_TASK_ERROR_CHARS).join('') + '…' : chars.join('');
+}
 
 let currentDirectoryPath = '';
 
@@ -1571,7 +1576,7 @@ async function resumeActiveTask() {
     if (state.activeTaskId === taskId) renderTask(data.task, { skipFileViewer: true });
   } catch (err) {
     if (originalTask && state.activeTaskId === taskId) renderTask(originalTask, { skipFileViewer: true });
-    alert((t('resumeFailed') || 'Continue failed: ') + err.message);
+    alert((t('resumeFailed') || 'Continue failed: ') + renderedResumeTaskErrorMessage(err));
   } finally {
     if (resumeBtn) resumeBtn.disabled = false;
   }
