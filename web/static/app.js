@@ -1,5 +1,6 @@
 const state = { powerStatus: null, tasks: [], activeTaskId: null, eventSource: null, recoveryPoller: null, activeRefreshPoller: null, selectedForests: {}, selectedFileTree: {}, selectedFilePath: {}, selectedFileManual: {}, fileListFingerprint: {}, lastFileRefreshAt: {}, treeStatusExpanded: {}, usage: {}, usageFetchedAt: {}, usagePending: {}, renderCache: {}, pendingTaskRender: null, pendingTaskRenderFrame: 0, lastTaskListSig: '', lastHomeSig: '', activeReportText: '', fileViewerToken: 0, previewToken: 0, overviewCollapsed: loadOverviewCollapsed(), editingTitle: false, settings: loadSettings() };
 const $ = (id) => document.getElementById(id);
+const MAX_MARKDOWN_TABLE_COLUMNS = 20;
 
 const I18N = {
   'zh-CN': {
@@ -1434,7 +1435,7 @@ function renderMarkdown(md) {
   const flushPara = () => { if (para.length) { out.push(`<p>${inline(para.join(' '))}</p>`); para = []; } };
   const flushList = () => { if (list.length) { out.push(`<ul>${list.map(x => `<li>${inline(x)}</li>`).join('')}</ul>`); list = []; } };
   const flushCode = () => { out.push(`<pre><code>${escapeHTML(code.join('\n'))}</code></pre>`); code = []; };
-  const splitTable = (line) => line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => c.trim());
+  const splitTable = (line) => line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').slice(0, MAX_MARKDOWN_TABLE_COLUMNS).map(c => c.trim());
   const isTableDivider = (line) => /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(line);
   const flushTable = () => {
     if (!table.length) return;
