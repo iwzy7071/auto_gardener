@@ -146,16 +146,21 @@ def nginx_conf(user, public_port, remote_port):
 '''
 
 
+def toml_string(value):
+    return json.dumps(str(value))
+
+
 def frpc_conf(user, remote_port):
     token = read_frp_token()
-    return f'''serverAddr = "{SERVER_ADDR}"
+    proxy_name = 'gardener-' + relay_id_for_user(user)
+    return f'''serverAddr = {toml_string(SERVER_ADDR)}
 serverPort = {FRPS_PORT}
 
 auth.method = "token"
-auth.token = "{token}"
+auth.token = {toml_string(token)}
 
 [[proxies]]
-name = "gardener-{relay_id_for_user(user)}"
+name = {toml_string(proxy_name)}
 type = "tcp"
 localIP = "127.0.0.1"
 localPort = 8080
