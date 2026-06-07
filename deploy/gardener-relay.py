@@ -9,6 +9,7 @@ NGINX_DIR = Path('/etc/nginx/conf.d')
 FRPS_CONF = Path('/etc/frp/frps.toml')
 DOWNLOAD_ROOT = Path('/srv/gardener-downloads/public')
 PROVISION_ROOT = DOWNLOAD_ROOT / 'provision'
+MAX_RELAY_DOWNLOAD_URL_LENGTH = 2048
 SERVER_ADDR = os.environ.get('GARDENER_RELAY_SERVER_ADDR', 'YOUR_RELAY_SERVER')
 FRPS_PORT = int(os.environ.get('GARDENER_RELAY_FRPS_PORT', '27000'))
 PUBLIC_START = int(os.environ.get('GARDENER_RELAY_PUBLIC_START', '28081'))
@@ -31,6 +32,20 @@ def require_relay_configured():
         raise SystemExit('error: relay server address is not configured. Set GARDENER_RELAY_SERVER_ADDR and GARDENER_RELAY_PUBLIC_BASE_URL from config/gardener-relay.env.local')
     if RELAY_PUBLIC_BASE_URL.endswith('YOUR_RELAY_SERVER') or 'YOUR_RELAY_SERVER' in RELAY_PUBLIC_BASE_URL or 'example.com' in RELAY_PUBLIC_BASE_URL:
         raise SystemExit('error: relay public base URL is not configured. Set GARDENER_RELAY_PUBLIC_BASE_URL from config/gardener-relay.env.local')
+    validate_download_url_lengths()
+
+
+def validate_download_url_lengths():
+    urls = {
+        'windows package URL': PACKAGE_URL,
+        'windows install script URL': INSTALL_SCRIPT_URL,
+        'macOS install script URL': MAC_INSTALL_SCRIPT_URL,
+    }
+    for arch, url in MAC_PACKAGE_URLS.items():
+        urls[f'macOS {arch} package URL'] = url
+    for label, url in urls.items():
+        if len(url) > MAX_RELAY_DOWNLOAD_URL_LENGTH:
+            raise SystemExit(f'error: {label} is too long')
 
 def run(cmd, check=True):
     return subprocess.run(cmd, check=check, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
