@@ -149,9 +149,16 @@ func parsePMSetValues(out string) map[string]map[string]int64 {
 			if res[profile] == nil {
 				res[profile] = map[string]int64{}
 			}
-			v, _ := strconv.ParseInt(m[2], 10, 64)
-			res[profile][strings.ToLower(m[1])] = v
+			res[profile][strings.ToLower(m[1])] = parsePMSetValue(m[2])
 		}
 	}
 	return res
+}
+
+func parsePMSetValue(value string) int64 {
+	n, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return 1
+	}
+	return n
 }

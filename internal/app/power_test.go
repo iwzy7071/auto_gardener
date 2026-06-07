@@ -27,3 +27,13 @@ AC Power:
 		t.Fatalf("bad ac values: %#v", vals["AC Power"])
 	}
 }
+
+func TestParsePMSetValuesTreatsOverflowAsUnsafe(t *testing.T) {
+	vals := parsePMSetValues(`Battery Power:
+ sleep                999999999999999999999999
+ standby              0
+`)
+	if vals["Battery Power"]["sleep"] <= 0 || vals["Battery Power"]["standby"] != 0 {
+		t.Fatalf("bad overflow handling: %#v", vals["Battery Power"])
+	}
+}
