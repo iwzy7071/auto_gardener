@@ -19,6 +19,8 @@ type Proxy struct {
 	client  *http.Client
 }
 
+const maxCompatTools = 128
+
 type providerSpec struct {
 	Name                 string
 	BaseURL              string
@@ -81,6 +83,10 @@ func (p *Proxy) handle(w http.ResponseWriter, r *http.Request) {
 	var req responseRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeProxyError(w, http.StatusBadRequest, "invalid responses request")
+		return
+	}
+	if len(req.Tools) > maxCompatTools {
+		writeProxyError(w, http.StatusBadRequest, fmt.Sprintf("too many tools; maximum is %d", maxCompatTools))
 		return
 	}
 	if err := p.forwardChatStream(w, r, spec, token, req); err != nil {

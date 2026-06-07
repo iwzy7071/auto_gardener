@@ -54,3 +54,21 @@ func TestNormalizeChatMessagesMergesSystem(t *testing.T) {
 		t.Fatalf("unexpected second message: %#v", got[1])
 	}
 }
+
+func TestHandleRejectsTooManyTools(t *testing.T) {
+	tools := make([]string, maxCompatTools+1)
+	for i := range tools {
+		tools[i] = `{"type":"function","name":"tool"}`
+	}
+	body := `{"model":"m","input":"hi","tools":[` + strings.Join(tools, ",") + `]}`
+	req := httptest.NewRequest(http.MethodPost, "/minimax/v1/responses", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer token")
+	rr := httptest.NewRecorder()
+	(&Proxy{}).handle(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rr.Code, http.StatusBadRequest)
+	}
+	if !strings.Contains(rr.Body.String(), "too many tools") {
+		t.Fatalf("unexpected body: %s", rr.Body.String())
+	}
+}
