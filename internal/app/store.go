@@ -200,6 +200,9 @@ func (s *Store) Load() error {
 		t.GardenerStatus = normalizeStatus(t.GardenerStatus)
 		if strings.TrimSpace(t.ScratchPath) == "" {
 			t.ScratchPath = t.WorkspacePath
+		} else if !loadedScratchWithinManagedRoot(s.dataDir, t.ScratchPath) {
+			t.ScratchPath = filepath.Join(s.dataDir, "scratch", t.ID)
+			_ = os.MkdirAll(t.ScratchPath, 0755)
 		}
 		if t.Status == StatusFinished && !t.StopRequested && hasLegacyInterruptedRun(t.LogPath) {
 			t.Status = StatusRunning
@@ -219,6 +222,31 @@ func (s *Store) Load() error {
 		_ = s.persistTaskLocked(&t)
 	}
 	return nil
+}
+
+func loadedScratchWithinManagedRoot(dataDir, scratchPath string) bool {
+	if strings.TrimSpace(scratchPath) == "" {
+		return false
+	}
+	scratchAbs, err := filepath.Abs(filepath.Clean(scratchPath))
+	if err != nil {
+		return false
+	}
+	roots := []string{
+		filepath.Join(os.TempDir(), "GardenerScratch"),
+		filepath.Join(dataDir, "scratch"),
+	}
+	for _, root := range roots {
+		rootAbs, err := filepath.Abs(filepath.Clean(root))
+		if err != nil || scratchAbs == rootAbs {
+			continue
+		}
+		rel, err := filepath.Rel(rootAbs, scratchAbs)
+		if err == nil && rel != "." && !strings.HasPrefix(rel, "..") && !filepath.IsAbs(rel) {
+			return true
+		}
+	}
+	return false
 }
 
 func normalizeForestFields(t *Task, legacyWave, legacyMaxTreesPerWave int) {
