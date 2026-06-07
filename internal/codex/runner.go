@@ -180,7 +180,7 @@ func (r ShellRunner) runCodex(ctx context.Context, req RunRequest) RunResult {
 		buf := make([]byte, 0, 64*1024)
 		s.Buffer(buf, 1024*1024)
 		for s.Scan() {
-			line := s.Text()
+			line := redactSensitiveText(s.Text(), req.Model)
 			decorated := line
 			if prefix != "" {
 				decorated = prefix + line
@@ -208,7 +208,7 @@ func (r ShellRunner) runCodex(ctx context.Context, req RunRequest) RunResult {
 		}
 	}
 	mu.Lock()
-	output := out.String()
+	output := redactSensitiveText(out.String(), req.Model)
 	mu.Unlock()
 	if req.OutputFile != "" {
 		if b, readErr := os.ReadFile(req.OutputFile); readErr == nil && len(b) > 0 {
@@ -216,7 +216,10 @@ func (r ShellRunner) runCodex(ctx context.Context, req RunRequest) RunResult {
 			// already streamed through OnLine into log.md/progress.log. Keeping only
 			// the final message here prevents Gardener JSON parsing from being polluted
 			// by CLI progress text.
-			output = string(b)
+			output = redactSensitiveText(string(b), req.Model)
+			if output != string(b) {
+				_ = os.WriteFile(req.OutputFile, []byte(output), 0644)
+			}
 		}
 	}
 	return RunResult{Output: output, Err: err}
@@ -265,7 +268,7 @@ func (r ShellRunner) runClaude(ctx context.Context, req RunRequest) RunResult {
 		buf := make([]byte, 0, 64*1024)
 		s.Buffer(buf, 1024*1024)
 		for s.Scan() {
-			line := s.Text()
+			line := redactSensitiveText(s.Text(), req.Model)
 			decorated := line
 			if prefix != "" {
 				decorated = prefix + line
@@ -293,13 +296,21 @@ func (r ShellRunner) runClaude(ctx context.Context, req RunRequest) RunResult {
 		}
 	}
 	mu.Lock()
-	output := out.String()
+	output := redactSensitiveText(out.String(), req.Model)
 	mu.Unlock()
 	if req.OutputFile != "" && strings.TrimSpace(output) != "" {
 		_ = os.MkdirAll(filepath.Dir(req.OutputFile), 0755)
 		_ = os.WriteFile(req.OutputFile, []byte(output), 0644)
 	}
 	return RunResult{Output: output, Err: err}
+}
+
+func redactSensitiveText(text string, model ModelConfig) string {
+	token := strings.TrimSpace(model.Token)
+	if len(token) < 8 {
+		return text
+	}
+	return strings.ReplaceAll(text, token, "[redacted-token]")
 }
 
 func appendModelArgs(args []string, model ModelConfig) []string {

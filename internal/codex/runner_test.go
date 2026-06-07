@@ -32,3 +32,13 @@ func TestWithGoalEnvelope(t *testing.T) {
 		}
 	}
 }
+
+func TestRedactSensitiveTextRedactsModelToken(t *testing.T) {
+	got := redactSensitiveText("failed with token sk-secret-token-value", ModelConfig{Token: "sk-secret-token-value"})
+	if strings.Contains(got, "sk-secret-token-value") {
+		t.Fatalf("token was not redacted: %q", got)
+	}
+	if !strings.Contains(got, "[redacted-token]") {
+		t.Fatalf("redaction marker missing: %q", got)
+	}
+}
