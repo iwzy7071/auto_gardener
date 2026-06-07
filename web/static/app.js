@@ -1092,7 +1092,7 @@ async function renderFileViewer(task) {
       const opt = document.createElement('option');
       opt.value = file.path;
       opt.textContent = displayFilePath(file.path);
-      opt.title = `${file.path} · ${formatBytes(file.size || 0)}`;
+      opt.title = `${displayFilePath(file.path)} · ${formatBytes(file.size || 0)}`;
       fileSelect.appendChild(opt);
     });
     fileSelect.value = selected;
@@ -1192,6 +1192,12 @@ function isPythonPath(path) {
   return /(^|\/)[^/]+\.(py|pyw)$/i.test(String(path || ''));
 }
 
+const MAX_RENDERED_FILE_PATH_CHARS = 500;
+function renderedFilePathText(path) {
+  const chars = Array.from(String(path || ''));
+  return chars.length > MAX_RENDERED_FILE_PATH_CHARS ? chars.slice(0, MAX_RENDERED_FILE_PATH_CHARS).join('') + '…' : chars.join('');
+}
+
 function displayFilePath(path) {
   let out = String(path || '').replace(/^\/+/, '');
   const removablePrefixes = ['tree_outputs/', 'outputs/', 'output/', 'reports/', 'report/'];
@@ -1202,7 +1208,7 @@ function displayFilePath(path) {
     }
   }
   if (/^fruit\.md$/i.test(out) || /\/fruit\.md$/i.test(out)) return t('result');
-  return out || String(path || '');
+  return renderedFilePathText(out || String(path || ''));
 }
 
 function formatBytes(n) {
