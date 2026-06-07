@@ -16,6 +16,15 @@ import (
 	"auto_gardener/internal/codex"
 )
 
+const maxUserTextBytes = 64 << 10
+
+func validateUserTextSize(label, value string) error {
+	if len([]byte(value)) > maxUserTextBytes {
+		return fmt.Errorf("%s过长，请控制在 %d KB 内", label, maxUserTextBytes/1024)
+	}
+	return nil
+}
+
 type Orchestrator struct {
 	store         *Store
 	runner        codex.Runner
@@ -95,6 +104,9 @@ func (o *Orchestrator) CreateTask(prompt, workspacePath string) (*Task, error) {
 	if prompt == "" {
 		return nil, fmt.Errorf("任务内容不能为空")
 	}
+	if err := validateUserTextSize("任务内容", prompt); err != nil {
+		return nil, err
+	}
 	id := newID("forest")
 	title := titleFromPrompt(prompt)
 	workspacePath = strings.TrimSpace(expandHome(workspacePath))
@@ -152,6 +164,9 @@ func (o *Orchestrator) SendMessage(taskID, content string) (*Task, error) {
 	content = strings.TrimSpace(content)
 	if content == "" {
 		return nil, fmt.Errorf("消息不能为空")
+	}
+	if err := validateUserTextSize("消息", content); err != nil {
+		return nil, err
 	}
 	if snapshot, ok := o.store.GetTask(taskID); ok && snapshot.Status == StatusRunning && isProgressQuery(content) {
 		now := time.Now()
@@ -317,6 +332,9 @@ func (o *Orchestrator) RenameTask(taskID, title string) (*Task, error) {
 	title = strings.TrimSpace(title)
 	if title == "" {
 		return nil, fmt.Errorf("任务名称不能为空")
+	}
+	if err := validateUserTextSize("任务名称", title); err != nil {
+		return nil, err
 	}
 	runes := []rune(title)
 	if len(runes) > 80 {
