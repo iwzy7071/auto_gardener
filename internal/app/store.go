@@ -432,6 +432,9 @@ func (s *Store) WriteSchedule(taskID, content string) error {
 	if err := os.MkdirAll(filepath.Dir(t.SchedulePath), 0755); err != nil {
 		return err
 	}
+	if isSymlink(t.SchedulePath) {
+		return fmt.Errorf("refusing to write schedule through symlink")
+	}
 	if err := os.WriteFile(t.SchedulePath, []byte(content), 0644); err != nil {
 		return err
 	}
@@ -632,6 +635,11 @@ func shouldDeleteManagedScratch(dataDir, taskID, scratchPath string) bool {
 		return base == taskID || strings.HasPrefix(base, taskID+"_")
 	}
 	return false
+}
+
+func isSymlink(path string) bool {
+	info, err := os.Lstat(path)
+	return err == nil && info.Mode()&os.ModeSymlink != 0
 }
 
 func appendFile(path, s string) error {
