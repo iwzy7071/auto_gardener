@@ -54,3 +54,14 @@ func TestNormalizeChatMessagesMergesSystem(t *testing.T) {
 		t.Fatalf("unexpected second message: %#v", got[1])
 	}
 }
+
+func TestValidateInstructionsSizeRejectsLargeInstructions(t *testing.T) {
+	tooLarge := strings.Repeat("a", maxCompatInstructionsBytes+1)
+	if err := validateInstructionsSize(tooLarge); err == nil {
+		t.Fatal("validateInstructionsSize accepted large instructions")
+	}
+	boundary := strings.Repeat("a", maxCompatInstructionsBytes)
+	if err := validateInstructionsSize(boundary); err != nil {
+		t.Fatalf("validateInstructionsSize rejected boundary value: %v", err)
+	}
+}

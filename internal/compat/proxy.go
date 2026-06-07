@@ -19,6 +19,8 @@ type Proxy struct {
 	client  *http.Client
 }
 
+const maxCompatInstructionsBytes = 256 * 1024
+
 type providerSpec struct {
 	Name                 string
 	BaseURL              string
@@ -83,6 +85,10 @@ func (p *Proxy) handle(w http.ResponseWriter, r *http.Request) {
 		writeProxyError(w, http.StatusBadRequest, "invalid responses request")
 		return
 	}
+	if err := validateInstructionsSize(req.Instructions); err != nil {
+		writeProxyError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	if err := p.forwardChatStream(w, r, spec, token, req); err != nil {
 		log.Printf("compat proxy %s error: %v", spec.Name, err)
 	}
@@ -94,6 +100,13 @@ func bearerToken(header string) string {
 		return strings.TrimSpace(header[7:])
 	}
 	return header
+}
+
+func validateInstructionsSize(instructions string) error {
+	if len(instructions) > maxCompatInstructionsBytes {
+		return fmt.Errorf("instructions too large; maximum is %d bytes", maxCompatInstructionsBytes)
+	}
+	return nil
 }
 
 type responseRequest struct {
