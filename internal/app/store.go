@@ -546,6 +546,9 @@ func writeRecoveryFruit(path string, task *Task, tr *Tree, when time.Time) error
 }
 
 func readJSON(path string, v any) error {
+	if isSymlink(path) {
+		return fmt.Errorf("refusing to read JSON state through symlink")
+	}
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return err
@@ -632,6 +635,11 @@ func shouldDeleteManagedScratch(dataDir, taskID, scratchPath string) bool {
 		return base == taskID || strings.HasPrefix(base, taskID+"_")
 	}
 	return false
+}
+
+func isSymlink(path string) bool {
+	info, err := os.Lstat(path)
+	return err == nil && info.Mode()&os.ModeSymlink != 0
 }
 
 func appendFile(path, s string) error {
