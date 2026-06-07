@@ -1,0 +1,38 @@
+name: Release packages
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build release packages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.20.x'
+          cache: true
+
+      - name: Build Windows package
+        run: VERSION=${GITHUB_REF_NAME:-dev} OUT_DIR=dist ./scripts/build-windows-package.sh
+
+      - name: Build macOS packages
+        run: VERSION=${GITHUB_REF_NAME:-dev} OUT_DIR=dist ./scripts/build-macos-package.sh
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: gardener-packages
+          path: |
+            dist/*.zip
+            dist/*.tar.gz

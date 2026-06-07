@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    name: Go checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.20.x'
+          cache: true
+
+      - name: Test
+        run: go test ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build Linux
+        run: go build -o /tmp/gardener ./cmd/server
+
+      - name: Build Windows
+        run: GOOS=windows GOARCH=amd64 go build -o /tmp/gardener.exe ./cmd/server
+
+      - name: Build macOS arm64
+        run: GOOS=darwin GOARCH=arm64 go build -o /tmp/gardener-darwin-arm64 ./cmd/server
+
+  web:
+    name: Web checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check JavaScript syntax
+        run: node --check web/static/app.js
+
+  public-safety:
+    name: Public repository safety scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check suspicious tracked files
+        run: |
+          set -euo pipefail
+          if git ls-files | grep -Ei '(^|/)(\.env|id_rsa|id_ed25519|known_hosts|settings\.json|usage\.jsonl|.*htpasswd.*|frpc\.toml|gardener\.config\.ps1)$|\.(pem|key|p12|pfx)$'; then
+            echo "Suspicious sensitive file is tracked" >&2
+            exit 1
+          fi
+
+      - name: Check obvious secret patterns
+        run: |
+          set -euo pipefail
+          if git grep -n -I -E '(BEGIN (OPENSSH|RSA|EC|DSA)? ?PRIVATE KEY|ghp_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]+|sk-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16})' -- .; then
+            echo "Potential secret found" >&2
+            exit 1
+          fi

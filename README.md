@@ -2,6 +2,24 @@
 
 Gardener 是一个本地运行的 Go + Web 多代理任务执行工具。用户只需要描述想完成的事情，Gardener 会先规划，再把任务分给多个 Tree 并行处理，最后汇总成果。
 
+## Open-source project status
+
+Gardener is published as an open-source, local-first project under the MIT License.
+
+Useful project documents:
+
+- [Contributing guide](CONTRIBUTING.md)
+- [Code of conduct](CODE_OF_CONDUCT.md)
+- [Security policy](SECURITY.md)
+- [Public release safety checklist](SECURITY_PUBLIC_RELEASE.md)
+- [Changelog](CHANGELOG.md)
+- [Support guide](SUPPORT.md)
+
+Before contributing or publishing packages, run:
+
+```bash
+make check
+```
 
 ## Public GitHub release / deployment config
 
