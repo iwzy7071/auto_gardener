@@ -19,6 +19,7 @@ cp packaging/windows/README-Windows.txt "$PKG_DIR/README-Windows.txt"
 cp packaging/windows/frpc.example.toml "$PKG_DIR/frpc.example.toml"
 
 FRP_VERSION="${FRP_VERSION:-0.52.3}"
+FRPC_ARCHIVE_MAX_BYTES=$((128 * 1024 * 1024))
 if [[ -n "${FRPC_EXE:-}" && -f "$FRPC_EXE" ]]; then
   cp "$FRPC_EXE" "$PKG_DIR/frpc.exe"
 elif [[ -f packaging/windows/frpc.exe ]]; then
@@ -28,7 +29,7 @@ elif [[ "${DOWNLOAD_FRPC:-0}" == "1" ]]; then
   trap 'rm -rf "$tmp"' EXIT
   url="https://github.com/fatedier/frp/releases/download/v${FRP_VERSION}/frp_${FRP_VERSION}_windows_amd64.zip"
   echo "Downloading frpc.exe from $url"
-  curl -L --fail --connect-timeout 20 --max-time 240 -o "$tmp/frp.zip" "$url"
+  curl -L --fail --connect-timeout 20 --max-time 240 --max-filesize "$FRPC_ARCHIVE_MAX_BYTES" -o "$tmp/frp.zip" "$url"
   unzip -q "$tmp/frp.zip" -d "$tmp/frp"
   found="$(find "$tmp/frp" -name frpc.exe -type f | head -n 1)"
   if [[ -z "$found" ]]; then
