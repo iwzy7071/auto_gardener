@@ -29,6 +29,23 @@ function Unblock-GardenerPath([string]$Path) {
   }
 }
 
+
+function Test-GardenerZipEntries([string]$ZipPath) {
+  Add-Type -AssemblyName System.IO.Compression.FileSystem
+  $archive = [System.IO.Compression.ZipFile]::OpenRead($ZipPath)
+  try {
+    foreach ($entry in $archive.Entries) {
+      $name = $entry.FullName.Replace('\', '/')
+      if ([string]::IsNullOrWhiteSpace($name)) { continue }
+      if ($name.StartsWith('/') -or $name -match '(^|/)\.\.($|/)') {
+        throw "Unsafe archive path: $name"
+      }
+    }
+  } finally {
+    $archive.Dispose()
+  }
+}
+
 function Set-GardenerFirewallPolicy([string]$ExePath) {
   if (-not (Test-Path $ExePath)) { return }
   if (-not (Test-GardenerAdmin)) {
@@ -55,6 +72,7 @@ New-Item -ItemType Directory -Force -Path $Temp, $Extract | Out-Null
 Write-Host "Downloading $PackageUrl" -ForegroundColor Green
 Invoke-WebRequest -Uri $PackageUrl -OutFile $Zip
 Unblock-GardenerPath -Path $Zip
+Test-GardenerZipEntries -ZipPath $Zip
 Expand-Archive -Path $Zip -DestinationPath $Extract -Force
 Unblock-GardenerPath -Path $Extract
 
