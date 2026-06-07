@@ -54,3 +54,15 @@ func TestNormalizeChatMessagesMergesSystem(t *testing.T) {
 		t.Fatalf("unexpected second message: %#v", got[1])
 	}
 }
+
+func TestBearerTokenRequiresBearerScheme(t *testing.T) {
+	if got := bearerToken("raw-token"); got != "" {
+		t.Fatalf("raw authorization token should be rejected, got %q", got)
+	}
+	if got := bearerToken("Basic abc"); got != "" {
+		t.Fatalf("non-Bearer authorization should be rejected, got %q", got)
+	}
+	if got := bearerToken("Bearer provider-token"); got != "provider-token" {
+		t.Fatalf("Bearer token not parsed: %q", got)
+	}
+}

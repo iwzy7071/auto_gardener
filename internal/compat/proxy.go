@@ -90,10 +90,10 @@ func (p *Proxy) handle(w http.ResponseWriter, r *http.Request) {
 
 func bearerToken(header string) string {
 	header = strings.TrimSpace(header)
-	if strings.HasPrefix(strings.ToLower(header), "bearer ") {
-		return strings.TrimSpace(header[7:])
+	if !strings.HasPrefix(strings.ToLower(header), "bearer ") {
+		return ""
 	}
-	return header
+	return strings.TrimSpace(header[7:])
 }
 
 type responseRequest struct {
