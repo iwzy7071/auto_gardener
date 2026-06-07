@@ -92,6 +92,7 @@ func TestMockRunnerCompletesEndToEndTask(t *testing.T) {
 	}
 	orch := NewOrchestrator(store, codex.MockRunner{}, store.DataDir(), "")
 	workspace := t.TempDir()
+	t.Setenv("AUTO_GARDENER_ALLOWED_WORKSPACE_ROOTS", workspace)
 	task, err := orch.CreateTask("Create a mock deliverable", workspace)
 	if err != nil {
 		t.Fatal(err)
