@@ -9,6 +9,7 @@ NGINX_DIR = Path('/etc/nginx/conf.d')
 FRPS_CONF = Path('/etc/frp/frps.toml')
 DOWNLOAD_ROOT = Path('/srv/gardener-downloads/public')
 PROVISION_ROOT = DOWNLOAD_ROOT / 'provision'
+MAX_FRP_TOKEN_LEN = 256
 SERVER_ADDR = os.environ.get('GARDENER_RELAY_SERVER_ADDR', 'YOUR_RELAY_SERVER')
 FRPS_PORT = int(os.environ.get('GARDENER_RELAY_FRPS_PORT', '27000'))
 PUBLIC_START = int(os.environ.get('GARDENER_RELAY_PUBLIC_START', '28081'))
@@ -107,7 +108,10 @@ def read_frp_token():
     for line in text.splitlines():
         line = line.strip()
         if line.startswith('auth.token'):
-            return line.split('=', 1)[1].strip().strip('"')
+            token = line.split('=', 1)[1].strip().strip('\"')
+            if len(token) > MAX_FRP_TOKEN_LEN:
+                raise SystemExit(f'error: frp auth.token is too long (max {MAX_FRP_TOKEN_LEN} characters)')
+            return token
     raise SystemExit('error: cannot find auth.token in /etc/frp/frps.toml')
 
 
