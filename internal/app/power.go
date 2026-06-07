@@ -53,7 +53,7 @@ func checkWindowsPower(ps PowerStatus) PowerStatus {
 		out, err := exec.Command("powercfg", "/query", "SCHEME_CURRENT", "SUB_SLEEP", c.alias).CombinedOutput()
 		if err != nil {
 			ps.OK = false
-			ps.Warnings = append(ps.Warnings, fmt.Sprintf("无法检测 Windows %s设置：%v", c.label, err))
+			ps.Warnings = append(ps.Warnings, fmt.Sprintf("无法检测 Windows %s设置。", c.label))
 			continue
 		}
 		ac, dc := parsePowerCfgIndexes(string(out))
@@ -103,7 +103,7 @@ func checkMacPower(ps PowerStatus) PowerStatus {
 	}
 	if err != nil {
 		ps.OK = false
-		ps.Warnings = append(ps.Warnings, "无法检测 macOS 电源设置："+err.Error())
+		ps.Warnings = append(ps.Warnings, "无法检测 macOS 电源设置。")
 		ps.Advice = append(ps.Advice, "请手动打开 系统设置 → 电池/锁定屏幕，把自动睡眠相关选项设为永不。")
 		return ps
 	}
