@@ -505,8 +505,12 @@ func windowsNPMDirs() []string {
 	if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
 		add(filepath.Join(localAppData, "npm"))
 	}
-	add(os.Getenv("ProgramFiles") + `\nodejs`)
-	add(os.Getenv("ProgramFiles(x86)") + `\nodejs`)
+	if programFiles := strings.TrimSpace(os.Getenv("ProgramFiles")); programFiles != "" {
+		add(filepath.Join(programFiles, "nodejs"))
+	}
+	if programFilesX86 := strings.TrimSpace(os.Getenv("ProgramFiles(x86)")); programFilesX86 != "" {
+		add(filepath.Join(programFilesX86, "nodejs"))
+	}
 	return dirs
 }
 

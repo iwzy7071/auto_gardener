@@ -32,3 +32,19 @@ func TestWithGoalEnvelope(t *testing.T) {
 		}
 	}
 }
+
+func TestWindowsNPMDirsSkipsEmptyProgramFiles(t *testing.T) {
+	t.Setenv("NPM_CONFIG_PREFIX", "")
+	t.Setenv("npm_config_prefix", "")
+	t.Setenv("APPDATA", "")
+	t.Setenv("USERPROFILE", "")
+	t.Setenv("LOCALAPPDATA", "")
+	t.Setenv("ProgramFiles", "")
+	t.Setenv("ProgramFiles(x86)", "")
+
+	for _, dir := range windowsNPMDirs() {
+		if dir == `\nodejs` || dir == `/nodejs` {
+			t.Fatalf("unexpected nodejs path from empty ProgramFiles: %q", dir)
+		}
+	}
+}
