@@ -941,7 +941,7 @@ function renderTreeStatus(task) {
   const expanded = !!state.treeStatusExpanded[key];
   const running = forest.items.filter(tree => tree.status !== 'Finished').length;
   const finished = forest.items.length - running;
-  const dots = forest.items.slice(0, 24).map(tree => `<span class="tree-mini-dot ${tree.status || 'Running'}${tree.isValidation ? ' validation' : ''}" title="${escapeHTML(humanizeText(tree.name || t('subtask')))}"></span>`).join('');
+  const dots = forest.items.slice(0, 24).map(tree => `<span class="tree-mini-dot ${tree.status || 'Running'}${tree.isValidation ? ' validation' : ''}" title="${escapeHTML(renderedTreeName(tree.name, t('subtask')))}"></span>`).join('');
   panel.className = `tree-status-panel compact${expanded ? ' expanded' : ''}`;
   panel.innerHTML = `
     <div class="tree-status-main">
@@ -957,7 +957,7 @@ function renderTreeStatus(task) {
   forest.items.forEach(tree => {
     const item = document.createElement('div');
     item.className = `tree-status-chip ${tree.status || 'Running'}${tree.isValidation ? ' validation' : ''}`;
-    const name = humanizeText(tree.name || (tree.isValidation ? t('validationTeam') : t('subtask')));
+    const name = renderedTreeName(tree.name, tree.isValidation ? t('validationTeam') : t('subtask'));
     item.innerHTML = `<span class="tree-dot"></span><span class="tree-status-name">${escapeHTML(name)}</span><span class="tree-status-pill">${statusText(tree.status)}</span>`;
     list.appendChild(item);
   });
@@ -1041,7 +1041,7 @@ async function renderFileViewer(task) {
   allTrees.forEach(tree => {
     const opt = document.createElement('option');
     opt.value = tree.id;
-    opt.textContent = humanizeText(tree.name || tree.id);
+    opt.textContent = renderedTreeName(tree.name, tree.id);
     filter.appendChild(opt);
   });
   const nextFilter = currentFilter || prevValue || '';
@@ -1286,7 +1286,7 @@ function renderTrees(task) {
     node.dataset.treeId = tree.id;
     node.classList.toggle('validation', !!tree.isValidation);
     node.querySelector('.tree-badge').textContent = tree.isValidation ? 'V' : 'T';
-    node.querySelector('h4').textContent = humanizeText(tree.name);
+    node.querySelector('h4').textContent = renderedTreeName(tree.name);
     node.querySelector('p').textContent = tree.isValidation ? t('validationTeam') : t('team');
     const pill = node.querySelector('.status-pill'); pill.textContent = statusText(tree.status); pill.className = 'status-pill ' + tree.status;
     const scopeText = [(tree.scope || []).join(' / '), tree.objective || ''].filter(Boolean).join('\n');
@@ -1315,7 +1315,7 @@ function setFruitLink(anchor, taskId, tree) {
   } else {
     anchor.classList.remove('disabled');
     anchor.removeAttribute('aria-disabled');
-    anchor.onclick = e => { e.preventDefault(); openReport(url, humanizeText(tree.name || t('result'))); };
+    anchor.onclick = e => { e.preventDefault(); openReport(url, renderedTreeName(tree.name, t('result'))); };
   }
 }
 
@@ -1482,6 +1482,13 @@ function inline(s) {
 }
 
 function statusText(status) { return status === 'Finished' ? t('done') : t('inProgress'); }
+
+const MAX_RENDERED_TREE_NAME_CHARS = 300;
+function renderedTreeName(name, fallback = '') {
+  const text = humanizeText(name || fallback);
+  const chars = Array.from(text);
+  return chars.length > MAX_RENDERED_TREE_NAME_CHARS ? chars.slice(0, MAX_RENDERED_TREE_NAME_CHARS).join('') + '…' : text;
+}
 
 function humanizeText(s) {
   const words = state.settings.language === 'en'
