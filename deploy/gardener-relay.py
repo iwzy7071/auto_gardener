@@ -9,6 +9,7 @@ NGINX_DIR = Path('/etc/nginx/conf.d')
 FRPS_CONF = Path('/etc/frp/frps.toml')
 DOWNLOAD_ROOT = Path('/srv/gardener-downloads/public')
 PROVISION_ROOT = DOWNLOAD_ROOT / 'provision'
+MAX_RELAY_PASSWORD_LENGTH = 256
 SERVER_ADDR = os.environ.get('GARDENER_RELAY_SERVER_ADDR', 'YOUR_RELAY_SERVER')
 FRPS_PORT = int(os.environ.get('GARDENER_RELAY_FRPS_PORT', '27000'))
 PUBLIC_START = int(os.environ.get('GARDENER_RELAY_PUBLIC_START', '28081'))
@@ -114,6 +115,12 @@ def read_frp_token():
 def make_password():
     alphabet = string.ascii_letters + string.digits
     return ''.join(secrets.choice(alphabet) for _ in range(18))
+
+
+def sanitize_password(password):
+    if len(password) > MAX_RELAY_PASSWORD_LENGTH:
+        raise SystemExit('error: password too long')
+    return password
 
 
 def htpasswd_hash(password):
@@ -241,7 +248,7 @@ def add_user(args):
         raise SystemExit('error: requested port already assigned')
     if port_listening(public, '0.0.0.0') or port_listening(remote, '127.0.0.1'):
         raise SystemExit('error: requested port already in use')
-    password = args.password or make_password()
+    password = sanitize_password(args.password) if args.password else make_password()
     user_dir = USERS / user
     user_dir.mkdir(parents=True, exist_ok=False)
     ensure_permissions(user_dir)
