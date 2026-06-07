@@ -107,7 +107,10 @@ def read_frp_token():
     for line in text.splitlines():
         line = line.strip()
         if line.startswith('auth.token'):
-            return line.split('=', 1)[1].strip().strip('"')
+            token = line.split('=', 1)[1].strip().strip('\"')
+            if not token:
+                raise SystemExit('error: frp auth.token is empty')
+            return token
     raise SystemExit('error: cannot find auth.token in /etc/frp/frps.toml')
 
 
