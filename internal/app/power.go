@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+const maxPowerCommandOutputBytes = 64 * 1024
+
 type PowerStatus struct {
 	Platform  string   `json:"platform"`
 	OK        bool     `json:"ok"`
@@ -50,7 +52,7 @@ func checkWindowsPower(ps PowerStatus) PowerStatus {
 		{"HIBERNATEIDLE", "休眠"},
 	}
 	for _, c := range checks {
-		out, err := exec.Command("powercfg", "/query", "SCHEME_CURRENT", "SUB_SLEEP", c.alias).CombinedOutput()
+		out, err := powerCommandOutput("powercfg", "/query", "SCHEME_CURRENT", "SUB_SLEEP", c.alias)
 		if err != nil {
 			ps.OK = false
 			ps.Warnings = append(ps.Warnings, fmt.Sprintf("无法检测 Windows %s设置：%v", c.label, err))
@@ -66,7 +68,7 @@ func checkWindowsPower(ps PowerStatus) PowerStatus {
 			ps.Warnings = append(ps.Warnings, fmt.Sprintf("Windows 当前电源计划在使用电池时会自动%s（%d 秒后）。", c.label, dc))
 		}
 	}
-	out, err := exec.Command("powercfg", "/query", "SCHEME_CURRENT", "SUB_BUTTONS", "LIDACTION").CombinedOutput()
+	out, err := powerCommandOutput("powercfg", "/query", "SCHEME_CURRENT", "SUB_BUTTONS", "LIDACTION")
 	if err == nil {
 		ac, dc := parsePowerCfgIndexes(string(out))
 		if ac != 0 || dc != 0 {
@@ -84,6 +86,36 @@ func checkWindowsPower(ps PowerStatus) PowerStatus {
 	return ps
 }
 
+func powerCommandOutput(name string, args ...string) ([]byte, error) {
+	cmd := exec.Command(name, args...)
+	var out limitedPowerOutput
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+	err := cmd.Run()
+	if out.truncated && err == nil {
+		err = fmt.Errorf("power command output too large")
+	}
+	return out.bytes, err
+}
+
+type limitedPowerOutput struct {
+	bytes     []byte
+	truncated bool
+}
+
+func (w *limitedPowerOutput) Write(p []byte) (int, error) {
+	remaining := maxPowerCommandOutputBytes - len(w.bytes)
+	if remaining > 0 {
+		if len(p) <= remaining {
+			w.bytes = append(w.bytes, p...)
+			return len(p), nil
+		}
+		w.bytes = append(w.bytes, p[:remaining]...)
+	}
+	w.truncated = true
+	return len(p), fmt.Errorf("power command output too large")
+}
+
 func parsePowerCfgIndexes(out string) (ac, dc int64) {
 	reAC := regexp.MustCompile(`(?i)Current AC Power Setting Index:\s*0x([0-9a-f]+)`)
 	reDC := regexp.MustCompile(`(?i)Current DC Power Setting Index:\s*0x([0-9a-f]+)`)
@@ -97,9 +129,9 @@ func parsePowerCfgIndexes(out string) (ac, dc int64) {
 }
 
 func checkMacPower(ps PowerStatus) PowerStatus {
-	out, err := exec.Command("pmset", "-g", "custom").CombinedOutput()
+	out, err := powerCommandOutput("pmset", "-g", "custom")
 	if err != nil {
-		out, err = exec.Command("pmset", "-g").CombinedOutput()
+		out, err = powerCommandOutput("pmset", "-g")
 	}
 	if err != nil {
 		ps.OK = false

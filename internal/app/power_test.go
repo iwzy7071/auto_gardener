@@ -27,3 +27,21 @@ AC Power:
 		t.Fatalf("bad ac values: %#v", vals["AC Power"])
 	}
 }
+
+func TestLimitedPowerOutputCapsBufferedBytes(t *testing.T) {
+	var out limitedPowerOutput
+	data := make([]byte, maxPowerCommandOutputBytes+1)
+	n, err := out.Write(data)
+	if n != len(data) {
+		t.Fatalf("Write n=%d, want %d", n, len(data))
+	}
+	if err == nil {
+		t.Fatalf("expected oversized power output write to fail")
+	}
+	if len(out.bytes) != maxPowerCommandOutputBytes {
+		t.Fatalf("buffered bytes=%d, want %d", len(out.bytes), maxPowerCommandOutputBytes)
+	}
+	if !out.truncated {
+		t.Fatalf("expected output to be marked truncated")
+	}
+}
