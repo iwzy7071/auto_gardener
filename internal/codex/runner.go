@@ -57,6 +57,8 @@ type Runner interface {
 	Run(ctx context.Context, req RunRequest) RunResult
 }
 
+const maxRunnerOutputBytes = 4 * 1024 * 1024
+
 type ShellRunner struct {
 	CodexCommand  string
 	ClaudeCommand string
@@ -186,8 +188,7 @@ func (r ShellRunner) runCodex(ctx context.Context, req RunRequest) RunResult {
 				decorated = prefix + line
 			}
 			mu.Lock()
-			out.WriteString(decorated)
-			out.WriteByte('\n')
+			appendLimitedOutput(&out, decorated, maxRunnerOutputBytes)
 			mu.Unlock()
 			if req.OnLine != nil {
 				req.OnLine(decorated)
@@ -271,8 +272,7 @@ func (r ShellRunner) runClaude(ctx context.Context, req RunRequest) RunResult {
 				decorated = prefix + line
 			}
 			mu.Lock()
-			out.WriteString(decorated)
-			out.WriteByte('\n')
+			appendLimitedOutput(&out, decorated, maxRunnerOutputBytes)
 			mu.Unlock()
 			if req.OnLine != nil {
 				req.OnLine(decorated)
@@ -300,6 +300,18 @@ func (r ShellRunner) runClaude(ctx context.Context, req RunRequest) RunResult {
 		_ = os.WriteFile(req.OutputFile, []byte(output), 0644)
 	}
 	return RunResult{Output: output, Err: err}
+}
+
+func appendLimitedOutput(out *strings.Builder, line string, maxBytes int) {
+	if out == nil || maxBytes <= 0 || out.Len() >= maxBytes {
+		return
+	}
+	remaining := maxBytes - out.Len()
+	line = line + "\n"
+	if len(line) > remaining {
+		line = line[:remaining]
+	}
+	out.WriteString(line)
 }
 
 func appendModelArgs(args []string, model ModelConfig) []string {
