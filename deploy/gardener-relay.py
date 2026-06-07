@@ -39,7 +39,28 @@ def run(cmd, check=True):
 def load_state():
     if not STATE.exists():
         return {'instances': []}
-    return json.loads(STATE.read_text())
+    data = json.loads(STATE.read_text())
+    for inst in data.get('instances', []):
+        validate_state_instance(inst)
+    return data
+
+
+def validate_state_instance(inst):
+    if not isinstance(inst, dict):
+        raise SystemExit('error: relay state file is invalid: instance must be an object')
+    user = inst.get('user')
+    if not isinstance(user, str) or sanitize_user(user) != user:
+        raise SystemExit('error: relay state file is invalid: bad instance user')
+    for key in ('publicPort', 'remotePort'):
+        try:
+            port = int(inst[key])
+        except Exception as exc:
+            raise SystemExit(f'error: relay state file is invalid: bad {key}') from exc
+        if port < 1 or port > 65535:
+            raise SystemExit(f'error: relay state file is invalid: {key} out of range')
+    for key in ('proxyName', 'url', 'basicAuthUser'):
+        if key in inst and not isinstance(inst[key], str):
+            raise SystemExit(f'error: relay state file is invalid: bad {key}')
 
 
 def save_state(data):
