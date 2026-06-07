@@ -6,6 +6,7 @@ INSTALL_DIR="$HOME/Applications/Gardener"
 SETUP_KEY=""
 PROVISION_URL=""
 START_AFTER_INSTALL=1
+PACKAGE_MAX_BYTES=$((1024 * 1024 * 1024))
 
 usage() {
   cat <<EOF
@@ -108,7 +109,7 @@ echo "Installing Gardener to $INSTALL_DIR"
 mkdir -p "$INSTALL_DIR"
 
 echo "Downloading package: $PACKAGE_URL"
-curl -fL --connect-timeout 20 --max-time 300 "$PACKAGE_URL" -o "$TMP/gardener.tar.gz"
+curl -fL --connect-timeout 20 --max-time 300 --max-filesize "$PACKAGE_MAX_BYTES" "$PACKAGE_URL" -o "$TMP/gardener.tar.gz"
 mkdir -p "$TMP/extract"
 tar -xzf "$TMP/gardener.tar.gz" -C "$TMP/extract"
 SRC="$(find "$TMP/extract" -maxdepth 1 -type d -name 'Gardener-macOS-*' | head -n 1)"
