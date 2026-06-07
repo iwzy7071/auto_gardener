@@ -16,6 +16,8 @@ import (
 	"auto_gardener/internal/codex"
 )
 
+const maxTreesPerForestLimit = 20
+
 type Orchestrator struct {
 	store         *Store
 	runner        codex.Runner
@@ -34,7 +36,7 @@ func NewOrchestrator(store *Store, runner codex.Runner, dataDir, compatBaseURL s
 		store:         store,
 		runner:        runner,
 		dataDir:       dataDir,
-		maxTrees:      getenvIntFallback("AUTO_GARDENER_MAX_TREES_PER_FOREST", "AUTO_GARDENER_MAX_TREES_PER_WAVE", 5),
+		maxTrees:      getenvIntFallbackMax("AUTO_GARDENER_MAX_TREES_PER_FOREST", "AUTO_GARDENER_MAX_TREES_PER_WAVE", 5, maxTreesPerForestLimit),
 		maxConcurrent: getenvInt("AUTO_GARDENER_MAX_CONCURRENT_TREES", 3),
 		compatBaseURL: strings.TrimRight(compatBaseURL, "/"),
 		cancels:       make(map[string]context.CancelFunc),
@@ -1358,6 +1360,21 @@ func getenvInt(key string, defaultValue int) int {
 		return defaultValue
 	}
 	return n
+}
+
+func getenvIntMax(key string, defaultValue, maxValue int) int {
+	n := getenvInt(key, defaultValue)
+	if maxValue > 0 && n > maxValue {
+		return maxValue
+	}
+	return n
+}
+
+func getenvIntFallbackMax(primaryKey, fallbackKey string, defaultValue, maxValue int) int {
+	if strings.TrimSpace(os.Getenv(primaryKey)) != "" {
+		return getenvIntMax(primaryKey, defaultValue, maxValue)
+	}
+	return getenvIntMax(fallbackKey, defaultValue, maxValue)
 }
 
 func getenvIntFallback(primaryKey, fallbackKey string, defaultValue int) int {
