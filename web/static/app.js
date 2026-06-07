@@ -1577,12 +1577,16 @@ async function resumeActiveTask() {
   }
 }
 
+function isValidCreatedTaskPayload(task) {
+  return !!task && typeof task === 'object' && typeof task.id === 'string' && task.id.trim() !== '';
+}
+
 $('createTaskBtn').onclick = async () => {
   const prompt = $('taskInput').value.trim();
   const workspacePath = $('workspaceInput').value.trim() || state.settings.defaultWorkspace || '';
   if (!prompt) return alert(t('taskPlaceholder'));
   $('createTaskBtn').disabled = true;
-  try { const data = await api('/api/tasks', { method:'POST', body: JSON.stringify({ prompt, workspacePath }) }); $('taskInput').value=''; $('workspaceInput').value = state.settings.defaultWorkspace || ''; await loadTasks(); await selectTask(data.task.id); }
+  try { const data = await api('/api/tasks', { method:'POST', body: JSON.stringify({ prompt, workspacePath }) }); if (!isValidCreatedTaskPayload(data.task)) throw new Error('Invalid task response'); $('taskInput').value=''; $('workspaceInput').value = state.settings.defaultWorkspace || ''; await loadTasks(); await selectTask(data.task.id); }
   catch (err) { alert(err.message); } finally { $('createTaskBtn').disabled = false; }
 };
 if ($('toggleOverviewBtn')) $('toggleOverviewBtn').onclick = toggleOverviewCollapsed;
