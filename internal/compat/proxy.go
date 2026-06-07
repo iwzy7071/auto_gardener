@@ -19,6 +19,8 @@ type Proxy struct {
 	client  *http.Client
 }
 
+const maxCompatStreamToolArgumentsBytes = 256 * 1024
+
 type providerSpec struct {
 	Name                 string
 	BaseURL              string
@@ -416,6 +418,9 @@ func streamChatAsResponses(w http.ResponseWriter, body io.Reader, model string) 
 					call.Started = true
 				}
 				if tc.Function.Arguments != "" {
+					if call.Arguments.Len()+len(tc.Function.Arguments) > maxCompatStreamToolArgumentsBytes {
+						return fmt.Errorf("streamed tool arguments too large; maximum is %d bytes", maxCompatStreamToolArgumentsBytes)
+					}
 					call.Arguments.WriteString(tc.Function.Arguments)
 					writeSSE(w, "response.function_call_arguments.delta", map[string]any{"type": "response.function_call_arguments.delta", "item_id": call.ItemID, "output_index": outputIndex, "delta": tc.Function.Arguments})
 					flush()
