@@ -545,6 +545,18 @@ func writeRecoveryFruit(path string, task *Task, tr *Tree, when time.Time) error
 	return os.WriteFile(path, []byte(body), 0644)
 }
 
+func writeFileNoSymlink(path string, data []byte, perm os.FileMode) error {
+	if isSymlink(path) {
+		return fmt.Errorf("refusing to write file through symlink")
+	}
+	return os.WriteFile(path, data, perm)
+}
+
+func isSymlink(path string) bool {
+	info, err := os.Lstat(path)
+	return err == nil && info.Mode()&os.ModeSymlink != 0
+}
+
 func readJSON(path string, v any) error {
 	b, err := os.ReadFile(path)
 	if err != nil {

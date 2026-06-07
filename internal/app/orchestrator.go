@@ -931,7 +931,7 @@ func (o *Orchestrator) writeTreeGoal(task *Task, tr *Tree, status string, start 
 		b.WriteString("\n## CLI 输出摘要\n\n")
 		b.WriteString(codex.Truncate(strings.TrimSpace(output), 2000) + "\n")
 	}
-	return os.WriteFile(path, []byte(b.String()), 0644)
+	return writeFileNoSymlink(path, []byte(b.String()), 0644)
 }
 
 func (o *Orchestrator) writeFruit(task *Task, tr *Tree, output string, runErr error, start, end time.Time) (string, error) {
