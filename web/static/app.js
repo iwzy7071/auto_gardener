@@ -125,6 +125,10 @@ function taskURL(taskId) {
   return `/forests/${encodeURIComponent(taskId)}`;
 }
 
+function treeFruitAPIPath(taskId, treeId) {
+  return `/api/tasks/${taskId}/trees/${encodeURIComponent(String(treeId || ''))}/fruit.md`;
+}
+
 function routeTaskId() {
   const match = window.location.pathname.match(/^\/forests\/([^/]+)\/?$/);
   return match ? decodeURIComponent(match[1]) : '';
@@ -1013,7 +1017,7 @@ async function previewLatestReport(task, token) {
     preview.textContent = t('loadingFiles');
   }
   try {
-    const text = await fetchText(`/api/tasks/${task.id}/trees/${tr.id}/fruit.md`);
+    const text = await fetchText(treeFruitAPIPath(task.id, tr.id));
     if (!isActiveFileRender(task.id, token)) return;
     preview.className = 'file-preview markdown-preview';
     preview.innerHTML = renderMarkdown(text || t('emptyResult'));
@@ -1304,7 +1308,7 @@ function setTaskReportLink(anchor, url, title) {
 }
 
 function setFruitLink(anchor, taskId, tree) {
-  const url = `/api/tasks/${taskId}/trees/${tree.id}/fruit.md`;
+  const url = treeFruitAPIPath(taskId, tree.id);
   anchor.href = url;
   anchor.removeAttribute('target');
   anchor.removeAttribute('rel');
