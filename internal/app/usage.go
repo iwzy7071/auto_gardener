@@ -18,6 +18,8 @@ import (
 
 const pricingNote = "仅统计底层 CLI token 消耗和使用模型；界面不展示费用估算。"
 
+const maxUsageRecordsPerFile = 5000
+
 type usageLogEvent struct {
 	Time       time.Time `json:"time"`
 	TaskID     string    `json:"taskId"`
@@ -161,6 +163,9 @@ func parseUsageJSONL(path string) []TokenUsageRecord {
 		}
 		if rec, ok := consumeUsageLine(st, ev.Line, ev.Time, ev.TaskID); ok {
 			records = append(records, rec)
+			if len(records) >= maxUsageRecordsPerFile {
+				break
+			}
 		}
 	}
 	return records
@@ -208,6 +213,9 @@ func parseLegacyUsageFile(taskID, path, sourceType, sourceID, sourceName string)
 		}
 		if rec, ok := consumeUsageLine(st, cleaned, ts, taskID); ok {
 			records = append(records, rec)
+			if len(records) >= maxUsageRecordsPerFile {
+				break
+			}
 		}
 	}
 	return records
