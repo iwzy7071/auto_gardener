@@ -1510,6 +1510,11 @@ function humanizeText(s) {
 }
 function escapeHTML(s) { return String(s || '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
 
+const MAX_RENDERED_CREATE_TASK_ERROR_CHARS = 300;
+function renderedCreateTaskErrorMessage(err) {
+  const chars = Array.from(String(err?.message || err || ''));
+  return chars.length > MAX_RENDERED_CREATE_TASK_ERROR_CHARS ? chars.slice(0, MAX_RENDERED_CREATE_TASK_ERROR_CHARS).join('') + '…' : chars.join('');
+}
 
 let currentDirectoryPath = '';
 
@@ -1583,7 +1588,7 @@ $('createTaskBtn').onclick = async () => {
   if (!prompt) return alert(t('taskPlaceholder'));
   $('createTaskBtn').disabled = true;
   try { const data = await api('/api/tasks', { method:'POST', body: JSON.stringify({ prompt, workspacePath }) }); $('taskInput').value=''; $('workspaceInput').value = state.settings.defaultWorkspace || ''; await loadTasks(); await selectTask(data.task.id); }
-  catch (err) { alert(err.message); } finally { $('createTaskBtn').disabled = false; }
+  catch (err) { alert(renderedCreateTaskErrorMessage(err)); } finally { $('createTaskBtn').disabled = false; }
 };
 if ($('toggleOverviewBtn')) $('toggleOverviewBtn').onclick = toggleOverviewCollapsed;
 $('sendMessageBtn').onclick = async () => {
