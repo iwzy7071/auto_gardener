@@ -140,7 +140,9 @@ import json, pathlib, sys, datetime
 provision_path, install_dir, provision_url = sys.argv[1:4]
 j=json.load(open(provision_path))
 root=pathlib.Path(install_dir)
-(root/'frpc.toml').write_text(j['frpcToml'], encoding='utf-8')
+frpc_path = root/'frpc.toml'
+relay_path = root/'gardener.relay.json'
+frpc_path.write_text(j['frpcToml'], encoding='utf-8')
 relay={
   'schemaVersion': 1,
   'user': j.get('user',''),
@@ -150,7 +152,9 @@ relay={
   'provisionUrl': provision_url,
   'installedAt': datetime.datetime.now(datetime.timezone.utc).isoformat(),
 }
-(root/'gardener.relay.json').write_text(json.dumps(relay, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
+relay_path.write_text(json.dumps(relay, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
+frpc_path.chmod(0o600)
+relay_path.chmod(0o600)
 PY
 fi
 
