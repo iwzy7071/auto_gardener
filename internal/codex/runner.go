@@ -321,7 +321,7 @@ func appendModelArgs(args []string, model ModelConfig) []string {
 	if value := strings.TrimSpace(model.BaseURL); value != "" {
 		args = append(args, "-c", prefix+"base_url="+tomlString(value))
 	}
-	if value := strings.TrimSpace(model.EnvKey); value != "" {
+	if value := strings.TrimSpace(model.EnvKey); isValidEnvKey(value) {
 		args = append(args, "-c", prefix+"env_key="+tomlString(value))
 	}
 	wireAPI := strings.TrimSpace(model.WireAPI)
@@ -339,7 +339,7 @@ func appendModelEnv(env []string, model ModelConfig) []string {
 		return env
 	}
 	envKey := strings.TrimSpace(model.EnvKey)
-	if envKey != "" {
+	if isValidEnvKey(envKey) {
 		env = upsertEnv(env, envKey, token)
 	}
 	switch strings.TrimSpace(model.ProviderID) {
@@ -375,6 +375,24 @@ func upsertEnv(env []string, key, value string) []string {
 		}
 	}
 	return append(env, key+"="+value)
+}
+
+func isValidEnvKey(key string) bool {
+	if key == "" || len(key) > 128 {
+		return false
+	}
+	for i, r := range key {
+		if i == 0 {
+			if r != '_' && (r < 'A' || r > 'Z') && (r < 'a' || r > 'z') {
+				return false
+			}
+			continue
+		}
+		if r != '_' && (r < 'A' || r > 'Z') && (r < 'a' || r > 'z') && (r < '0' || r > '9') {
+			return false
+		}
+	}
+	return true
 }
 
 func tomlString(value string) string {
