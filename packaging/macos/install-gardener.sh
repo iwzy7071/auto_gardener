@@ -236,11 +236,16 @@ public_url=""
 web_user=""
 web_pass=""
 if [[ -f "$INSTALL_DIR/gardener.relay.json" ]]; then
-  public_url="$(python3 - "$INSTALL_DIR/gardener.relay.json" <<'PY'
+  candidate_url="$(python3 - "$INSTALL_DIR/gardener.relay.json" <<'PY'
 import json,sys
 j=json.load(open(sys.argv[1])); print(j.get('publicUrl',''))
 PY
 )"
+  if [[ "$candidate_url" == http://* || "$candidate_url" == https://* ]]; then
+    public_url="$candidate_url"
+  elif [[ -n "$candidate_url" ]]; then
+    echo "Warning: relay publicUrl is not http(s); refusing to open it automatically." >&2
+  fi
   web_user="$(python3 - "$INSTALL_DIR/gardener.relay.json" <<'PY'
 import json,sys
 j=json.load(open(sys.argv[1])); print(j.get('webUsername',''))

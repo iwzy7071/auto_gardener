@@ -42,7 +42,11 @@ import json,sys
 print(json.load(open(sys.argv[1])).get('publicUrl',''))
 PY
 )"
-  [[ -n "$u" ]] && url="$u"
+  if [[ "$u" == http://* || "$u" == https://* ]]; then
+    url="$u"
+  elif [[ -n "$u" ]]; then
+    echo "Warning: relay publicUrl is not http(s); refusing to open it automatically." >&2
+  fi
 fi
 open "$url" >/dev/null 2>&1 || true
 echo "Gardener started: $url"
