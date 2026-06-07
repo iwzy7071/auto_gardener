@@ -34,6 +34,8 @@ type Server struct {
 	httpClient       *http.Client
 }
 
+const maxDirectoryBrowsePathLength = 4096
+
 func NewServer(store *Store, orchestrator *Orchestrator, staticDir string, events *EventHub) *Server {
 	return &Server{store: store, orchestrator: orchestrator, staticDir: staticDir, events: events, dingTalkSessions: make(map[string]string), httpClient: &http.Client{Timeout: 10 * time.Second}}
 }
@@ -137,6 +139,10 @@ func (s *Server) handleDirectoryBrowse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	requested := strings.TrimSpace(r.URL.Query().Get("path"))
+	if len(requested) > maxDirectoryBrowsePathLength {
+		writeError(w, http.StatusBadRequest, "目录路径过长")
+		return
+	}
 	current := requested
 	if current == "" {
 		if home, err := os.UserHomeDir(); err == nil && home != "" {
