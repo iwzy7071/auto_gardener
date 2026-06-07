@@ -4,12 +4,29 @@ VERSION="${VERSION:-dev}"
 OUT_DIR="${OUT_DIR:-dist}"
 FRP_VERSION="${FRP_VERSION:-0.52.3}"
 ARCHES="${ARCHES:-arm64 amd64}"
+MAX_FRPC_BINARY_BYTES=$((64 * 1024 * 1024))
+
+file_size() {
+  stat -c %s "$1" 2>/dev/null || stat -f %z "$1"
+}
+
+validate_frpc_binary() {
+  local path="$1"
+  local size
+  size="$(file_size "$path")"
+  if [[ ! "$size" =~ ^[0-9]+$ ]] || (( size <= 0 || size > MAX_FRPC_BINARY_BYTES )); then
+    echo "frpc binary must be a non-empty file no larger than 64 MiB: $path" >&2
+    exit 1
+  fi
+}
+
 mkdir -p "$OUT_DIR"
 
 fetch_frpc() {
   local arch="$1"
   local cache="packaging/macos/frpc-darwin-${arch}"
   if [[ -x "$cache" ]]; then
+    validate_frpc_binary "$cache"
     echo "$cache"
     return 0
   fi
@@ -27,6 +44,7 @@ fetch_frpc() {
     local found
     found="$(find "$tmp" -name frpc -type f | head -n 1)"
     if [[ -z "$found" ]]; then echo "frpc not found for $arch" >&2; exit 1; fi
+    validate_frpc_binary "$found"
     cp "$found" "$cache"
     chmod +x "$cache"
     rm -rf "$tmp"
@@ -56,6 +74,7 @@ for arch in $ARCHES; do
   chmod +x "$pkg_dir/gardener" "$pkg_dir/install-gardener.sh" "$pkg_dir/start-gardener.sh" "$pkg_dir/update-gardener.sh"
   frpc_path="$(fetch_frpc "$arch")"
   if [[ -n "$frpc_path" && -f "$frpc_path" ]]; then
+    validate_frpc_binary "$frpc_path"
     cp "$frpc_path" "$pkg_dir/frpc"
     chmod +x "$pkg_dir/frpc"
   else
