@@ -301,6 +301,9 @@ func (s *Server) sendDingTalkReply(sessionWebhook, content string) error {
 	if webhook == "" {
 		return nil
 	}
+	if err := validateDingTalkWebhookURL(webhook); err != nil {
+		return err
+	}
 	body, _ := json.Marshal(dingTalkTextPayload(content))
 	resp, err := s.httpClient.Post(webhook, "application/json", bytes.NewReader(body))
 	if err != nil {
@@ -311,6 +314,21 @@ func (s *Server) sendDingTalkReply(sessionWebhook, content string) error {
 		return fmt.Errorf("钉钉 webhook HTTP %d", resp.StatusCode)
 	}
 	return nil
+}
+
+func validateDingTalkWebhookURL(rawURL string) error {
+	u, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return errors.New("钉钉 webhook URL 无效")
+	}
+	if !strings.EqualFold(u.Scheme, "https") {
+		return errors.New("钉钉 webhook URL 必须使用 HTTPS")
+	}
+	host := strings.ToLower(u.Hostname())
+	if host == "dingtalk.com" || strings.HasSuffix(host, ".dingtalk.com") {
+		return nil
+	}
+	return errors.New("钉钉 webhook URL host 不在允许范围内")
 }
 
 func dingTalkTextPayload(content string) dingTalkTextResponse {

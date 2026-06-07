@@ -66,3 +66,26 @@ func TestNoDingTalkSecretAllowsExplicitUnsignedDevMode(t *testing.T) {
 		t.Fatalf("explicit unsigned dev mode should skip verification: %v", err)
 	}
 }
+
+func TestValidateDingTalkWebhookURL(t *testing.T) {
+	valid := []string{
+		"https://oapi.dingtalk.com/robot/send?access_token=abc",
+		"https://api.dingtalk.com/v1.0/robot/groupMessages/send",
+	}
+	for _, rawURL := range valid {
+		if err := validateDingTalkWebhookURL(rawURL); err != nil {
+			t.Fatalf("valid DingTalk webhook rejected: %s: %v", rawURL, err)
+		}
+	}
+	invalid := []string{
+		"http://oapi.dingtalk.com/robot/send?access_token=abc",
+		"https://example.invalid/hook",
+		"https://127.0.0.1/hook",
+		"not a url",
+	}
+	for _, rawURL := range invalid {
+		if err := validateDingTalkWebhookURL(rawURL); err == nil {
+			t.Fatalf("invalid DingTalk webhook accepted: %s", rawURL)
+		}
+	}
+}
