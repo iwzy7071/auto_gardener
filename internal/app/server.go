@@ -59,7 +59,6 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":      true,
 		"version": Version,
-		"dataDir": s.store.DataDir(),
 		"time":    time.Now().Format(time.RFC3339),
 		"power":   CheckPowerStatus(),
 	})
