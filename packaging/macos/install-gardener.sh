@@ -261,5 +261,5 @@ if [[ -n "$public_url" ]]; then
 fi
 if [[ "$START_AFTER_INSTALL" == "1" ]]; then
   sleep 2
-  open "${public_url:-$local_url}" >/dev/null 2>&1 || true
+  open -- "${public_url:-$local_url}" >/dev/null 2>&1 || true
 fi
