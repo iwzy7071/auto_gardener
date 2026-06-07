@@ -1619,7 +1619,11 @@ $('sendMessageBtn').onclick = async () => {
   }
 };
 $('resumeTaskBtn').onclick = resumeActiveTask;
-$('stopTaskBtn').onclick = async () => { if (!state.activeTaskId) return; if (!confirm(t('stopConfirm'))) return; $('stopTaskBtn').disabled = true; try { await api(`/api/tasks/${state.activeTaskId}/stop`, { method:'POST', body:'{}' }); } catch(err){ alert(err.message); } };
+function isValidStopTaskPayload(task) {
+  return !!task && typeof task === 'object' && typeof task.id === 'string' && task.id.trim() !== '';
+}
+
+$('stopTaskBtn').onclick = async () => { if (!state.activeTaskId) return; if (!confirm(t('stopConfirm'))) return; $('stopTaskBtn').disabled = true; try { const data = await api(`/api/tasks/${state.activeTaskId}/stop`, { method:'POST', body:'{}' }); if (!isValidStopTaskPayload(data.task)) throw new Error('Invalid task response'); upsertTask(data.task); if (state.activeTaskId === data.task.id) renderTask(data.task, { skipFileViewer: true }); } catch(err){ alert(err.message); } };
 $('deleteTaskBtn').onclick = async () => { if (!state.activeTaskId) return; if (!confirm(t('deleteConfirm'))) return; const deleted = state.activeTaskId; $('deleteTaskBtn').disabled = true; try { await api(`/api/tasks/${deleted}`, { method:'DELETE' }); state.tasks = state.tasks.filter(t => t.id !== deleted); backToList({ replaceRoute: true }); renderTaskList(); renderHomeGarden(); } catch(err){ alert((t('deleteFailed') || 'Delete failed: ') + err.message); } finally { $('deleteTaskBtn').disabled = false; } };
 $('renameTaskBtn').addEventListener('mousedown', e => { if (state.editingTitle) e.preventDefault(); });
 $('renameTaskBtn').onclick = () => { state.editingTitle ? commitTitleEdit() : beginTitleEdit(); };
