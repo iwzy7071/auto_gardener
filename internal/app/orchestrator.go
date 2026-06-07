@@ -16,6 +16,8 @@ import (
 	"auto_gardener/internal/codex"
 )
 
+const maxCreateTaskPromptRunes = 12000
+
 type Orchestrator struct {
 	store         *Store
 	runner        codex.Runner
@@ -94,6 +96,9 @@ func (o *Orchestrator) CreateTask(prompt, workspacePath string) (*Task, error) {
 	prompt = strings.TrimSpace(prompt)
 	if prompt == "" {
 		return nil, fmt.Errorf("任务内容不能为空")
+	}
+	if len([]rune(prompt)) > maxCreateTaskPromptRunes {
+		return nil, fmt.Errorf("任务内容过长，请缩短后再创建")
 	}
 	id := newID("forest")
 	title := titleFromPrompt(prompt)
