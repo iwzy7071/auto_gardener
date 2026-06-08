@@ -245,6 +245,10 @@ func (s *Server) serveStaticApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	path := filepath.Clean(strings.TrimPrefix(r.URL.Path, "/"))
+	if hasHiddenStaticPath(path) {
+		http.NotFound(w, r)
+		return
+	}
 	if path == "." || path == "/" {
 		http.ServeFile(w, r, filepath.Join(staticRoot, "index.html"))
 		return
@@ -263,6 +267,15 @@ func (s *Server) serveStaticApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.NotFound(w, r)
+}
+
+func hasHiddenStaticPath(path string) bool {
+	for _, part := range strings.FieldsFunc(filepath.ToSlash(path), func(r rune) bool { return r == '/' }) {
+		if strings.HasPrefix(part, ".") {
+			return true
+		}
+	}
+	return false
 }
 
 func compactTaskList(tasks []*Task) []*Task {
