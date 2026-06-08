@@ -129,6 +129,10 @@ shell_quote() {
   python3 -c 'import shlex, sys; print(shlex.quote(sys.argv[1]), end="")' "$1"
 }
 
+xml_escape() {
+  python3 -c 'import html, sys; print(html.escape(sys.argv[1], quote=True), end="")' "${1:-}"
+}
+
 if [[ -z "$PACKAGE_URL" ]]; then
   echo "Package URL is not configured. Re-run with --relay-base-url http://YOUR_SERVER or set GARDENER_RELAY_BASE_URL." >&2
   exit 1
@@ -203,39 +207,47 @@ mkdir -p "$HOME/Library/LaunchAgents"
 LOG_DIR="$INSTALL_DIR/logs"
 mkdir -p "$LOG_DIR"
 chmod 700 "$LOG_DIR" 2>/dev/null || true
+
+plist_install_dir="$(xml_escape "$INSTALL_DIR")"
+plist_install_path="$(xml_escape "$INSTALL_PATH")"
+plist_home="$(xml_escape "$HOME")"
+plist_user="$(xml_escape "$(whoami)")"
+plist_codex_cmd="$(xml_escape "$CODEX_CMD")"
+plist_claude_cmd="$(xml_escape "$CLAUDE_CMD")"
+plist_log_dir="$(xml_escape "$LOG_DIR")"
 cat > "$HOME/Library/LaunchAgents/com.gardener.local.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
   <key>Label</key><string>com.gardener.local</string>
-  <key>ProgramArguments</key><array><string>$INSTALL_DIR/gardener</string></array>
-  <key>WorkingDirectory</key><string>$INSTALL_DIR</string>
+  <key>ProgramArguments</key><array><string>$plist_install_dir/gardener</string></array>
+  <key>WorkingDirectory</key><string>$plist_install_dir</string>
   <key>EnvironmentVariables</key>
   <dict>
-    <key>PATH</key><string>$INSTALL_PATH</string>
-    <key>HOME</key><string>$HOME</string>
-    <key>USER</key><string>$(whoami)</string>
+    <key>PATH</key><string>$plist_install_path</string>
+    <key>HOME</key><string>$plist_home</string>
+    <key>USER</key><string>$plist_user</string>
     <key>AUTO_GARDENER_ADDR</key><string>127.0.0.1:8080</string>
-    <key>AUTO_GARDENER_STATIC</key><string>$INSTALL_DIR/web/static</string>
-    <key>AUTO_GARDENER_DATA</key><string>$HOME/Desktop/forest_data</string>
+    <key>AUTO_GARDENER_STATIC</key><string>$plist_install_dir/web/static</string>
+    <key>AUTO_GARDENER_DATA</key><string>$plist_home/Desktop/forest_data</string>
 EOF
 if [[ -n "$CODEX_CMD" ]]; then
 cat >> "$HOME/Library/LaunchAgents/com.gardener.local.plist" <<EOF
-    <key>AUTO_GARDENER_CODEX_CMD</key><string>$CODEX_CMD</string>
+    <key>AUTO_GARDENER_CODEX_CMD</key><string>$plist_codex_cmd</string>
 EOF
 fi
 if [[ -n "$CLAUDE_CMD" ]]; then
 cat >> "$HOME/Library/LaunchAgents/com.gardener.local.plist" <<EOF
-    <key>AUTO_GARDENER_CLAUDE_CMD</key><string>$CLAUDE_CMD</string>
+    <key>AUTO_GARDENER_CLAUDE_CMD</key><string>$plist_claude_cmd</string>
 EOF
 fi
 cat >> "$HOME/Library/LaunchAgents/com.gardener.local.plist" <<EOF
   </dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
-  <key>StandardOutPath</key><string>$LOG_DIR/gardener.local.out.log</string>
-  <key>StandardErrorPath</key><string>$LOG_DIR/gardener.local.err.log</string>
+  <key>StandardOutPath</key><string>$plist_log_dir/gardener.local.out.log</string>
+  <key>StandardErrorPath</key><string>$plist_log_dir/gardener.local.err.log</string>
 </dict>
 </plist>
 EOF
@@ -247,12 +259,12 @@ cat > "$HOME/Library/LaunchAgents/com.gardener.relay.plist" <<EOF
 <plist version="1.0">
 <dict>
   <key>Label</key><string>com.gardener.relay</string>
-  <key>ProgramArguments</key><array><string>$INSTALL_DIR/frpc</string><string>-c</string><string>$INSTALL_DIR/frpc.toml</string></array>
-  <key>WorkingDirectory</key><string>$INSTALL_DIR</string>
+  <key>ProgramArguments</key><array><string>$plist_install_dir/frpc</string><string>-c</string><string>$plist_install_dir/frpc.toml</string></array>
+  <key>WorkingDirectory</key><string>$plist_install_dir</string>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
-  <key>StandardOutPath</key><string>$LOG_DIR/gardener.relay.out.log</string>
-  <key>StandardErrorPath</key><string>$LOG_DIR/gardener.relay.err.log</string>
+  <key>StandardOutPath</key><string>$plist_log_dir/gardener.relay.out.log</string>
+  <key>StandardErrorPath</key><string>$plist_log_dir/gardener.relay.err.log</string>
 </dict>
 </plist>
 EOF
