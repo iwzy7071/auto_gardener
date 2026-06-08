@@ -439,6 +439,11 @@ function backToList(options = {}) {
   renderHomeGarden();
 }
 
+const MAX_TASK_EVENT_CHARS = 2_000_000;
+function isTaskEventTooLarge(data) {
+  return String(data || '').length > MAX_TASK_EVENT_CHARS;
+}
+
 function connectEvents(taskId) {
   if (state.eventSource) state.eventSource.close();
   if (state.recoveryPoller) { clearInterval(state.recoveryPoller); state.recoveryPoller = null; }
@@ -451,6 +456,11 @@ function connectEvents(taskId) {
   state.eventSource = es;
   es.addEventListener('open', () => setConnected(true));
   es.addEventListener('task', (ev) => {
+    if (isTaskEventTooLarge(ev.data)) {
+      console.warn('Ignoring oversized task event');
+      loadActiveTask(true);
+      return;
+    }
     const task = JSON.parse(ev.data);
     const previous = state.tasks.find(t => t.id === task.id);
     upsertTask(task);
