@@ -72,6 +72,15 @@ function Unblock-GardenerPath([string]$Path) {
   }
 }
 
+function Unblock-GardenerInstallFiles([string]$Dir) {
+  foreach ($name in @("gardener.exe", "frpc.exe", "start-gardener.ps1", "start-gardener.bat", "update-gardener.ps1", "install-gardener.ps1", "gardener.config.ps1", "gardener.relay.json", "frpc.toml")) {
+    $path = Join-Path $Dir $name
+    if (Test-Path -LiteralPath $path -PathType Leaf) {
+      Unblock-GardenerPath -Path $path
+    }
+  }
+}
+
 function Set-GardenerFirewallPolicy([string]$ExePath) {
   if (-not (Test-Path $ExePath)) { return }
   if (-not (Test-GardenerAdmin)) {
@@ -137,7 +146,7 @@ if (-not (Test-Path $Updater)) {
 }
 
 & $Updater -PackageUrl $PackageUrl -InstallDir $InstallDir
-Unblock-GardenerPath -Path $InstallDir
+Unblock-GardenerInstallFiles -Dir $InstallDir
 
 $FrpcExe = Join-Path $InstallDir "frpc.exe"
 if (-not (Test-Path $FrpcExe)) {
@@ -178,7 +187,7 @@ if ($Provision) {
 }
 
 [IO.File]::WriteAllText((Join-Path $InstallDir "gardener.config.ps1"), $ConfigText, [Text.UTF8Encoding]::new($false))
-Unblock-GardenerPath -Path $InstallDir
+Unblock-GardenerInstallFiles -Dir $InstallDir
 Set-GardenerFirewallPolicy -ExePath (Join-Path $InstallDir "gardener.exe")
 
 $StartScript = Join-Path $InstallDir "start-gardener.ps1"
