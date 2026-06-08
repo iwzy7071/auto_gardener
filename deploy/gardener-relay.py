@@ -83,6 +83,11 @@ def make_setup_key():
     return 'sk_' + secrets.token_urlsafe(24).rstrip('=')
 
 
+def validate_tcp_port(port, label):
+    if int(port) < 1 or int(port) > 65535:
+        raise SystemExit(f'error: {label} must be between 1 and 65535')
+    return int(port)
+
 def port_listening(port, host='127.0.0.1'):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.settimeout(0.25)
@@ -315,6 +320,8 @@ def add_user(args):
     if any(i.get('proxyName') == proxy_name for i in data['instances']):
         raise SystemExit(f'error: proxy name {proxy_name} already exists; choose another user name')
     public, remote = (args.public_port, args.remote_port) if args.public_port and args.remote_port else find_free_slot(data['instances'])
+    public = validate_tcp_port(public, 'public port')
+    remote = validate_tcp_port(remote, 'remote port')
     if any(int(i['publicPort']) == public or int(i['remotePort']) == remote for i in data['instances']):
         raise SystemExit('error: requested port already assigned')
     if port_listening(public, '0.0.0.0') or port_listening(remote, '127.0.0.1'):
