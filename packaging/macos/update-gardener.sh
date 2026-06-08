@@ -22,8 +22,29 @@ if [[ -z "$PACKAGE_URL" ]]; then
   PACKAGE_URL="${RELAY_BASE_URL%/}/downloads/Gardener-macOS-$arch.tar.gz"
 fi
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+
+safe_extract_tar() {
+  local archive="$1" dest="$2"
+  python3 - "$archive" "$dest" <<'PYINNER'
+import pathlib, sys, tarfile
+archive, dest = sys.argv[1:3]
+root = pathlib.Path(dest).resolve()
+with tarfile.open(archive, 'r:gz') as tf:
+    for member in tf.getmembers():
+        name = member.name
+        if name.startswith('/') or name == '..' or name.startswith('../') or '/../' in name:
+            raise SystemExit(f'Unsafe archive path: {name}')
+        target = (root / name).resolve()
+        if target != root and root not in target.parents:
+            raise SystemExit(f'Unsafe archive path: {name}')
+        if member.issym() or member.islnk():
+            raise SystemExit(f'Archive links are not allowed: {name}')
+    tf.extractall(root)
+PYINNER
+}
+
 curl -fL --connect-timeout 20 --max-time 300 "$PACKAGE_URL" -o "$TMP/gardener.tar.gz"
-mkdir -p "$TMP/extract"; tar -xzf "$TMP/gardener.tar.gz" -C "$TMP/extract"
+mkdir -p "$TMP/extract"; safe_extract_tar "$TMP/gardener.tar.gz" "$TMP/extract"
 SRC="$(find "$TMP/extract" -maxdepth 1 -type d -name 'Gardener-macOS-*' | head -n 1)"; [[ -z "$SRC" ]] && SRC="$TMP/extract"
 uid="$(id -u)"
 launchctl bootout "gui/$uid" "$HOME/Library/LaunchAgents/com.gardener.local.plist" 2>/dev/null || true
