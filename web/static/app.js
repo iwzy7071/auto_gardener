@@ -1620,6 +1620,12 @@ function escapeHTML(s) { return String(s || '').replace(/[&<>'"]/g, c => ({'&':'
 
 let currentDirectoryPath = '';
 
+const MAX_RENDERED_DIRECTORY_TEXT_CHARS = 500;
+function renderedDirectoryText(value) {
+  const chars = Array.from(String(value || ''));
+  return chars.length > MAX_RENDERED_DIRECTORY_TEXT_CHARS ? chars.slice(0, MAX_RENDERED_DIRECTORY_TEXT_CHARS).join('') + '…' : chars.join('');
+}
+
 async function openDirectoryPicker() {
   $('directoryOverlay').classList.remove('hidden');
   $('directoryOverlay').setAttribute('aria-hidden', 'false');
@@ -1635,7 +1641,7 @@ async function loadDirectory(path = '') {
   const qs = path ? `?path=${encodeURIComponent(path)}` : '';
   const data = await api(`/api/fs/dirs${qs}`);
   currentDirectoryPath = data.path || '';
-  $('directoryPath').textContent = currentDirectoryPath;
+  $('directoryPath').textContent = renderedDirectoryText(currentDirectoryPath);
   $('parentDirectoryBtn').disabled = !data.parent;
   $('parentDirectoryBtn').onclick = () => data.parent && loadDirectory(data.parent);
   const list = $('directoryList');
@@ -1649,7 +1655,7 @@ async function loadDirectory(path = '') {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'directory-item';
-    btn.innerHTML = `<span>📁</span><strong>${escapeHTML(entry.name)}</strong>`;
+    btn.innerHTML = `<span>📁</span><strong>${escapeHTML(renderedDirectoryText(entry.name))}</strong>`;
     btn.onclick = () => loadDirectory(entry.path);
     list.appendChild(btn);
   });
