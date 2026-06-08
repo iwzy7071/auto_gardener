@@ -22,3 +22,15 @@ func TestSettingsRejectsOversizedJSONBody(t *testing.T) {
 		t.Fatalf("status = %d, want %d; body=%s", rr.Code, http.StatusRequestEntityTooLarge, rr.Body.String())
 	}
 }
+
+func TestDecodeLimitedJSONRejectsTrailingValue(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/api/tasks", strings.NewReader(`{"prompt":"do work"} {}`))
+	rr := httptest.NewRecorder()
+	var dst CreateTaskRequest
+	if decodeLimitedJSON(rr, req, &dst, maxTaskJSONBodyBytes, "bad json") {
+		t.Fatal("decodeLimitedJSON accepted trailing JSON value")
+	}
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rr.Code, http.StatusBadRequest)
+	}
+}
