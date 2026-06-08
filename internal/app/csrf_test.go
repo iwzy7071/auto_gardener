@@ -96,6 +96,25 @@ func TestAllowTrustedProxyForwardedHostAPIWrite(t *testing.T) {
 	}
 }
 
+func TestAllowDocumentedRelayForwardedHostAPIWrite(t *testing.T) {
+	hub := NewEventHub()
+	store, err := NewStore(t.TempDir(), hub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := NewServer(store, nil, t.TempDir(), hub)
+	req := httptest.NewRequest(http.MethodPut, "http://127.0.0.1:8080/api/settings", strings.NewReader(`{"logLevel":"quiet"}`))
+	req.Host = "127.0.0.1:8080"
+	req.RemoteAddr = "127.0.0.1:45678"
+	req.Header.Set("Origin", "http://8.137.101.238:28081")
+	req.Header.Set("X-Forwarded-Host", "8.137.101.238:28081")
+	rr := httptest.NewRecorder()
+	server.Routes().ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("documented relay forwarded host should be allowed; status=%d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
 func TestAllowConfiguredTrustedProxyForwardedHostAPIWrite(t *testing.T) {
 	t.Setenv("AUTO_GARDENER_TRUSTED_PROXIES", "10.0.0.0/8")
 	hub := NewEventHub()

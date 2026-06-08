@@ -99,6 +99,22 @@ customDomains = ["alice.gardener.example.com"]
 
 也可以用 Nginx，但 Caddy 自动 HTTPS 更省事。
 
+## 反向代理 CSRF 配置
+
+Gardener 会校验浏览器 `Origin`/`Referer`，防止跨站页面伪造写操作。官方 frp/relay 安装路径中，本机 Gardener 只监听 `127.0.0.1:8080`，来自本机 frpc/反向代理的 forwarded host 会被视为可信，因此不需要额外配置。
+
+如果你把 Gardener 放在 Docker、LAN 网关或其它非 loopback 反向代理后面，并且浏览器访问的公网 host 与 Gardener 进程看到的 upstream `Host` 不一致，需要在 Gardener 进程环境中显式配置可信代理来源，例如：
+
+```bash
+AUTO_GARDENER_TRUSTED_PROXIES=10.0.0.0/8,192.168.1.10
+```
+
+只填写你控制的代理 IP 或 CIDR。不要把公网客户端网段加入该列表，否则任意客户端都可能伪造 `X-Forwarded-Host`。如果不能稳定标识代理来源，可以改用精确公网 origin allowlist：
+
+```bash
+AUTO_GARDENER_ALLOWED_ORIGINS=https://alice.gardener.example.com
+```
+
 ## 安全建议
 
 Gardener 可以调用 Codex/Claude 修改本地文件，公网访问必须谨慎：
