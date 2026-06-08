@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
@@ -49,6 +50,9 @@ func (s *Server) handleDingTalkRobot(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, err.Error())
 		return
 	}
+	if !requireDingTalkJSONContentType(w, r) {
+		return
+	}
 	var msg dingTalkIncomingMessage
 	if !decodeLimitedJSON(w, r, &msg, maxDingTalkJSONBodyBytes, "钉钉消息不是合法 JSON") {
 		return
@@ -69,6 +73,15 @@ func (s *Server) handleDingTalkRobot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, dingTalkTextPayload(reply))
+}
+
+func requireDingTalkJSONContentType(w http.ResponseWriter, r *http.Request) bool {
+	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || mediaType != "application/json" {
+		writeError(w, http.StatusUnsupportedMediaType, "钉钉消息 Content-Type 必须是 application/json")
+		return false
+	}
+	return true
 }
 
 func extractDingTalkContent(msg dingTalkIncomingMessage) string {

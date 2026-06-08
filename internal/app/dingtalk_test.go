@@ -147,3 +147,21 @@ func TestDingTalkSessionLimit(t *testing.T) {
 		t.Fatalf("newest session missing: %q", taskID)
 	}
 }
+
+func TestRequireDingTalkJSONContentType(t *testing.T) {
+	req := httptest.NewRequest("POST", "/api/dingtalk/robot", nil)
+	req.Header.Set("Content-Type", "text/plain")
+	rr := httptest.NewRecorder()
+	if requireDingTalkJSONContentType(rr, req) {
+		t.Fatal("text/plain was accepted for DingTalk JSON")
+	}
+	if rr.Code != http.StatusUnsupportedMediaType {
+		t.Fatalf("status = %d, want %d", rr.Code, http.StatusUnsupportedMediaType)
+	}
+	req = httptest.NewRequest("POST", "/api/dingtalk/robot", nil)
+	req.Header.Set("Content-Type", "application/json; charset=utf-8")
+	rr = httptest.NewRecorder()
+	if !requireDingTalkJSONContentType(rr, req) {
+		t.Fatal("application/json with charset was rejected")
+	}
+}
