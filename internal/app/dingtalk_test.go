@@ -111,6 +111,7 @@ func (failingRoundTripper) RoundTrip(*http.Request) (*http.Response, error) {
 }
 
 func TestDingTalkReplyErrorDoesNotExposeTransportDetails(t *testing.T) {
+	t.Setenv("AUTO_GARDENER_DINGTALK_ALLOW_UNSIGNED", "1")
 	req := httptest.NewRequest("POST", "/api/dingtalk/robot", strings.NewReader(`{
 		"conversationId":"c1",
 		"senderId":"s1",
