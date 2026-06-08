@@ -7,6 +7,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
+$MaxAddrLength = 256
 $Exe = Join-Path $Root "gardener.exe"
 $Config = Join-Path $Root "gardener.config.ps1"
 $RelayJson = Join-Path $Root "gardener.relay.json"
@@ -66,6 +67,10 @@ try {
 
 $env:PATH = "$env:APPDATA\npm;$env:ProgramFiles\nodejs;${env:ProgramFiles(x86)}\nodejs;$env:PATH"
 if (-not $env:AUTO_GARDENER_ADDR) { $env:AUTO_GARDENER_ADDR = $Addr }
+if ($env:AUTO_GARDENER_ADDR.Length -gt $MaxAddrLength) {
+  Write-Host "Warning: AUTO_GARDENER_ADDR is too long; using 127.0.0.1:8080." -ForegroundColor Yellow
+  $env:AUTO_GARDENER_ADDR = "127.0.0.1:8080"
+}
 if (-not $env:AUTO_GARDENER_STATIC) { $env:AUTO_GARDENER_STATIC = Join-Path $Root "web\static" }
 if (-not $env:AUTO_GARDENER_DATA) { $env:AUTO_GARDENER_DATA = Join-Path ([Environment]::GetFolderPath("Desktop")) "forest_data" }
 
