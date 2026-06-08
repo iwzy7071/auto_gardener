@@ -372,9 +372,15 @@ function progressSignature(task) {
   return [task?.status || '', task?.gardenerStatus || '', task?.lastProgressAt || '', raw.slice(-10).map(progressSignatureText).join('|')].join('::');
 }
 
+const MAX_FOREST_SIGNATURE_PATH_CHARS = 400;
+function forestSignaturePath(value) {
+  const chars = Array.from(String(value || ''));
+  return chars.length > MAX_FOREST_SIGNATURE_PATH_CHARS ? chars.slice(0, MAX_FOREST_SIGNATURE_PATH_CHARS).join('') : chars.join('');
+}
+
 function forestSignature(task) {
   const selected = state.selectedForests[task.id] || '';
-  const trees = (task.trees || []).map(tree => [tree.id, tree.forest || 1, tree.status || '', tree.fruitPath || '', !!tree.isValidation, tree.updatedAt || ''].join(':')).join('|');
+  const trees = (task.trees || []).map(tree => [tree.id, tree.forest || 1, tree.status || '', forestSignaturePath(tree.fruitPath), !!tree.isValidation, tree.updatedAt || ''].join(':')).join('|');
   return [selected, trees].join('::');
 }
 
