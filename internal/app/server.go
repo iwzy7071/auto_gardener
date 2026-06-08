@@ -634,6 +634,16 @@ func (s *Server) handleTaskSubroutes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(parts) == 2 && parts[1] == "acceptance" && r.Method == http.MethodGet {
+		task, ok := s.store.GetTask(taskID)
+		if !ok {
+			writeError(w, http.StatusNotFound, "任务不存在")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"acceptance": buildAcceptanceReport(task)})
+		return
+	}
+
 	if len(parts) == 2 && parts[1] == "files" && r.Method == http.MethodGet {
 		task, ok := s.store.GetTask(taskID)
 		if !ok {
