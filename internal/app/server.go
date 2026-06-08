@@ -255,7 +255,13 @@ func (s *Server) serveStaticApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if info, err := os.Stat(abs); err == nil && !info.IsDir() {
-		http.ServeFile(w, r, abs)
+		realRoot, rootErr := filepath.EvalSymlinks(staticRoot)
+		realAbs, absErr := filepath.EvalSymlinks(abs)
+		if rootErr != nil || absErr != nil || (realAbs != realRoot && !strings.HasPrefix(realAbs, realRoot+string(filepath.Separator))) {
+			http.NotFound(w, r)
+			return
+		}
+		http.ServeFile(w, r, realAbs)
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/forests/") {
