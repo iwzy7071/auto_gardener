@@ -118,6 +118,10 @@ func (p *Proxy) handle(w http.ResponseWriter, r *http.Request) {
 		writeProxyError(w, http.StatusBadRequest, "invalid responses request")
 		return
 	}
+	if err := validateSamplingParams(req); err != nil {
+		writeProxyError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	if err := p.forwardChatStream(w, r, spec, token, req); err != nil {
 		log.Printf("compat proxy %s error: %v", spec.Name, err)
 	}
@@ -149,6 +153,16 @@ type responseTool struct {
 	Name        string          `json:"name"`
 	Description string          `json:"description,omitempty"`
 	Parameters  json.RawMessage `json:"parameters,omitempty"`
+}
+
+func validateSamplingParams(req responseRequest) error {
+	if req.Temperature != nil && (*req.Temperature < 0 || *req.Temperature > 2) {
+		return fmt.Errorf("temperature must be between 0 and 2")
+	}
+	if req.TopP != nil && (*req.TopP < 0 || *req.TopP > 1) {
+		return fmt.Errorf("top_p must be between 0 and 1")
+	}
+	return nil
 }
 
 type chatRequest struct {
