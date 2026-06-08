@@ -809,9 +809,15 @@ func (s *Server) serveWorkspaceFile(w http.ResponseWriter, r *http.Request, task
 		writeError(w, http.StatusNotFound, "文件不存在")
 		return
 	}
+	realRoot, rootErr := filepath.EvalSymlinks(root)
+	realAbs, absErr := filepath.EvalSymlinks(abs)
+	if rootErr != nil || absErr != nil || (realAbs != realRoot && !strings.HasPrefix(realAbs, realRoot+string(filepath.Separator))) {
+		writeError(w, http.StatusForbidden, "只能读取保存位置内的文件")
+		return
+	}
 	if r.URL.Query().Get("download") == "1" {
-		w.Header().Set("Content-Disposition", contentDisposition("attachment", abs))
-		http.ServeFile(w, r, abs)
+		w.Header().Set("Content-Disposition", contentDisposition("attachment", realAbs))
+		http.ServeFile(w, r, realAbs)
 		return
 	}
 	if info.Size() > 2*1024*1024 {
@@ -819,7 +825,7 @@ func (s *Server) serveWorkspaceFile(w http.ResponseWriter, r *http.Request, task
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	http.ServeFile(w, r, abs)
+	http.ServeFile(w, r, realAbs)
 }
 
 func treeIDsForForest(task *Task, forestFilter string) []string {
