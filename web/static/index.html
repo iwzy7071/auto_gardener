@@ -193,6 +193,16 @@
           <label for="modelTokenInput"><span data-i18n="modelToken">Token</span></label>
           <input id="modelTokenInput" type="password" autocomplete="off" data-i18n-placeholder="modelTokenPlaceholder" placeholder="输入当前模型的 token" />
         </div>
+        <section class="diagnostics-section">
+          <div class="diagnostics-section-head">
+            <div>
+              <strong id="diagnosticsTitle">环境诊断</strong>
+              <p id="diagnosticsSubtitle" class="settings-note">检查 CLI、Git、目录、电源和远程访问配置。</p>
+            </div>
+            <button id="runDiagnosticsBtn" type="button" class="soft-btn">运行诊断</button>
+          </div>
+          <div id="diagnosticsPanel" class="diagnostics-panel"></div>
+        </section>
         <button id="saveSettingsBtn" class="primary-btn" data-i18n="save">保存</button>
       </div>
     </section>

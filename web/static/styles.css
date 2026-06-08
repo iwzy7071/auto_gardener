@@ -1797,3 +1797,112 @@ label{display:block;margin:11px 0 6px;color:var(--muted);font-size:12px}textarea
   .tree-status-panel.compact.novice .tree-status-main{grid-template-columns:1fr}
   .tree-status-panel.compact.novice .tree-status-toggle{justify-self:start}
 }
+
+/* Environment diagnostics */
+.diagnostics-section{
+  margin:14px 0;
+  padding:14px;
+  border:1px solid var(--line);
+  border-radius:18px;
+  background:#fbfaf4;
+}
+.diagnostics-section-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+}
+.diagnostics-section-head strong{
+  display:block;
+  color:#405631;
+  font-size:14px;
+  font-weight:840;
+}
+.diagnostics-section-head p{
+  margin:4px 0 0;
+}
+.diagnostics-panel{
+  margin-top:12px;
+}
+.diagnostics-empty{
+  padding:12px;
+  border:1px dashed var(--line);
+  border-radius:14px;
+  color:var(--muted);
+  background:#fffdf7;
+  font-size:12px;
+  text-align:center;
+}
+.diagnostics-empty.danger{
+  color:#8f4d40;
+  border-color:rgba(143,77,64,.20);
+  background:#fff7f5;
+}
+.diagnostics-summary{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:8px;
+  padding:9px 10px;
+  border-radius:14px;
+  background:#fffdf7;
+  border:1px solid rgba(52,68,45,.08);
+}
+.diagnostics-summary strong{
+  color:#405631;
+  font-size:13px;
+}
+.diagnostics-summary span{
+  color:var(--muted);
+  font-size:11px;
+}
+.diagnostics-list{
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+  max-height:320px;
+  overflow:auto;
+}
+.diagnostic-item{
+  display:grid;
+  grid-template-columns:64px minmax(0,1fr);
+  gap:10px;
+  padding:10px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:#fffdf7;
+}
+.diagnostic-status{
+  align-self:start;
+  padding:5px 8px;
+  border-radius:999px;
+  background:#eef3e5;
+  color:#557044;
+  font-size:11px;
+  font-weight:840;
+  text-align:center;
+}
+.diagnostic-item.warning .diagnostic-status{background:#fff1bd;color:#7a6100}
+.diagnostic-item.fail .diagnostic-status{background:#f4ddd8;color:#8f4d40}
+.diagnostic-item strong{
+  display:block;
+  color:var(--ink);
+  font-size:12px;
+}
+.diagnostic-item p,.diagnostic-item small{
+  display:block;
+  margin:3px 0 0;
+  color:var(--muted);
+  font-size:11px;
+  line-height:1.45;
+  overflow-wrap:anywhere;
+}
+.diagnostic-item small{
+  color:#6e765f;
+}
+@media(max-width:760px){
+  .diagnostics-section-head,.diagnostics-summary{flex-direction:column;align-items:stretch}
+  .diagnostic-item{grid-template-columns:1fr}
+  .diagnostic-status{width:max-content}
+}

@@ -10,7 +10,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -23,6 +25,15 @@ type workspaceFileEntry struct {
 	Size    int64    `json:"size"`
 	ModTime string   `json:"modTime"`
 	TreeIDs []string `json:"treeIds,omitempty"`
+}
+
+type diagnosticItem struct {
+	ID      string `json:"id"`
+	Label   string `json:"label"`
+	Status  string `json:"status"`
+	Detail  string `json:"detail"`
+	Advice  string `json:"advice,omitempty"`
+	Checked bool   `json:"checked"`
 }
 
 type Server struct {
@@ -58,6 +69,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/api/tasks", s.handleTasks)
 	mux.HandleFunc("/api/settings", s.handleSettings)
 	mux.HandleFunc("/api/usage", s.handleUsage)
+	mux.HandleFunc("/api/diagnostics", s.handleDiagnostics)
 	mux.HandleFunc("/api/fs/dirs", s.handleDirectoryBrowse)
 	mux.HandleFunc("/api/dingtalk/robot", s.handleDingTalkRobot)
 	mux.HandleFunc("/api/tasks/", s.handleTaskSubroutes)
@@ -244,6 +256,103 @@ func (s *Server) handleUsage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"usage": s.store.AllUsage()})
+}
+
+func (s *Server) handleDiagnostics(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	items := []diagnosticItem{
+		diagnoseCommand("codex", "Codex CLI", os.Getenv("AUTO_GARDENER_CODEX_CMD"), "Install Codex CLI or set AUTO_GARDENER_CODEX_CMD."),
+		diagnoseCommand("claude", "Claude Code", os.Getenv("AUTO_GARDENER_CLAUDE_CMD"), "Install Claude Code or set AUTO_GARDENER_CLAUDE_CMD."),
+		diagnoseCommand("git", "Git", "", "Install Git and make sure it is available on PATH."),
+		diagnoseDir("data", "Data directory", s.store.DataDir(), true, "Set AUTO_GARDENER_DATA to a writable local directory."),
+		diagnoseDir("static", "Static assets", s.staticDir, false, "Set AUTO_GARDENER_STATIC to the packaged web/static directory."),
+		diagnoseRelayConfig(),
+		diagnosePowerStatus(CheckPowerStatus()),
+	}
+	ok, warn, fail := 0, 0, 0
+	for _, item := range items {
+		switch item.Status {
+		case "ok":
+			ok++
+		case "warning":
+			warn++
+		case "fail":
+			fail++
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"platform":  runtime.GOOS,
+		"version":   Version,
+		"checkedAt": time.Now().Format(time.RFC3339),
+		"summary":   map[string]int{"ok": ok, "warning": warn, "fail": fail},
+		"items":     items,
+	})
+}
+
+func diagnoseCommand(id, label, configured, advice string) diagnosticItem {
+	configured = strings.TrimSpace(configured)
+	candidate := configured
+	if candidate == "" {
+		candidate = id
+	}
+	path, err := exec.LookPath(candidate)
+	if err != nil {
+		detail := "Not found on PATH"
+		if configured != "" {
+			detail = "Configured command was not found"
+		}
+		return diagnosticItem{ID: id, Label: label, Status: "warning", Detail: detail, Advice: advice, Checked: true}
+	}
+	detail := path
+	if configured != "" {
+		detail = "Configured: " + path
+	}
+	return diagnosticItem{ID: id, Label: label, Status: "ok", Detail: detail, Checked: true}
+}
+
+func diagnoseDir(id, label, path string, requireWritable bool, advice string) diagnosticItem {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return diagnosticItem{ID: id, Label: label, Status: "fail", Detail: "Path is empty", Advice: advice, Checked: true}
+	}
+	abs, err := filepath.Abs(filepath.Clean(path))
+	if err != nil {
+		return diagnosticItem{ID: id, Label: label, Status: "fail", Detail: "Path is invalid", Advice: advice, Checked: true}
+	}
+	st, err := os.Stat(abs)
+	if err != nil || !st.IsDir() {
+		return diagnosticItem{ID: id, Label: label, Status: "fail", Detail: abs + " is not accessible", Advice: advice, Checked: true}
+	}
+	if requireWritable {
+		probe, err := os.CreateTemp(abs, ".gardener-diagnostic-*")
+		if err != nil {
+			return diagnosticItem{ID: id, Label: label, Status: "fail", Detail: abs + " is not writable", Advice: advice, Checked: true}
+		}
+		name := probe.Name()
+		_ = probe.Close()
+		_ = os.Remove(name)
+	}
+	return diagnosticItem{ID: id, Label: label, Status: "ok", Detail: abs, Checked: true}
+}
+
+func diagnoseRelayConfig() diagnosticItem {
+	if strings.TrimSpace(os.Getenv("GARDENER_RELAY_BASE_URL")) == "" && strings.TrimSpace(os.Getenv("AUTO_GARDENER_ALLOWED_ORIGINS")) == "" {
+		return diagnosticItem{ID: "relay", Label: "Relay / remote access", Status: "warning", Detail: "No relay base URL or explicit allowed origins configured", Advice: "This is fine for local-only use. Configure relay settings before remote access.", Checked: true}
+	}
+	return diagnosticItem{ID: "relay", Label: "Relay / remote access", Status: "ok", Detail: "Remote access configuration is present", Checked: true}
+}
+
+func diagnosePowerStatus(ps PowerStatus) diagnosticItem {
+	if !ps.Checked {
+		return diagnosticItem{ID: "power", Label: "Power settings", Status: "warning", Detail: "Automatic power check is not supported on this platform", Advice: PowerWarningsText(ps), Checked: false}
+	}
+	if ps.OK {
+		return diagnosticItem{ID: "power", Label: "Power settings", Status: "ok", Detail: "No sleep/hibernate risk detected", Checked: true}
+	}
+	return diagnosticItem{ID: "power", Label: "Power settings", Status: "warning", Detail: "Sleep or hibernate risk detected", Advice: PowerWarningsText(ps), Checked: true}
 }
 
 func (s *Server) serveStaticApp(w http.ResponseWriter, r *http.Request) {

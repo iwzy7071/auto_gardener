@@ -2,6 +2,24 @@ const state = { powerStatus: null, tasks: [], activeTaskId: null, eventSource: n
 const $ = (id) => document.getElementById(id);
 const MAX_CSV_PREVIEW_ROWS = 500;
 
+
+const DIAGNOSTICS_UI = {
+  'zh-CN': { title: '环境诊断', subtitle: '检查 CLI、Git、目录、电源和远程访问配置。', run: '运行诊断', running: '正在诊断…', summary: '通过 %d · 警告 %d · 失败 %d', empty: '点击“运行诊断”检查本机环境。' },
+  en: { title: 'Environment diagnostics', subtitle: 'Check CLI, Git, directories, power, and remote access configuration.', run: 'Run diagnostics', running: 'Checking…', summary: 'OK %d · warnings %d · failures %d', empty: 'Click “Run diagnostics” to check this machine.' }
+};
+
+function diagnosticsUIText(key) {
+  const lang = state.settings?.language || 'zh-CN';
+  return (DIAGNOSTICS_UI[lang] || DIAGNOSTICS_UI['zh-CN'])[key] || DIAGNOSTICS_UI['zh-CN'][key] || key;
+}
+
+function diagnosticStatusText(status) {
+  const lang = state.settings?.language || 'zh-CN';
+  const zh = { ok: '正常', warning: '警告', fail: '失败' };
+  const en = { ok: 'OK', warning: 'Warning', fail: 'Fail' };
+  return (lang === 'en' ? en : zh)[status] || status || '';
+}
+
 const I18N = {
   'zh-CN': {
     newTask:'新建任务', taskLabel:'任务', homeTitle:'你想完成什么？', garden:'工作台', taskPlaceholder:'告诉 Gardener 你的目标、要求和交付物', saveLocation:'保存位置', defaultSave:'默认保存', create:'创建', tasks:'任务', refresh:'刷新', back:'返回', messagePlaceholder:'给 Gardener 发消息', send:'发送', taskPlan:'任务安排', workRecord:'工作记录', stop:'停止', workProcess:'工作过程', viewResult:'查看报告', settings:'设置', close:'关闭', defaultSaveLocation:'默认保存位置', autoSave:'留空则自动保存', saveLocationHelp:'不设置也可以正常使用。', showSaveLocation:'创建任务时显示保存位置', showPlanRecord:'在任务中显示安排和记录', language:'语言', logDetail:'记录详细程度', logQuiet:'简洁', logNormal:'标准', logDetailed:'详细', logHelp:'普通使用建议选择“简洁”。需要排查问题时再切换为“详细”。', save:'保存', copy:'复制', result:'报告', noTasks:'暂无任务', newTaskShort:'新任务', genericTask:'任务', inProgress:'进行中', done:'已完成', waitingForest:'等待阶段', noForest:'无阶段', gardenerWillContinue:'我会继续处理。', resultNotReady:'报告尚未生成。', openingResult:'正在打开报告', emptyResult:'内容为空', openFailed:'无法打开：', stopConfirm:'停止当前任务？', team:'子任务', validationTeam:'验证任务', files:'文件', recentForests:'已有任务', noRecent:'还没有任务', openForest:'打开', allFiles:'全部文件', allTreeFiles:'全部子任务', noFiles:'暂无可查看文件', loadingFiles:'正在读取文件', selectFile:'选择文件查看内容', fileTooLarge:'文件无法预览', treeStatus:'子任务状态', noTreesInForest:'当前阶段暂无子任务', browse:'选择', chooseFolder:'选择保存位置', parentFolder:'上一级', useFolder:'使用此目录', folderEmpty:'没有可选择的子目录', tokenUsage:'Token 消耗', tokenEstimate:'Token 消耗', tokenMaxEstimate:'', tokenNoData:'暂无 token 记录', delete:'删除', deleteConfirm:'删除这个任务并清除它的数据？', deleteFailed:'删除失败：', viewStatus:'查看状态', hideStatus:'收起状态', rename:'重命名', renamePrompt:'输入新的任务名称', renameFailed:'重命名失败：', model:'模型', modelDefault:'CLI 默认模型', cliEngine:'底层 CLI', cliCodex:'Codex CLI', cliClaude:'Claude Code', cliHelp:'创建任务后会固定使用所选 CLI。', modelToken:'Token', modelTokenPlaceholder:'输入当前模型的 token', gardenerProgress:'工作进展', gardenerWorking:'正在工作', gardenerProgressEmpty:'等待下一步进展', stage:'阶段', subtask:'子任务', file:'文件', resumeTask:'继续任务', resumeTaskHint:'任务已暂停。如未完成，可点击“继续任务”，Gardener 会检查当前进度后接着处理。', resumeFailed:'继续失败：', fileEncodingHint:'已自动尝试文本编码识别。', binaryFile:'文件可能不是文本，无法预览', noOutputYet:'正在等待产出文件或报告。', noOutputStale:'长时间没有新输出，底层 CLI 可能仍在处理。你可以直接询问进度，不会中断任务。', statusQuerySafe:'查看进度不会中断任务。', noOutputMinutes:'%dm 无新输出', collapseOverview:'收起概览', expandOverview:'展开概览', overview:'概览', recentMessagesOnly:'仅显示最近 %d 条消息。', previewTruncated:'文件较大，已仅预览前 %d 个字符。', downloadFile:'下载文件', powerWarningTitle:'远程访问提醒', powerWarningPrefix:'这台电脑的电源设置可能导致 Gardener 离线：', dashboard:'任务驾驶舱', duration:'运行时长', idle:'无输出', askProgressSafe:'询问进度不会中断任务', diagnosis:'诊断提示', collapseChat:'收起对话', expandChat:'展开对话', taskNow:'当前状态', taskNext:'是否需要操作', subtaskProgress:'子任务进度', currentStage:'当前阶段', progressDone:'已完成', progressRunning:'处理中', progressPending:'等待中', progressExplain:'蓝色表示正在处理，绿色表示已完成，紫色表示验证检查。', allSubtasksDone:'本阶段子任务都已返回，Gardener 正在整理结果。', noRunningSubtasks:'暂无正在执行的子任务', runningSubtasksNamed:'正在处理：', finishedCount:'已完成 %d / 共 %d', workingNormally:'正在正常处理，你可以等待；如果想了解进展，直接发消息询问，不会中断任务。', checkingResults:'子任务已返回，Gardener 正在检查结果并决定下一步。', planningTask:'Gardener 正在把目标拆成可执行的小任务。', finishedTaskHint:'任务已完成。如需补充或继续迭代，可以点击继续任务。'
@@ -289,6 +307,7 @@ function applySettings() {
   document.body.classList.toggle('hide-work-record', !state.settings.showWorkRecord);
   if (!$('workspaceInput').value.trim()) $('workspaceInput').value = state.settings.defaultWorkspace || '';
   applyI18n();
+  renderDiagnosticsShell();
   renderPowerBanner();
   if (Array.isArray(state.tasks)) {
     renderTaskList();
@@ -1873,6 +1892,7 @@ $('closeDirectoryBtn').onclick = closeDirectoryPicker;
 $('useDirectoryBtn').onclick = () => { $('workspaceInput').value = currentDirectoryPath; closeDirectoryPicker(); };
 $('directoryOverlay').onclick = e => { if (e.target === $('directoryOverlay')) closeDirectoryPicker(); };
 $('closeSettingsBtn').onclick = closeSettings;
+if ($('runDiagnosticsBtn')) $('runDiagnosticsBtn').onclick = runDiagnostics;
 $('saveSettingsBtn').onclick = async () => {
   state.settings.defaultWorkspace = $('defaultWorkspaceInput').value.trim();
   state.settings.showSavePath = $('showSavePathToggle').checked;
@@ -1916,6 +1936,53 @@ window.addEventListener('resize', () => {
     if (active) renderTask(active, { skipFileViewer: true });
   }, 160);
 }, { passive: true });
+
+function renderDiagnosticsShell() {
+  if ($('diagnosticsTitle')) $('diagnosticsTitle').textContent = diagnosticsUIText('title');
+  if ($('diagnosticsSubtitle')) $('diagnosticsSubtitle').textContent = diagnosticsUIText('subtitle');
+  if ($('runDiagnosticsBtn')) $('runDiagnosticsBtn').textContent = diagnosticsUIText('run');
+  const panel = $('diagnosticsPanel');
+  if (panel && !panel.dataset.loaded) panel.innerHTML = `<div class="diagnostics-empty">${escapeHTML(diagnosticsUIText('empty'))}</div>`;
+}
+
+async function runDiagnostics() {
+  const panel = $('diagnosticsPanel');
+  const btn = $('runDiagnosticsBtn');
+  if (!panel) return;
+  panel.dataset.loaded = '1';
+  panel.innerHTML = `<div class="diagnostics-empty">${escapeHTML(diagnosticsUIText('running'))}</div>`;
+  if (btn) btn.disabled = true;
+  try {
+    const data = await api('/api/diagnostics');
+    paintDiagnostics(panel, data);
+  } catch (err) {
+    panel.innerHTML = `<div class="diagnostics-empty danger">${escapeHTML(renderedFileErrorMessage(err))}</div>`;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function paintDiagnostics(panel, data) {
+  const items = Array.isArray(data?.items) ? data.items : [];
+  const summary = data?.summary || {};
+  const summaryText = diagnosticsUIText('summary')
+    .replace('%d', String(summary.ok || 0))
+    .replace('%d', String(summary.warning || 0))
+    .replace('%d', String(summary.fail || 0));
+  const rows = items.map(item => `
+    <div class="diagnostic-item ${escapeHTML(item.status || 'warning')}">
+      <span class="diagnostic-status">${escapeHTML(diagnosticStatusText(item.status))}</span>
+      <div>
+        <strong>${escapeHTML(item.label || item.id || '')}</strong>
+        <p>${escapeHTML(item.detail || '')}</p>
+        ${item.advice ? `<small>${escapeHTML(item.advice)}</small>` : ''}
+      </div>
+    </div>`).join('');
+  panel.innerHTML = `
+    <div class="diagnostics-summary"><strong>${escapeHTML(summaryText)}</strong><span>${escapeHTML(data?.platform || '')} · ${escapeHTML(data?.version || '')}</span></div>
+    <div class="diagnostics-list">${rows}</div>`;
+}
+
 function openSettings() { $('settingsOverlay').classList.remove('hidden'); $('settingsOverlay').setAttribute('aria-hidden', 'false'); }
 function closeSettings() { $('settingsOverlay').classList.add('hidden'); $('settingsOverlay').setAttribute('aria-hidden', 'true'); }
 applySettings();
