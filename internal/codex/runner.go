@@ -458,7 +458,7 @@ func resolveCommand(command, label, envVar string) (string, []string, error) {
 		if st, err := os.Stat(command); err == nil && !st.IsDir() {
 			return command, env, nil
 		}
-		return "", env, fmt.Errorf("找不到 Codex CLI 命令 %q", command)
+		return "", env, fmt.Errorf("找不到 %s 命令；请检查 %s 配置", label, envVar)
 	}
 	if runtime.GOOS == "windows" {
 		if path := findWindowsNPMCommand(command); path != "" {
@@ -466,7 +466,7 @@ func resolveCommand(command, label, envVar string) (string, []string, error) {
 			return path, env, nil
 		}
 	}
-	return "", env, fmt.Errorf("找不到 %s 命令 %q；如果 CLI 是用 npm 在 Windows 安装，请确认 %%APPDATA%%\\npm 下存在对应 .cmd 文件，或设置 %s", label, command, envVar)
+	return "", env, fmt.Errorf("找不到 %s 命令；如果 CLI 是用 npm 在 Windows 安装，请确认 %%APPDATA%%\\npm 下存在对应 .cmd 文件，或检查 %s 配置", label, envVar)
 }
 
 func withWindowsNPMPath(env []string) []string {
