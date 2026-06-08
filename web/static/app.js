@@ -1206,7 +1206,7 @@ async function previewFile(taskId, path, renderToken = 0) {
       const href = `/api/tasks/${taskId}/files?path=${encodeURIComponent(path)}&download=1`;
       if (state.activeTaskId !== taskId || previewToken !== state.previewToken || (renderToken && renderToken !== state.fileViewerToken)) return;
       preview.className = 'file-preview plain-preview';
-      preview.innerHTML = `<div class="file-empty">${escapeHTML(t('binaryFile'))}<br><br><a class="primary small" href="${href}" target="_blank" rel="noopener">${escapeHTML(t('downloadFile'))}</a></div>`;
+      preview.innerHTML = `<div class="file-empty">${escapeHTML(t('binaryFile'))}<br><br><a class="primary small" href="${escapeHTML(href)}" target="_blank" rel="noopener">${escapeHTML(t('downloadFile'))}</a></div>`;
       return;
     }
     const rawText = await fetchText(`/api/tasks/${taskId}/files?path=${encodeURIComponent(path)}`);
