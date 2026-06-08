@@ -37,6 +37,18 @@ func TestVerifyDingTalkIncomingSignature(t *testing.T) {
 	}
 }
 
+func TestVerifyDingTalkIncomingSignatureRejectsInvalidTimestamp(t *testing.T) {
+	t.Setenv("AUTO_GARDENER_DINGTALK_INCOMING_SECRET", "secret")
+	for _, ts := range []string{"not-a-timestamp", "0"} {
+		req := httptest.NewRequest("POST", "/api/dingtalk/robot", nil)
+		req.Header.Set("timestamp", ts)
+		req.Header.Set("sign", dingTalkSign(ts, "secret"))
+		if err := verifyDingTalkIncomingSignature(req); err == nil {
+			t.Fatalf("invalid timestamp %q accepted", ts)
+		}
+	}
+}
+
 func TestDingTalkSignedWebhook(t *testing.T) {
 	url := dingTalkSignedWebhook("https://example.invalid/hook?access_token=abc", "secret")
 	if url == "" || url == "https://example.invalid/hook?access_token=abc" {

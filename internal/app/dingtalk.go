@@ -259,10 +259,12 @@ func verifyDingTalkIncomingSignature(r *http.Request) error {
 	if timestamp == "" || signature == "" {
 		return errors.New("缺少钉钉签名 header：timestamp/sign")
 	}
-	if ms, err := strconv.ParseInt(timestamp, 10, 64); err == nil && ms > 0 {
-		if age := time.Since(time.UnixMilli(ms)); age > time.Hour || age < -time.Hour {
-			return errors.New("钉钉签名 timestamp 已过期")
-		}
+	ms, err := strconv.ParseInt(timestamp, 10, 64)
+	if err != nil || ms <= 0 {
+		return errors.New("钉钉签名 timestamp 无效")
+	}
+	if age := time.Since(time.UnixMilli(ms)); age > time.Hour || age < -time.Hour {
+		return errors.New("钉钉签名 timestamp 已过期")
 	}
 	decoded, _ := url.QueryUnescape(signature)
 	expected := dingTalkSign(timestamp, secret)
