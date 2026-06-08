@@ -160,6 +160,7 @@ def nginx_conf(user, public_port, remote_port):
 
     client_max_body_size 200m;
     add_header Cache-Control "no-store" always;
+    add_header X-Content-Type-Options "nosniff" always;
 
     auth_basic "Gardener";
     auth_basic_user_file /etc/gardener-relay/users/{user}/htpasswd;
