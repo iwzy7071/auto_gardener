@@ -80,3 +80,41 @@ func TestStartSetsReadHeaderTimeout(t *testing.T) {
 		t.Fatal("ReadHeaderTimeout is not configured")
 	}
 }
+
+func TestValidateSamplingParamsAllowsBoundaries(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		req  responseRequest
+	}{
+		{name: "temperature zero", req: responseRequest{Temperature: ptrFloat(0)}},
+		{name: "temperature two", req: responseRequest{Temperature: ptrFloat(2)}},
+		{name: "top_p zero", req: responseRequest{TopP: ptrFloat(0)}},
+		{name: "top_p one", req: responseRequest{TopP: ptrFloat(1)}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := validateSamplingParams(tc.req); err != nil {
+				t.Fatalf("validateSamplingParams rejected boundary value: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidateSamplingParamsRejectsOutOfRangeValues(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		req  responseRequest
+	}{
+		{name: "negative temperature", req: responseRequest{Temperature: ptrFloat(-0.1)}},
+		{name: "high temperature", req: responseRequest{Temperature: ptrFloat(2.1)}},
+		{name: "negative top_p", req: responseRequest{TopP: ptrFloat(-0.1)}},
+		{name: "high top_p", req: responseRequest{TopP: ptrFloat(1.1)}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := validateSamplingParams(tc.req); err == nil {
+				t.Fatalf("validateSamplingParams accepted out-of-range value")
+			}
+		})
+	}
+}
+
+func ptrFloat(v float64) *float64 { return &v }
