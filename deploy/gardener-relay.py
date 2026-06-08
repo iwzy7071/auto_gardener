@@ -319,6 +319,8 @@ def add_user(args):
     proxy_name = f'gardener-{relay_id_for_user(user)}'
     if any(i.get('proxyName') == proxy_name for i in data['instances']):
         raise SystemExit(f'error: proxy name {proxy_name} already exists; choose another user name')
+    if bool(args.public_port) != bool(args.remote_port):
+        raise SystemExit('error: --public-port and --remote-port must be provided together')
     public, remote = (args.public_port, args.remote_port) if args.public_port and args.remote_port else find_free_slot(data['instances'])
     public = validate_tcp_port(public, 'public port')
     remote = validate_tcp_port(remote, 'remote port')
