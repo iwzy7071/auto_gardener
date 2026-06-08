@@ -339,8 +339,14 @@ function viewportRefreshMs() {
   return isCompactViewport() ? 12000 : 8000;
 }
 
+const MAX_SIGNATURE_TEXT_CHARS = 200;
+function signatureText(value) {
+  const chars = Array.from(String(value || ''));
+  return chars.length > MAX_SIGNATURE_TEXT_CHARS ? chars.slice(0, MAX_SIGNATURE_TEXT_CHARS).join('') : chars.join('');
+}
+
 function taskListSignature(tasks) {
-  return (tasks || []).map(t => [t.id, t.title || '', t.status || '', (t.trees || []).length].join(':')).join('|');
+  return (tasks || []).map(t => [t.id, signatureText(t.title), t.status || '', (t.trees || []).length].join(':')).join('|');
 }
 
 function visibleMessagesForViewport(messages) {
