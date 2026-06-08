@@ -197,10 +197,19 @@ function normalizeSettingsCompatibility() {
 
 function loadSettings() {
   try {
-    return { defaultWorkspace: '', showSavePath: false, showWorkRecord: false, logLevel: 'quiet', language: 'zh-CN', cliEngine: 'codex', modelMode: 'default', minimaxToken: '', kimiToken: '', ...JSON.parse(localStorage.getItem('autoGardenerSettings') || '{}') };
+    const saved = JSON.parse(localStorage.getItem('autoGardenerSettings') || '{}');
+    if (saved.minimaxToken || saved.kimiToken) {
+      localStorage.setItem('autoGardenerSettings', JSON.stringify(persistedClientSettings(saved)));
+    }
+    return { defaultWorkspace: '', showSavePath: false, showWorkRecord: false, logLevel: 'quiet', language: 'zh-CN', cliEngine: 'codex', modelMode: 'default', minimaxToken: '', kimiToken: '', ...persistedClientSettings(saved) };
   } catch {
     return { defaultWorkspace: '', showSavePath: false, showWorkRecord: false, logLevel: 'quiet', language: 'zh-CN', cliEngine: 'codex', modelMode: 'default', minimaxToken: '', kimiToken: '' };
   }
+}
+
+function persistedClientSettings(settings) {
+  const { minimaxToken, kimiToken, ...safeSettings } = settings || {};
+  return safeSettings;
 }
 
 async function loadServerSettings() {
@@ -217,7 +226,7 @@ async function loadServerSettings() {
 
 async function saveSettings() {
   normalizeSettingsCompatibility();
-  localStorage.setItem('autoGardenerSettings', JSON.stringify(state.settings));
+  localStorage.setItem('autoGardenerSettings', JSON.stringify(persistedClientSettings(state.settings)));
   applySettings();
   try { await api('/api/settings', { method: 'PUT', body: JSON.stringify({ logLevel: state.settings.logLevel || 'quiet', cliEngine: normalizeCLIEngineValue(state.settings.cliEngine || 'codex'), modelMode: state.settings.modelMode || 'default', minimaxToken: state.settings.minimaxToken || '', kimiToken: state.settings.kimiToken || '' }) }); } catch (err) { console.error(err); }
 }
