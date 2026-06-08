@@ -229,14 +229,14 @@ func (p *Proxy) forwardChatStream(w http.ResponseWriter, r *http.Request, spec p
 	upReq.Header.Set("Accept", "text/event-stream")
 	resp, err := p.client.Do(upReq)
 	if err != nil {
-		writeProxyError(w, http.StatusBadGateway, err.Error())
+		writeProxyError(w, http.StatusBadGateway, "upstream request failed")
 		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		data, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		writeProxyError(w, resp.StatusCode, string(data))
-		return fmt.Errorf("%s upstream status %s", spec.Name, resp.Status)
+		writeProxyError(w, resp.StatusCode, "upstream request failed")
+		return fmt.Errorf("%s upstream status %s: %s", spec.Name, resp.Status, strings.TrimSpace(string(data)))
 	}
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")

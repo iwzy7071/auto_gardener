@@ -80,3 +80,24 @@ func TestStartSetsReadHeaderTimeout(t *testing.T) {
 		t.Fatal("ReadHeaderTimeout is not configured")
 	}
 }
+
+func TestForwardChatStreamSanitizesUpstreamErrors(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "token=secret-upstream-token", http.StatusBadGateway)
+	}))
+	defer upstream.Close()
+
+	p := &Proxy{client: upstream.Client()}
+	rr := httptest.NewRecorder()
+	httpReq := httptest.NewRequest(http.MethodPost, "/minimax/v1/responses", nil)
+	err := p.forwardChatStream(rr, httpReq, providerSpec{Name: "test", BaseURL: upstream.URL}, "token", responseRequest{Model: "m", Input: []byte(`"hi"`)})
+	if err == nil {
+		t.Fatal("expected upstream error")
+	}
+	if strings.Contains(rr.Body.String(), "secret-upstream-token") {
+		t.Fatalf("proxy response leaked upstream error body: %s", rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "upstream request failed") {
+		t.Fatalf("proxy response missing generic error: %s", rr.Body.String())
+	}
+}
