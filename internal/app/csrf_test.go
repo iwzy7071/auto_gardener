@@ -114,3 +114,12 @@ func TestAllowDingTalkRobotWithoutBrowserOrigin(t *testing.T) {
 		t.Fatalf("DingTalk route should bypass browser CSRF guard; called=%v status=%d", called, rr.Code)
 	}
 }
+
+func TestRejectWildcardConfiguredOriginAPIWrite(t *testing.T) {
+	t.Setenv("AUTO_GARDENER_ALLOWED_ORIGINS", "*")
+	req := httptest.NewRequest(http.MethodPut, "http://127.0.0.1:8080/api/settings", strings.NewReader(`{"logLevel":"quiet"}`))
+	req.Header.Set("Origin", "https://evil.example")
+	if requestHasSameOrigin(req) {
+		t.Fatal("wildcard configured origin should not allow cross-origin writes")
+	}
+}

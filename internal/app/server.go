@@ -156,7 +156,7 @@ func configuredAllowedOrigins() []string {
 
 func originMatchesConfiguredAllowed(origin *url.URL, allowed string) bool {
 	if allowed == "*" {
-		return true
+		return false
 	}
 	if strings.Contains(allowed, "://") {
 		u, err := url.Parse(allowed)
