@@ -27,7 +27,7 @@ elif [[ "${DOWNLOAD_FRPC:-0}" == "1" ]]; then
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' EXIT
   url="https://github.com/fatedier/frp/releases/download/v${FRP_VERSION}/frp_${FRP_VERSION}_windows_amd64.zip"
-  echo "Downloading frpc.exe from $url"
+  echo "Downloading frpc.exe..."
   curl -L --fail --connect-timeout 20 --max-time 240 -o "$tmp/frp.zip" "$url"
   unzip -q "$tmp/frp.zip" -d "$tmp/frp"
   found="$(find "$tmp/frp" -name frpc.exe -type f | head -n 1)"
