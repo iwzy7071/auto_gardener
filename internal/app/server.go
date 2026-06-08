@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"log"
 	"mime"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -129,7 +130,86 @@ func allowedOriginHosts(r *http.Request) []string {
 	if host == "" {
 		return nil
 	}
-	return []string{host}
+	hosts := []string{host}
+	if requestFromTrustedProxy(r) {
+		hosts = append(hosts, forwardedOriginHosts(r)...)
+	}
+	return hosts
+}
+
+func forwardedOriginHosts(r *http.Request) []string {
+	var hosts []string
+	add := func(host string) {
+		host = strings.Trim(strings.TrimSpace(host), `"`)
+		if host != "" {
+			hosts = append(hosts, host)
+		}
+	}
+	if host := firstForwardedHeaderValue(r.Header.Get("X-Forwarded-Host")); host != "" {
+		add(host)
+	}
+	if host := r.Header.Get("X-Original-Host"); host != "" {
+		add(host)
+	}
+	for _, part := range strings.Split(firstForwardedHeaderValue(r.Header.Get("Forwarded")), ";") {
+		key, value, ok := strings.Cut(strings.TrimSpace(part), "=")
+		if ok && strings.EqualFold(strings.TrimSpace(key), "host") {
+			add(value)
+			break
+		}
+	}
+	return hosts
+}
+
+func firstForwardedHeaderValue(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	first, _, _ := strings.Cut(value, ",")
+	return strings.TrimSpace(first)
+}
+
+func requestFromTrustedProxy(r *http.Request) bool {
+	host, _, err := net.SplitHostPort(strings.TrimSpace(r.RemoteAddr))
+	if err != nil {
+		host = strings.TrimSpace(r.RemoteAddr)
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
+	}
+	if ip.IsLoopback() {
+		return true
+	}
+	for _, allowed := range configuredTrustedProxies() {
+		if _, network, err := net.ParseCIDR(allowed); err == nil {
+			if network.Contains(ip) {
+				return true
+			}
+			continue
+		}
+		if allowedIP := net.ParseIP(allowed); allowedIP != nil && allowedIP.Equal(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+func configuredTrustedProxies() []string {
+	raw := strings.TrimSpace(os.Getenv("AUTO_GARDENER_TRUSTED_PROXIES"))
+	if raw == "" {
+		return nil
+	}
+	fields := strings.FieldsFunc(raw, func(r rune) bool { return r == ',' || r == ';' || r == '\n' || r == '\t' || r == ' ' })
+	out := make([]string, 0, len(fields))
+	for _, field := range fields {
+		field = strings.TrimSpace(field)
+		if field != "" {
+			out = append(out, field)
+		}
+	}
+	return out
 }
 
 func configuredAllowedOrigins() []string {
