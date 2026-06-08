@@ -445,6 +445,8 @@ def show_user(args):
         if i['user'] == user:
             out = dict(i)
             if args.with_frpc:
+                if not args.show_secrets:
+                    print('warning: --with-frpc prints frpc auth.token; pass --show-secrets to acknowledge secret output', file=sys.stderr)
                 out['frpc'] = (USERS / user / 'frpc.toml').read_text()
             if args.with_provision:
                 if not args.show_secrets:
@@ -491,7 +493,7 @@ def main():
     s.add_argument('--with-frpc', action='store_true')
     s.add_argument('--with-provision', action='store_true')
     s.add_argument('--with-setup-key', action='store_true', help='include setup key and install commands in output')
-    s.add_argument('--show-secrets', action='store_true', help='confirm printing provision secrets')
+    s.add_argument('--show-secrets', action='store_true', help='confirm or acknowledge printing relay secrets')
     s.set_defaults(func=show_user)
     args = p.parse_args()
     args.func(args)
