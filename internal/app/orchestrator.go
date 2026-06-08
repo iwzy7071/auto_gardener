@@ -311,10 +311,12 @@ func buildProgressQueryAnswer(t *Task, now time.Time) string {
 	return b.String()
 }
 
+const maxProgressQuerySnippetRunes = 240
+
 func latestHumanProgress(t *Task) string {
 	var rows []string
 	for i := len(t.GardenerProgress) - 1; i >= 0 && len(rows) < 3; i-- {
-		line := strings.TrimSpace(t.GardenerProgress[i])
+		line := progressQuerySnippet(t.GardenerProgress[i])
 		if line != "" {
 			rows = append(rows, "- "+line)
 		}
@@ -324,12 +326,21 @@ func latestHumanProgress(t *Task) string {
 		if tr == nil || len(tr.Progress) == 0 {
 			continue
 		}
-		line := strings.TrimSpace(tr.Progress[len(tr.Progress)-1])
+		line := progressQuerySnippet(tr.Progress[len(tr.Progress)-1])
 		if line != "" {
-			rows = append(rows, fmt.Sprintf("- %s：%s", tr.Name, line))
+			rows = append(rows, fmt.Sprintf("- %s：%s", progressQuerySnippet(tr.Name), line))
 		}
 	}
 	return strings.Join(rows, "\n")
+}
+
+func progressQuerySnippet(s string) string {
+	s = strings.TrimSpace(s)
+	r := []rune(s)
+	if len(r) <= maxProgressQuerySnippetRunes {
+		return s
+	}
+	return string(r[:maxProgressQuerySnippetRunes]) + "..."
 }
 
 func (o *Orchestrator) StopTask(taskID string) (*Task, error) {
