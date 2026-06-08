@@ -324,10 +324,14 @@ func validateDingTalkWebhookURL(rawURL string) error {
 		return errors.New("钉钉 webhook URL 必须使用 HTTPS")
 	}
 	host := strings.ToLower(u.Hostname())
-	if host == "dingtalk.com" || strings.HasSuffix(host, ".dingtalk.com") {
-		return nil
+	if host != "dingtalk.com" && !strings.HasSuffix(host, ".dingtalk.com") {
+		return errors.New("钉钉 webhook URL host 不在允许范围内")
 	}
-	return errors.New("钉钉 webhook URL host 不在允许范围内")
+	path := strings.TrimRight(u.EscapedPath(), "/")
+	if path != "/robot/send" && path != "/v1.0/robot/groupMessages/send" {
+		return errors.New("钉钉 webhook URL path 不在允许范围内")
+	}
+	return nil
 }
 
 func dingTalkTextPayload(content string) dingTalkTextResponse {
