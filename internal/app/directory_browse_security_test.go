@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -48,5 +49,26 @@ func TestDirectoryBrowseRootOverride(t *testing.T) {
 	server.handleDirectoryBrowse(rr, req)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d; body=%s", rr.Code, http.StatusOK, rr.Body.String())
+	}
+}
+
+func TestDirectoryBrowseRejectsSymlinkEscape(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink creation requires privileges on some Windows setups")
+	}
+	home := t.TempDir()
+	outside := t.TempDir()
+	t.Setenv("HOME", home)
+	link := filepath.Join(home, "outside-link")
+	if err := os.Symlink(outside, link); err != nil {
+		t.Fatal(err)
+	}
+
+	server := NewServer(nil, nil, t.TempDir(), nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/fs/dirs?path="+link, nil)
+	rr := httptest.NewRecorder()
+	server.handleDirectoryBrowse(rr, req)
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d; body=%s", rr.Code, http.StatusForbidden, rr.Body.String())
 	}
 }
