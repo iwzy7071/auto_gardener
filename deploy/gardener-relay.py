@@ -37,8 +37,14 @@ def require_relay_configured():
     if RELAY_PUBLIC_BASE_URL.endswith('YOUR_RELAY_SERVER') or 'YOUR_RELAY_SERVER' in RELAY_PUBLIC_BASE_URL or 'example.com' in RELAY_PUBLIC_BASE_URL:
         raise SystemExit('error: relay public base URL is not configured. Set GARDENER_RELAY_PUBLIC_BASE_URL from config/gardener-relay.env.local')
 
-def run(cmd, check=True):
-    return subprocess.run(cmd, check=check, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+COMMAND_TIMEOUT_SECONDS = 30
+
+
+def run(cmd, check=True, timeout=COMMAND_TIMEOUT_SECONDS):
+    try:
+        return subprocess.run(cmd, check=check, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        raise SystemExit(f'error: command timed out after {timeout}s: {" ".join(cmd)}') from exc
 
 
 def load_state():
