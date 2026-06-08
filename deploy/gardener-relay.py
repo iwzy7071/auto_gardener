@@ -330,7 +330,10 @@ def show_user(args):
             if args.with_provision:
                 if not out.get('provisionPath') or not Path(out['provisionPath']).exists():
                     raise SystemExit('error: this user has no provision file; rotate/reset the user to create one')
-                out['provision'] = json.loads(Path(out['provisionPath']).read_text())
+                try:
+                    out['provision'] = json.loads(Path(out['provisionPath']).read_text())
+                except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+                    raise SystemExit(f'error: provision file is malformed: {exc}') from exc
             if out.get('setupKey'):
                 require_relay_configured()
                 out['installCommand'] = install_command(out['setupKey'])
