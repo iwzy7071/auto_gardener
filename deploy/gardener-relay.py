@@ -159,6 +159,7 @@ def nginx_conf(user, public_port, remote_port):
     server_name _;
 
     client_max_body_size 200m;
+    client_header_timeout 10s;
     add_header Cache-Control "no-store" always;
     add_header X-Content-Type-Options "nosniff" always;
 
