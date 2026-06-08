@@ -60,7 +60,17 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/api/dingtalk/robot", s.handleDingTalkRobot)
 	mux.HandleFunc("/api/tasks/", s.handleTaskSubroutes)
 	mux.HandleFunc("/", s.serveStaticApp)
-	return logRequests(rejectCrossOriginAPIWrites(mux))
+	return logRequests(noStoreAPIResponses(rejectCrossOriginAPIWrites(mux)))
+}
+
+func noStoreAPIResponses(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			w.Header().Set("Cache-Control", "no-store")
+			w.Header().Set("Pragma", "no-cache")
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func rejectCrossOriginAPIWrites(next http.Handler) http.Handler {
