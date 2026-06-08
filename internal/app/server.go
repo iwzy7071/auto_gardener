@@ -98,9 +98,11 @@ func requestOriginAllowed(r *http.Request, rawURL string) bool {
 	if err != nil || u.Host == "" {
 		return false
 	}
-	for _, allowed := range allowedOriginHosts(r) {
-		if hostsMatchForCSRF(u.Host, allowed) {
-			return true
+	if strings.EqualFold(u.Scheme, requestSchemeForCSRF(r)) {
+		for _, allowed := range allowedOriginHosts(r) {
+			if hostsMatchForCSRF(u.Host, allowed) {
+				return true
+			}
 		}
 	}
 	for _, allowed := range configuredAllowedOrigins() {
@@ -109,6 +111,22 @@ func requestOriginAllowed(r *http.Request, rawURL string) bool {
 		}
 	}
 	return false
+}
+
+func requestSchemeForCSRF(r *http.Request) string {
+	if proto := strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")); proto != "" {
+		proto = strings.ToLower(strings.TrimSpace(strings.Split(proto, ",")[0]))
+		if proto == "http" || proto == "https" {
+			return proto
+		}
+	}
+	if r.TLS != nil {
+		return "https"
+	}
+	if r.URL != nil && strings.TrimSpace(r.URL.Scheme) != "" {
+		return strings.ToLower(strings.TrimSpace(r.URL.Scheme))
+	}
+	return "http"
 }
 
 func allowedOriginHosts(r *http.Request) []string {

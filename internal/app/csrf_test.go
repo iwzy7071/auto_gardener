@@ -114,3 +114,23 @@ func TestAllowDingTalkRobotWithoutBrowserOrigin(t *testing.T) {
 		t.Fatalf("DingTalk route should bypass browser CSRF guard; called=%v status=%d", called, rr.Code)
 	}
 }
+
+func TestRejectSameHostDifferentSchemeAPIWrite(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "http://gardener.local/api/tasks", nil)
+	req.Host = "gardener.local"
+	req.Header.Set("Origin", "https://gardener.local")
+	if requestHasSameOrigin(req) {
+		t.Fatal("same host with different scheme should not be considered same-origin")
+	}
+}
+
+func TestAllowForwardedProtoSameSchemeAPIWrite(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:8080/api/tasks", nil)
+	req.Host = "127.0.0.1:8080"
+	req.Header.Set("X-Forwarded-Host", "gardener.example")
+	req.Header.Set("X-Forwarded-Proto", "https")
+	req.Header.Set("Origin", "https://gardener.example")
+	if !requestHasSameOrigin(req) {
+		t.Fatal("forwarded proto and host should allow matching origin")
+	}
+}
