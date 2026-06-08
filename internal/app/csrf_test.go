@@ -56,21 +56,23 @@ func TestAllowReverseProxyHostWithoutPublicPort(t *testing.T) {
 	}
 }
 
-func TestAllowForwardedHostAPIWrite(t *testing.T) {
+func TestRejectSpoofedForwardedHostAPIWrite(t *testing.T) {
 	hub := NewEventHub()
 	store, err := NewStore(t.TempDir(), hub)
 	if err != nil {
 		t.Fatal(err)
 	}
 	server := NewServer(store, nil, t.TempDir(), hub)
-	req := httptest.NewRequest(http.MethodPut, "http://127.0.0.1:8080/api/settings", strings.NewReader(`{"logLevel":"quiet"}`))
-	req.Host = "127.0.0.1:8080"
-	req.Header.Set("Origin", "http://8.137.101.238:28081")
-	req.Header.Set("X-Forwarded-Host", "8.137.101.238:28081")
+	req := httptest.NewRequest(http.MethodPut, "http://gardener.local/api/settings", strings.NewReader(`{"logLevel":"quiet"}`))
+	req.Host = "gardener.local"
+	req.Header.Set("Origin", "https://evil.example")
+	req.Header.Set("X-Forwarded-Host", "evil.example")
+	req.Header.Set("X-Original-Host", "evil.example")
+	req.Header.Set("Forwarded", `for=192.0.2.10;host="evil.example";proto=https`)
 	rr := httptest.NewRecorder()
 	server.Routes().ServeHTTP(rr, req)
-	if rr.Code != http.StatusOK {
-		t.Fatalf("forwarded host should be allowed; status=%d body=%s", rr.Code, rr.Body.String())
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("spoofed forwarded host should be rejected; status=%d body=%s", rr.Code, rr.Body.String())
 	}
 }
 

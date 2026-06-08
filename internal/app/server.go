@@ -125,31 +125,11 @@ func requestOriginAllowed(r *http.Request, rawURL string) bool {
 }
 
 func allowedOriginHosts(r *http.Request) []string {
-	var hosts []string
-	add := func(v string) {
-		v = strings.TrimSpace(v)
-		if v == "" {
-			return
-		}
-		for _, part := range strings.Split(v, ",") {
-			part = strings.TrimSpace(part)
-			if part != "" {
-				hosts = append(hosts, part)
-			}
-		}
+	host := strings.TrimSpace(r.Host)
+	if host == "" {
+		return nil
 	}
-	add(r.Host)
-	add(r.Header.Get("X-Forwarded-Host"))
-	add(r.Header.Get("X-Original-Host"))
-	if forwarded := strings.TrimSpace(r.Header.Get("Forwarded")); forwarded != "" {
-		for _, item := range strings.Split(forwarded, ";") {
-			key, value, ok := strings.Cut(strings.TrimSpace(item), "=")
-			if ok && strings.EqualFold(strings.TrimSpace(key), "host") {
-				add(strings.Trim(strings.TrimSpace(value), `"`))
-			}
-		}
-	}
-	return hosts
+	return []string{host}
 }
 
 func configuredAllowedOrigins() []string {
