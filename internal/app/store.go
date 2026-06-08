@@ -596,8 +596,18 @@ func writePrivateJSONFile(path string, v any) error {
 }
 
 func ensurePrivateDir(path string) error {
+	if info, err := os.Lstat(path); err == nil && info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("refusing to use symlink directory: %s", path)
+	}
 	if err := os.MkdirAll(path, privateDirMode); err != nil {
 		return err
+	}
+	info, err := os.Lstat(path)
+	if err != nil {
+		return err
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("refusing to use symlink directory: %s", path)
 	}
 	return os.Chmod(path, privateDirMode)
 }
