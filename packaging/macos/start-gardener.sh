@@ -2,6 +2,11 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 uid="$(id -u)"
+MAX_PMSET_OUTPUT_BYTES=65536
+
+limited_pmset_output() {
+  { pmset -g custom 2>/dev/null || pmset -g 2>/dev/null || true; } | dd bs="$MAX_PMSET_OUTPUT_BYTES" count=1 2>/dev/null || true
+}
 
 check_power_warning() {
   if ! command -v pmset >/dev/null 2>&1; then
@@ -9,7 +14,7 @@ check_power_warning() {
     return 0
   fi
   local out bad
-  out="$(pmset -g custom 2>/dev/null || pmset -g 2>/dev/null || true)"
+  out="$(limited_pmset_output)"
   bad=""
   if echo "$out" | awk '/^[[:space:]]*sleep[[:space:]]+[1-9][0-9]*/{bad=1} END{exit bad?0:1}'; then
     bad="${bad}
