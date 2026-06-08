@@ -95,6 +95,8 @@ func TestValidateDingTalkWebhookURL(t *testing.T) {
 		"http://oapi.dingtalk.com/robot/send?access_token=abc",
 		"https://example.invalid/hook",
 		"https://127.0.0.1/hook",
+		"https://oapi.dingtalk.com/anything-else",
+		"https://api.dingtalk.com/v1.0/other/send",
 		"not a url",
 	}
 	for _, rawURL := range invalid {
