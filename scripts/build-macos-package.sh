@@ -10,6 +10,43 @@ case "$OUT_DIR" in
 esac
 FRP_VERSION="${FRP_VERSION:-0.52.3}"
 ARCHES="${ARCHES:-arm64 amd64}"
+
+if (( ${#ARCHES} > 64 )); then
+  echo "ARCHES is too long" >&2
+  exit 1
+fi
+
+normalize_arches() {
+  local normalized=()
+  local arch canonical existing
+  for arch in $ARCHES; do
+    case "$arch" in
+      arm64) canonical="arm64" ;;
+      amd64|x86_64) canonical="amd64" ;;
+      *) echo "Unsupported arch: $arch" >&2; exit 1 ;;
+    esac
+    for existing in "${normalized[@]}"; do
+      if [[ "$existing" == "$canonical" ]]; then
+        canonical=""
+        break
+      fi
+    done
+    if [[ -n "$canonical" ]]; then
+      normalized+=("$canonical")
+      if (( ${#normalized[@]} > 2 )); then
+        echo "Too many macOS architectures requested" >&2
+        exit 1
+      fi
+    fi
+  done
+  if (( ${#normalized[@]} == 0 )); then
+    echo "No macOS architectures requested" >&2
+    exit 1
+  fi
+  printf '%s\n' "${normalized[@]}"
+}
+
+mapfile -t BUILD_ARCHES < <(normalize_arches)
 mkdir -p "$OUT_DIR"
 
 safe_extract_tar() {
@@ -65,11 +102,10 @@ fetch_frpc() {
   echo ""
 }
 
-for arch in $ARCHES; do
+for arch in "${BUILD_ARCHES[@]}"; do
   case "$arch" in
     arm64) goarch="arm64" ;;
-    amd64|x86_64) arch="amd64"; goarch="amd64" ;;
-    *) echo "Unsupported arch: $arch" >&2; exit 1 ;;
+    amd64) goarch="amd64" ;;
   esac
   pkg_dir="$OUT_DIR/Gardener-macOS-$arch"
   tar_path="$OUT_DIR/Gardener-macOS-$arch.tar.gz"
