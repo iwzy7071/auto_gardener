@@ -46,7 +46,7 @@ func (s *Server) handleDingTalkRobot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := verifyDingTalkIncomingSignature(r); err != nil {
-		writeError(w, http.StatusUnauthorized, err.Error())
+		writeError(w, http.StatusUnauthorized, "钉钉签名校验失败")
 		return
 	}
 	var msg dingTalkIncomingMessage
