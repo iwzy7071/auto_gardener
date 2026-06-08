@@ -131,5 +131,6 @@ for arch in "${BUILD_ARCHES[@]}"; do
   fi
   printf '%s\n' "$VERSION" > "$pkg_dir/VERSION.txt"
   ( cd "$OUT_DIR" && tar -czf "Gardener-macOS-$arch.tar.gz" "Gardener-macOS-$arch" )
+  ( cd "$OUT_DIR" && sha256sum "Gardener-macOS-$arch.tar.gz" > "Gardener-macOS-$arch.tar.gz.sha256" )
   echo "Built $tar_path"
 done

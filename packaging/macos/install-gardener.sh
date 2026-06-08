@@ -6,6 +6,7 @@ INSTALL_DIR="$HOME/Applications/Gardener"
 SETUP_KEY=""
 PROVISION_URL=""
 START_AFTER_INSTALL=1
+PACKAGE_SHA256_URL=""
 PROVISION_JSON_MAX_BYTES=$((64 * 1024))
 
 validate_install_dir() {
@@ -30,6 +31,7 @@ while [[ $# -gt 0 ]]; do
     --provision-url) PROVISION_URL="${2:-}"; shift 2 ;;
     --relay-base-url) RELAY_BASE_URL="${2:-}"; shift 2 ;;
     --install-dir) INSTALL_DIR="${2:-}"; shift 2 ;;
+    --package-sha256-url) PACKAGE_SHA256_URL="${2:-}"; shift 2 ;;
     --start|--start-after-install) START_AFTER_INSTALL=1; shift ;;
     --no-start) START_AFTER_INSTALL=0; shift ;;
     --help|-h) usage; exit 0 ;;
@@ -76,6 +78,25 @@ CLAUDE_CMD="$(PATH="$INSTALL_PATH" command -v claude || true)"
 TMP="$(mktemp -d)"
 cleanup(){ rm -rf "$TMP"; }
 trap cleanup EXIT
+
+
+verify_sha256_file() {
+  local file="$1" sha_url="$2" sha_file="$3"
+  if [[ -z "$sha_url" ]]; then return 0; fi
+  echo "Verifying Gardener package checksum..."
+  curl -fsSL --connect-timeout 20 --max-time 120 "$sha_url" -o "$sha_file"
+  local expected
+  expected="$(python3 - "$sha_file" <<'PYINNER'
+import re, sys
+text=open(sys.argv[1], encoding='utf-8', errors='ignore').read()
+m=re.search(r'(?i)\b[0-9a-f]{64}\b', text)
+if not m:
+    raise SystemExit('missing sha256 digest')
+print(m.group(0).lower())
+PYINNER
+)"
+  printf '%s  %s\n' "$expected" "$file" | shasum -a 256 -c - >/dev/null
+}
 
 safe_extract_tar() {
   local archive="$1" dest="$2"
@@ -172,6 +193,7 @@ mkdir -p "$INSTALL_DIR"
 
 echo "Downloading Gardener package..."
 curl -fL --connect-timeout 20 --max-time 300 "$PACKAGE_URL" -o "$TMP/gardener.tar.gz"
+verify_sha256_file "$TMP/gardener.tar.gz" "$PACKAGE_SHA256_URL" "$TMP/gardener.tar.gz.sha256"
 mkdir -p "$TMP/extract"
 safe_extract_tar "$TMP/gardener.tar.gz" "$TMP/extract"
 SRC="$(find "$TMP/extract" -maxdepth 1 -type d -name 'Gardener-macOS-*' | head -n 1)"
