@@ -303,6 +303,44 @@ func compactTaskList(tasks []*Task) []*Task {
 	return out
 }
 
+func publicTasks(tasks []*Task) []*Task {
+	out := make([]*Task, 0, len(tasks))
+	for _, task := range tasks {
+		out = append(out, publicTask(task))
+	}
+	return out
+}
+
+func publicTask(task *Task) *Task {
+	if task == nil {
+		return nil
+	}
+	cp := *task
+	cp.Prompt = ""
+	cp.WorkspacePath = ""
+	cp.ScratchPath = ""
+	cp.SchedulePath = ""
+	cp.LogPath = ""
+	cp.Trees = make([]*Tree, 0, len(task.Trees))
+	for _, tr := range task.Trees {
+		if tr == nil {
+			continue
+		}
+		tc := *tr
+		tc.FruitPath = publicReadyMarker(tr.FruitPath)
+		tc.GoalPath = ""
+		cp.Trees = append(cp.Trees, &tc)
+	}
+	return &cp
+}
+
+func publicReadyMarker(path string) string {
+	if strings.TrimSpace(path) == "" {
+		return ""
+	}
+	return "ready"
+}
+
 type directoryEntry struct {
 	Name string `json:"name"`
 	Path string `json:"path"`
@@ -387,7 +425,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("compact") == "1" {
 			tasks = compactTaskList(tasks)
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"tasks": tasks})
+		writeJSON(w, http.StatusOK, map[string]any{"tasks": publicTasks(tasks)})
 	case http.MethodPost:
 		var req CreateTaskRequest
 		if !decodeLimitedJSON(w, r, &req, maxTaskJSONBodyBytes, "请求体不是合法 JSON") {
@@ -398,7 +436,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		writeJSON(w, http.StatusCreated, CreateTaskResponse{Task: task})
+		writeJSON(w, http.StatusCreated, CreateTaskResponse{Task: publicTask(task)})
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
@@ -450,7 +488,7 @@ func (s *Server) handleTaskSubroutes(w http.ResponseWriter, r *http.Request) {
 				writeError(w, http.StatusNotFound, "任务不存在")
 				return
 			}
-			writeJSON(w, http.StatusOK, map[string]any{"task": task})
+			writeJSON(w, http.StatusOK, map[string]any{"task": publicTask(task)})
 			return
 		}
 		if r.Method == http.MethodPatch {
@@ -467,7 +505,7 @@ func (s *Server) handleTaskSubroutes(w http.ResponseWriter, r *http.Request) {
 				writeError(w, status, err.Error())
 				return
 			}
-			writeJSON(w, http.StatusOK, map[string]any{"task": task})
+			writeJSON(w, http.StatusOK, map[string]any{"task": publicTask(task)})
 			return
 		}
 		if err := s.orchestrator.DeleteTask(taskID); err != nil {
@@ -525,7 +563,7 @@ func (s *Server) handleTaskSubroutes(w http.ResponseWriter, r *http.Request) {
 			writeError(w, status, err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"task": task})
+		writeJSON(w, http.StatusOK, map[string]any{"task": publicTask(task)})
 		return
 	}
 
@@ -539,7 +577,7 @@ func (s *Server) handleTaskSubroutes(w http.ResponseWriter, r *http.Request) {
 			writeError(w, status, err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"task": task})
+		writeJSON(w, http.StatusOK, map[string]any{"task": publicTask(task)})
 		return
 	}
 
@@ -553,7 +591,7 @@ func (s *Server) handleTaskSubroutes(w http.ResponseWriter, r *http.Request) {
 			writeError(w, status, err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"task": task})
+		writeJSON(w, http.StatusOK, map[string]any{"task": publicTask(task)})
 		return
 	}
 
@@ -629,7 +667,7 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request, taskID str
 	ch, unsubscribe := s.events.Subscribe(taskID)
 	defer unsubscribe()
 	if task, ok := s.store.GetTask(taskID); ok {
-		writeSSE(w, "task", task)
+		writeSSE(w, "task", publicTask(task))
 		flusher.Flush()
 	}
 	keepalive := time.NewTicker(20 * time.Second)
@@ -645,7 +683,7 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request, taskID str
 		if !force && time.Since(lastFlush) < 650*time.Millisecond {
 			return
 		}
-		writeSSE(w, "task", pending)
+		writeSSE(w, "task", publicTask(pending))
 		flusher.Flush()
 		pending = nil
 		lastFlush = time.Now()
