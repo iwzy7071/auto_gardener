@@ -59,4 +59,4 @@ if [[ "$START_AFTER_UPDATE" == "1" ]]; then
   [[ -f "$HOME/Library/LaunchAgents/com.gardener.relay.plist" ]] && launchctl bootstrap "gui/$uid" "$HOME/Library/LaunchAgents/com.gardener.relay.plist" 2>/dev/null || true
   [[ -f "$HOME/Library/LaunchAgents/com.gardener.relay.plist" ]] && launchctl kickstart -k "gui/$uid/com.gardener.relay" 2>/dev/null || true
 fi
-echo "Gardener updated. Backup: $backup"
+echo "Gardener updated. Backup created under the Gardener install directory."
