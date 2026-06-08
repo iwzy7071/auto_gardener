@@ -104,13 +104,19 @@ PY
   if [[ -n "$package_from_provision" ]]; then PACKAGE_URL="$package_from_provision"; fi
 fi
 
+MAX_PMSET_OUTPUT_BYTES=65536
+
+limited_pmset_output() {
+  { pmset -g custom 2>/dev/null || pmset -g 2>/dev/null || true; } | dd bs="$MAX_PMSET_OUTPUT_BYTES" count=1 2>/dev/null || true
+}
+
 check_power_warning() {
   if ! command -v pmset >/dev/null 2>&1; then
     echo "Warning: could not check macOS power settings. Please make sure this Mac never sleeps and is not shut down during remote tasks." >&2
     return 0
   fi
   local out bad
-  out="$(pmset -g custom 2>/dev/null || pmset -g 2>/dev/null || true)"
+  out="$(limited_pmset_output)"
   bad=""
   if echo "$out" | awk '/^[[:space:]]*sleep[[:space:]]+[1-9][0-9]*/{bad=1} END{exit bad?0:1}'; then
     bad="${bad}
