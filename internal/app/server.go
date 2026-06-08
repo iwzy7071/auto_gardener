@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -23,6 +25,14 @@ type workspaceFileEntry struct {
 	Size    int64    `json:"size"`
 	ModTime string   `json:"modTime"`
 	TreeIDs []string `json:"treeIds,omitempty"`
+}
+
+type workspaceGitChange struct {
+	Path     string `json:"path"`
+	OldPath  string `json:"oldPath,omitempty"`
+	Status   string `json:"status"`
+	Staged   string `json:"staged,omitempty"`
+	Unstaged string `json:"unstaged,omitempty"`
 }
 
 type Server struct {
@@ -588,6 +598,26 @@ func (s *Server) handleTaskSubroutes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(parts) == 2 && parts[1] == "changes" && r.Method == http.MethodGet {
+		task, ok := s.store.GetTask(taskID)
+		if !ok {
+			writeError(w, http.StatusNotFound, "任务不存在")
+			return
+		}
+		s.handleWorkspaceChanges(w, r, task)
+		return
+	}
+
+	if len(parts) == 2 && parts[1] == "diff" && r.Method == http.MethodGet {
+		task, ok := s.store.GetTask(taskID)
+		if !ok {
+			writeError(w, http.StatusNotFound, "任务不存在")
+			return
+		}
+		s.handleWorkspaceDiff(w, r, task)
+		return
+	}
+
 	if len(parts) == 2 && parts[1] == "messages" && r.Method == http.MethodPost {
 		var req SendMessageRequest
 		if !decodeLimitedJSON(w, r, &req, maxMessageJSONBodyBytes, "请求体不是合法 JSON") {
@@ -771,6 +801,183 @@ func writeSSE(w http.ResponseWriter, event string, v any) {
 	b, _ := json.Marshal(v)
 	fmt.Fprintf(w, "event: %s\n", event)
 	fmt.Fprintf(w, "data: %s\n\n", b)
+}
+
+const maxGitDiffBytes = 512 * 1024
+
+func (s *Server) handleWorkspaceChanges(w http.ResponseWriter, r *http.Request, task *Task) {
+	root, err := cleanWorkspaceRoot(task)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "保存位置无效")
+		return
+	}
+	if !isGitWorkTree(r.Context(), root) {
+		writeJSON(w, http.StatusOK, map[string]any{"git": false, "changes": []workspaceGitChange{}, "summary": map[string]int{}})
+		return
+	}
+	out, err := runGitCommand(r.Context(), root, "status", "--porcelain=v1", "-z", "--untracked-files=all")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "读取 Git 变更失败："+err.Error())
+		return
+	}
+	changes := parseGitStatusPorcelain(out)
+	filtered := changes[:0]
+	for _, change := range changes {
+		if isSensitiveWorkspaceFile(change.Path) || (change.OldPath != "" && isSensitiveWorkspaceFile(change.OldPath)) {
+			continue
+		}
+		filtered = append(filtered, change)
+	}
+	sort.Slice(filtered, func(i, j int) bool { return filtered[i].Path < filtered[j].Path })
+	summary := map[string]int{}
+	for _, change := range filtered {
+		summary[change.Status]++
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"git": true, "changes": filtered, "summary": summary})
+}
+
+func (s *Server) handleWorkspaceDiff(w http.ResponseWriter, r *http.Request, task *Task) {
+	root, err := cleanWorkspaceRoot(task)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "保存位置无效")
+		return
+	}
+	if !isGitWorkTree(r.Context(), root) {
+		writeError(w, http.StatusBadRequest, "保存位置不是 Git 仓库，暂无变更 diff")
+		return
+	}
+	rel := strings.TrimSpace(r.URL.Query().Get("path"))
+	args := []string{"diff", "--no-ext-diff", "--no-color", "HEAD", "--"}
+	if rel != "" {
+		cleanRel, ok := cleanWorkspaceRelPath(root, rel)
+		if !ok {
+			writeError(w, http.StatusBadRequest, "文件路径非法")
+			return
+		}
+		if isSensitiveWorkspaceFile(cleanRel) {
+			writeError(w, http.StatusForbidden, "敏感文件不允许通过变更视图预览")
+			return
+		}
+		args = append(args, cleanRel)
+	}
+	out, err := runGitCommand(r.Context(), root, args...)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "读取 Git diff 失败："+err.Error())
+		return
+	}
+	truncated := false
+	if len(out) > maxGitDiffBytes {
+		out = out[:maxGitDiffBytes]
+		truncated = true
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"diff": string(out), "truncated": truncated})
+}
+
+func cleanWorkspaceRoot(task *Task) (string, error) {
+	root, err := filepath.Abs(filepath.Clean(task.WorkspacePath))
+	if err != nil || root == "" {
+		return "", err
+	}
+	if st, err := os.Stat(root); err != nil || !st.IsDir() {
+		return "", fmt.Errorf("workspace is not a directory")
+	}
+	return root, nil
+}
+
+func cleanWorkspaceRelPath(root, rel string) (string, bool) {
+	cleanRel := filepath.Clean(strings.TrimPrefix(rel, "/"))
+	if cleanRel == "." || strings.HasPrefix(cleanRel, "..") || filepath.IsAbs(cleanRel) {
+		return "", false
+	}
+	abs, err := filepath.Abs(filepath.Join(root, cleanRel))
+	if err != nil || (abs != root && !strings.HasPrefix(abs, root+string(filepath.Separator))) {
+		return "", false
+	}
+	return filepath.ToSlash(cleanRel), true
+}
+
+func isGitWorkTree(ctx context.Context, root string) bool {
+	out, err := runGitCommand(ctx, root, "rev-parse", "--is-inside-work-tree")
+	return err == nil && strings.TrimSpace(string(out)) == "true"
+}
+
+func runGitCommand(ctx context.Context, root string, args ...string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "git", append([]string{"-C", root}, args...)...)
+	out, err := cmd.CombinedOutput()
+	if ctx.Err() != nil {
+		return nil, fmt.Errorf("git command timed out")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("%s", strings.TrimSpace(string(out)))
+	}
+	return out, nil
+}
+
+func parseGitStatusPorcelain(out []byte) []workspaceGitChange {
+	fields := strings.Split(string(out), "\x00")
+	changes := make([]workspaceGitChange, 0, len(fields))
+	for i := 0; i < len(fields); i++ {
+		entry := fields[i]
+		if len(entry) < 4 {
+			continue
+		}
+		x, y := entry[0], entry[1]
+		path := filepath.ToSlash(strings.TrimSpace(entry[3:]))
+		oldPath := ""
+		if (x == 'R' || x == 'C') && i+1 < len(fields) {
+			oldPath = filepath.ToSlash(strings.TrimSpace(fields[i+1]))
+			i++
+		}
+		status := gitStatusLabel(x, y)
+		if path == "" || status == "" {
+			continue
+		}
+		changes = append(changes, workspaceGitChange{Path: path, OldPath: oldPath, Status: status, Staged: gitStatusCodeLabel(x), Unstaged: gitStatusCodeLabel(y)})
+	}
+	return changes
+}
+
+func gitStatusLabel(x, y byte) string {
+	if x == '?' && y == '?' {
+		return "untracked"
+	}
+	if x == 'R' || y == 'R' {
+		return "renamed"
+	}
+	if x == 'C' || y == 'C' {
+		return "copied"
+	}
+	if x == 'D' || y == 'D' {
+		return "deleted"
+	}
+	if x == 'A' || y == 'A' {
+		return "added"
+	}
+	if x == 'M' || y == 'M' {
+		return "modified"
+	}
+	return "changed"
+}
+
+func gitStatusCodeLabel(code byte) string {
+	switch code {
+	case 'M':
+		return "modified"
+	case 'A':
+		return "added"
+	case 'D':
+		return "deleted"
+	case 'R':
+		return "renamed"
+	case 'C':
+		return "copied"
+	case '?':
+		return "untracked"
+	default:
+		return ""
+	}
 }
 
 func (s *Server) listWorkspaceFiles(w http.ResponseWriter, r *http.Request, task *Task) {

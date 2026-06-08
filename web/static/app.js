@@ -1,6 +1,24 @@
-const state = { powerStatus: null, tasks: [], activeTaskId: null, eventSource: null, recoveryPoller: null, activeRefreshPoller: null, selectedForests: {}, selectedFileTree: {}, selectedFilePath: {}, selectedFileManual: {}, fileListFingerprint: {}, lastFileRefreshAt: {}, treeStatusExpanded: {}, usage: {}, usageFetchedAt: {}, usagePending: {}, renderCache: {}, pendingTaskRender: null, pendingTaskRenderFrame: 0, lastTaskListSig: '', lastHomeSig: '', activeReportText: '', fileViewerToken: 0, previewToken: 0, overviewCollapsed: loadOverviewCollapsed(), chatCollapsed: loadChatCollapsed(), editingTitle: false, settings: loadSettings() };
+const state = { powerStatus: null, tasks: [], activeTaskId: null, eventSource: null, recoveryPoller: null, activeRefreshPoller: null, selectedForests: {}, selectedFileTree: {}, selectedFilePath: {}, selectedFileManual: {}, fileListFingerprint: {}, lastFileRefreshAt: {}, treeStatusExpanded: {}, usage: {}, usageFetchedAt: {}, usagePending: {}, gitChanges: {}, gitChangesFetchedAt: {}, gitChangesPending: {}, gitDiffs: {}, renderCache: {}, pendingTaskRender: null, pendingTaskRenderFrame: 0, lastTaskListSig: '', lastHomeSig: '', activeReportText: '', fileViewerToken: 0, previewToken: 0, overviewCollapsed: loadOverviewCollapsed(), chatCollapsed: loadChatCollapsed(), editingTitle: false, settings: loadSettings() };
 const $ = (id) => document.getElementById(id);
 const MAX_CSV_PREVIEW_ROWS = 500;
+
+
+const GIT_UI = {
+  'zh-CN': { title: '代码变更', refresh: '刷新变更', noRepo: '保存位置不是 Git 仓库，暂无 diff。', noChanges: '暂无 Git 变更。', loading: '正在读取变更…', openDiff: '查看 diff', allDiff: '全部 diff', diffEmpty: '暂无可显示 diff。未跟踪文件会出现在列表中，但在加入 Git 前没有 diff。', truncated: 'diff 较大，已截断预览。', changedFiles: '个文件有变更' },
+  en: { title: 'Code changes', refresh: 'Refresh changes', noRepo: 'Save location is not a Git repository, so no diff is available.', noChanges: 'No Git changes.', loading: 'Loading changes…', openDiff: 'View diff', allDiff: 'Full diff', diffEmpty: 'No diff to display. Untracked files appear in the list but have no diff until added to Git.', truncated: 'Diff is large; preview was truncated.', changedFiles: 'changed files' }
+};
+
+function gitUIText(key) {
+  const lang = state.settings?.language || 'zh-CN';
+  return (GIT_UI[lang] || GIT_UI['zh-CN'])[key] || GIT_UI['zh-CN'][key] || key;
+}
+
+function gitStatusText(status) {
+  const lang = state.settings?.language || 'zh-CN';
+  const zh = { modified:'修改', added:'新增', deleted:'删除', renamed:'重命名', copied:'复制', untracked:'未跟踪', changed:'变更' };
+  const en = { modified:'Modified', added:'Added', deleted:'Deleted', renamed:'Renamed', copied:'Copied', untracked:'Untracked', changed:'Changed' };
+  return (lang === 'en' ? en : zh)[status] || status || '';
+}
 
 const I18N = {
   'zh-CN': {
@@ -605,6 +623,7 @@ function renderTask(task, options = {}) {
     applyOverviewCollapsed(task);
   }
   renderUsage(task);
+  renderGitChanges(task);
   if (!options.skipFileViewer && !document.hidden) renderFileViewer(task);
 }
 
@@ -963,6 +982,96 @@ function paintUsage(panel, usage) {
     <div class="usage-models">${modelHTML}</div>
   `;
   panel.title = usage.pricingNote || '';
+}
+
+
+async function renderGitChanges(task, force = false) {
+  const panel = $('gitChangesPanel');
+  if (!panel || !task?.id) return;
+  const cached = state.gitChanges[task.id];
+  if (cached) paintGitChanges(panel, task, cached);
+  else {
+    panel.classList.remove('hidden');
+    panel.innerHTML = `<div class="git-changes-head"><strong>${escapeHTML(gitUIText('title'))}</strong></div><div class="git-change-empty">${escapeHTML(gitUIText('loading'))}</div>`;
+  }
+  const now = Date.now();
+  const freshFor = task.status === 'Running' ? 10000 : 45000;
+  if (!force && (state.gitChangesPending[task.id] || (cached && now - (state.gitChangesFetchedAt[task.id] || 0) < freshFor))) return;
+  state.gitChangesPending[task.id] = true;
+  try {
+    const data = await api(taskAPIPath(task.id, '/changes'));
+    if (task.id !== state.activeTaskId) return;
+    state.gitChanges[task.id] = data;
+    state.gitChangesFetchedAt[task.id] = Date.now();
+    paintGitChanges(panel, task, data);
+  } catch (err) {
+    console.error(err);
+    panel.classList.remove('hidden');
+    panel.innerHTML = `<div class="git-changes-head"><strong>${escapeHTML(gitUIText('title'))}</strong></div><div class="git-change-empty">${escapeHTML(renderedFileErrorMessage(err))}</div>`;
+  } finally {
+    delete state.gitChangesPending[task.id];
+  }
+}
+
+function paintGitChanges(panel, task, data) {
+  const changes = Array.isArray(data?.changes) ? data.changes : [];
+  panel.classList.remove('hidden');
+  const subtitle = data?.git ? `${changes.length} ${gitUIText('changedFiles')}` : gitUIText('noRepo');
+  panel.innerHTML = `
+    <div class="git-changes-head">
+      <div><strong>${escapeHTML(gitUIText('title'))}</strong><p>${escapeHTML(subtitle)}</p></div>
+      <div class="git-changes-actions">
+        <button type="button" class="soft-btn small git-refresh-btn">${escapeHTML(gitUIText('refresh'))}</button>
+        <button type="button" class="soft-btn small git-all-diff-btn" ${changes.length ? '' : 'disabled'}>${escapeHTML(gitUIText('allDiff'))}</button>
+      </div>
+    </div>
+    <div class="git-change-list"></div>
+    <pre class="git-diff-preview"></pre>`;
+  const refresh = panel.querySelector('.git-refresh-btn');
+  if (refresh) refresh.onclick = () => renderGitChanges(task, true);
+  const allDiff = panel.querySelector('.git-all-diff-btn');
+  if (allDiff) allDiff.onclick = () => loadGitDiff(task.id, '');
+  const list = panel.querySelector('.git-change-list');
+  if (!data?.git || !changes.length) {
+    if (list) list.innerHTML = `<div class="git-change-empty">${escapeHTML(data?.git ? gitUIText('noChanges') : gitUIText('noRepo'))}</div>`;
+    const preview = panel.querySelector('.git-diff-preview');
+    if (preview) preview.textContent = '';
+    return;
+  }
+  changes.slice(0, 80).forEach(change => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `git-change-item ${change.status || 'changed'}`;
+    btn.innerHTML = `<span class="git-change-status">${escapeHTML(gitStatusText(change.status))}</span><strong>${escapeHTML(displayFilePath(change.path))}</strong>${change.oldPath ? `<small>${escapeHTML(displayFilePath(change.oldPath))} →</small>` : ''}`;
+    btn.onclick = () => loadGitDiff(task.id, change.path || '');
+    list.appendChild(btn);
+  });
+  if (changes.length > 80) {
+    const more = document.createElement('div');
+    more.className = 'git-change-empty';
+    more.textContent = `+${changes.length - 80}`;
+    list.appendChild(more);
+  }
+}
+
+async function loadGitDiff(taskId, path) {
+  const panel = $('gitChangesPanel');
+  const preview = panel?.querySelector('.git-diff-preview');
+  if (!preview) return;
+  preview.textContent = gitUIText('loading');
+  const key = `${taskId}:${path || '__all__'}`;
+  try {
+    let data = state.gitDiffs[key];
+    if (!data) {
+      const qs = path ? `?path=${encodeURIComponent(path)}` : '';
+      data = await api(taskAPIPath(taskId, `/diff${qs}`));
+      state.gitDiffs[key] = data;
+    }
+    const text = String(data.diff || '').trim();
+    preview.textContent = text ? `${data.truncated ? `${gitUIText('truncated')}\n\n` : ''}${text}` : gitUIText('diffEmpty');
+  } catch (err) {
+    preview.textContent = renderedFileErrorMessage(err);
+  }
 }
 
 function formatTokenCount(n) {
