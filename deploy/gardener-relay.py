@@ -431,6 +431,15 @@ def add_user(args):
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
+def provision_dir_for_setup_key(setup_key):
+    setup_key = sanitize_setup_key(str(setup_key))
+    root = PROVISION_ROOT.resolve()
+    path = (PROVISION_ROOT / setup_key).resolve()
+    if path == root or root not in path.parents:
+        raise SystemExit('error: setup key path is outside the managed provision directory')
+    return path
+
+
 def remove_user(args):
     user = sanitize_user(args.user)
     data = load_state()
@@ -443,7 +452,7 @@ def remove_user(args):
     (NGINX_DIR / f'gardener-user-{user}.conf').unlink(missing_ok=True)
     shutil.rmtree(USERS / user, ignore_errors=True)
     if inst.get('setupKey'):
-        shutil.rmtree(PROVISION_ROOT / inst['setupKey'], ignore_errors=True)
+        shutil.rmtree(provision_dir_for_setup_key(inst['setupKey']), ignore_errors=True)
     reload_nginx()
     print(f'removed {user}')
 
