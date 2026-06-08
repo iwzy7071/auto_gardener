@@ -40,7 +40,10 @@ def run(cmd, check=True):
 def load_state():
     if not STATE.exists():
         return {'instances': []}
-    return json.loads(STATE.read_text())
+    try:
+        return json.loads(STATE.read_text())
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise SystemExit(f'error: relay state is malformed: {exc}') from exc
 
 
 def save_state(data):
