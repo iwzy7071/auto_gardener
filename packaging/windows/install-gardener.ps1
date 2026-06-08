@@ -15,6 +15,10 @@ $ErrorActionPreference = "Stop"
 if (-not $RelayBaseUrl -and $env:GARDENER_RELAY_BASE_URL) { $RelayBaseUrl = $env:GARDENER_RELAY_BASE_URL }
 if (-not $RelayBaseUrl) { $RelayBaseUrl = "http://YOUR_RELAY_SERVER" }
 
+if ($SetupKey -and ($SetupKey -notmatch '^[A-Za-z0-9_-]{20,}$')) {
+  throw "Setup key format is invalid."
+}
+
 function Test-GardenerPlaceholderUrl([string]$Url) {
   return [string]::IsNullOrWhiteSpace($Url) -or $Url -match 'YOUR_RELAY_SERVER|YOUR_SERVER_IP|example\.com'
 }
