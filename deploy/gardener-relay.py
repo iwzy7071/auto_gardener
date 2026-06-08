@@ -15,6 +15,7 @@ PUBLIC_START = int(os.environ.get('GARDENER_RELAY_PUBLIC_START', '28081'))
 PUBLIC_END = int(os.environ.get('GARDENER_RELAY_PUBLIC_END', '28100'))
 REMOTE_START = int(os.environ.get('GARDENER_RELAY_REMOTE_START', '18081'))
 REMOTE_END = int(os.environ.get('GARDENER_RELAY_REMOTE_END', '18100'))
+PROVISION_RETENTION_SECONDS = int(os.environ.get('GARDENER_RELAY_PROVISION_RETENTION_SECONDS', '86400'))
 RELAY_PUBLIC_BASE_URL = os.environ.get('GARDENER_RELAY_PUBLIC_BASE_URL', f'http://{SERVER_ADDR}')
 PACKAGE_URL = os.environ.get('GARDENER_RELAY_WINDOWS_PACKAGE_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/Gardener-Windows.zip')
 INSTALL_SCRIPT_URL = os.environ.get('GARDENER_RELAY_WINDOWS_INSTALL_SCRIPT_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/install-gardener.ps1')
@@ -186,7 +187,32 @@ def ensure_permissions(user_dir=None):
         os.chmod(user_dir, 0o750)
 
 
+def cleanup_old_provisions(now=None):
+    if PROVISION_RETENTION_SECONDS <= 0 or not PROVISION_ROOT.exists():
+        return 0
+    now = time.time() if now is None else now
+    removed = 0
+    for entry in PROVISION_ROOT.iterdir():
+        if not entry.is_dir():
+            continue
+        provision_file = entry / 'gardener.provision.json'
+        try:
+            mtime = provision_file.stat().st_mtime if provision_file.exists() else entry.stat().st_mtime
+        except OSError:
+            continue
+        if now - mtime > PROVISION_RETENTION_SECONDS:
+            shutil.rmtree(entry, ignore_errors=True)
+            removed += 1
+    return removed
+
+
+def gc_provisions(args):
+    removed = cleanup_old_provisions()
+    print(json.dumps({'removed': removed}, ensure_ascii=False))
+
+
 def write_provision(instance, password, setup_key=None):
+    cleanup_old_provisions()
     setup_key = sanitize_setup_key(setup_key) if setup_key else make_setup_key()
     provision_dir = PROVISION_ROOT / setup_key
     if provision_dir.exists():
@@ -357,6 +383,8 @@ def main():
     l = sub.add_parser('list')
     l.add_argument('--json', action='store_true')
     l.set_defaults(func=list_users)
+    g = sub.add_parser('gc-provisions')
+    g.set_defaults(func=gc_provisions)
     s = sub.add_parser('show')
     s.add_argument('user')
     s.add_argument('--with-frpc', action='store_true')
