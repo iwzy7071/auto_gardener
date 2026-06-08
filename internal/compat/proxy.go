@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime"
 	"net"
 	"net/http"
 	"net/url"
@@ -104,6 +105,10 @@ func (p *Proxy) handle(w http.ResponseWriter, r *http.Request) {
 		writeProxyError(w, http.StatusUnauthorized, "missing provider token")
 		return
 	}
+	if !compatRequestHasJSONContentType(r) {
+		writeProxyError(w, http.StatusUnsupportedMediaType, "content-type must be application/json")
+		return
+	}
 	if r.ContentLength > maxCompatProxyBodyBytes {
 		writeProxyError(w, http.StatusRequestEntityTooLarge, "responses request body too large")
 		return
@@ -121,6 +126,11 @@ func (p *Proxy) handle(w http.ResponseWriter, r *http.Request) {
 	if err := p.forwardChatStream(w, r, spec, token, req); err != nil {
 		log.Printf("compat proxy %s error: %v", spec.Name, err)
 	}
+}
+
+func compatRequestHasJSONContentType(r *http.Request) bool {
+	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	return err == nil && mediaType == "application/json"
 }
 
 func bearerToken(header string) string {

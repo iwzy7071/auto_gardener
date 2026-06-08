@@ -44,6 +44,7 @@ func TestHandleRejectsOversizedRequestBody(t *testing.T) {
 	body := `{"model":"test","input":"` + strings.Repeat("x", maxCompatProxyBodyBytes) + `","stream":true}`
 	req := httptest.NewRequest(http.MethodPost, "/minimax/v1/responses", strings.NewReader(body))
 	req.Header.Set("Authorization", "Bearer token")
+	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 
 	p.handle(rr, req)
@@ -78,5 +79,19 @@ func TestStartSetsReadHeaderTimeout(t *testing.T) {
 	defer p.server.Shutdown(context.Background())
 	if p.server.ReadHeaderTimeout <= 0 {
 		t.Fatal("ReadHeaderTimeout is not configured")
+	}
+}
+
+func TestHandleRejectsNonJSONContentType(t *testing.T) {
+	p := &Proxy{client: http.DefaultClient}
+	req := httptest.NewRequest(http.MethodPost, "/minimax/v1/responses", strings.NewReader(`{"model":"test","input":"hello","stream":true}`))
+	req.Header.Set("Authorization", "Bearer token")
+	req.Header.Set("Content-Type", "text/plain")
+	rr := httptest.NewRecorder()
+
+	p.handle(rr, req)
+
+	if rr.Code != http.StatusUnsupportedMediaType {
+		t.Fatalf("expected 415, got %d: %s", rr.Code, rr.Body.String())
 	}
 }
