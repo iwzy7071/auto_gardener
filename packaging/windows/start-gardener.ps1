@@ -92,8 +92,8 @@ if ($Relay -and $Relay.publicUrl) {
   Write-Host "Remote login user: $($Relay.webUsername)" -ForegroundColor Cyan
   Write-Host "Remote login password: saved in gardener.relay.json; keep that file private." -ForegroundColor Cyan
 }
-Write-Host "Data: $env:AUTO_GARDENER_DATA"
-Write-Host "Static: $env:AUTO_GARDENER_STATIC"
+Write-Host "Data: configured"
+Write-Host "Static: configured"
 Show-GardenerPowerWarning
 
 $frpcProc = $null
