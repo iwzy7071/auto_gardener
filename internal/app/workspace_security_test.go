@@ -2,6 +2,7 @@ package app
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"auto_gardener/internal/codex"
@@ -40,5 +41,17 @@ func TestWorkspacePathAllowsConfiguredRoot(t *testing.T) {
 	workspace := filepath.Join(outside, "project")
 	if !orch.isAllowedWorkspacePath(workspace) {
 		t.Fatalf("configured workspace root was not allowed: %s", workspace)
+	}
+}
+
+func TestCreateTaskRejectsOversizedWorkspacePath(t *testing.T) {
+	store, err := NewStore(t.TempDir(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	orch := NewOrchestrator(store, codex.MockRunner{}, t.TempDir(), "")
+	tooLong := strings.Repeat("a", maxWorkspacePathBytes+1)
+	if _, err := orch.CreateTask("do work", tooLong); err == nil {
+		t.Fatal("CreateTask accepted oversized workspace path")
 	}
 }

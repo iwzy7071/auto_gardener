@@ -16,6 +16,8 @@ import (
 	"auto_gardener/internal/codex"
 )
 
+const maxWorkspacePathBytes = 4096
+
 type Orchestrator struct {
 	store         *Store
 	runner        codex.Runner
@@ -100,6 +102,9 @@ func (o *Orchestrator) CreateTask(prompt, workspacePath string) (*Task, error) {
 	workspacePath = strings.TrimSpace(expandHome(workspacePath))
 	if workspacePath == "" {
 		workspacePath = defaultOutputPathForPrompt(prompt, id, title)
+	}
+	if len(workspacePath) > maxWorkspacePathBytes {
+		return nil, fmt.Errorf("保存位置路径过长")
 	}
 	absWorkspace, err := filepath.Abs(workspacePath)
 	if err != nil {
