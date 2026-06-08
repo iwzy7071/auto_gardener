@@ -81,7 +81,7 @@ if (Test-Path $RelayJson) {
       }
     }
   } catch {
-    Write-Host "Warning: cannot parse gardener.relay.json: $_" -ForegroundColor Yellow
+    Write-Host "Warning: cannot parse gardener.relay.json." -ForegroundColor Yellow
   }
 }
 
