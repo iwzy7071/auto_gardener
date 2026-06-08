@@ -466,7 +466,7 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		updated, err := s.store.UpdateSettings(settings)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeError(w, http.StatusInternalServerError, "保存设置失败")
 			return
 		}
 		writeJSON(w, http.StatusOK, SettingsResponse{Settings: publicSettings(updated)})
