@@ -196,6 +196,9 @@ if [[ -n "$CODEX_CMD" ]]; then printf 'export AUTO_GARDENER_CODEX_CMD="%s"\n' "$
 if [[ -n "$CLAUDE_CMD" ]]; then printf 'export AUTO_GARDENER_CLAUDE_CMD="%s"\n' "$CLAUDE_CMD" >> "$INSTALL_DIR/gardener.config.sh"; fi
 
 mkdir -p "$HOME/Library/LaunchAgents"
+LOG_DIR="$INSTALL_DIR/logs"
+mkdir -p "$LOG_DIR"
+chmod 700 "$LOG_DIR" 2>/dev/null || true
 cat > "$HOME/Library/LaunchAgents/com.gardener.local.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -227,8 +230,8 @@ cat >> "$HOME/Library/LaunchAgents/com.gardener.local.plist" <<EOF
   </dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
-  <key>StandardOutPath</key><string>/tmp/gardener.local.out.log</string>
-  <key>StandardErrorPath</key><string>/tmp/gardener.local.err.log</string>
+  <key>StandardOutPath</key><string>$LOG_DIR/gardener.local.out.log</string>
+  <key>StandardErrorPath</key><string>$LOG_DIR/gardener.local.err.log</string>
 </dict>
 </plist>
 EOF
@@ -244,8 +247,8 @@ cat > "$HOME/Library/LaunchAgents/com.gardener.relay.plist" <<EOF
   <key>WorkingDirectory</key><string>$INSTALL_DIR</string>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
-  <key>StandardOutPath</key><string>/tmp/gardener.relay.out.log</string>
-  <key>StandardErrorPath</key><string>/tmp/gardener.relay.err.log</string>
+  <key>StandardOutPath</key><string>$LOG_DIR/gardener.relay.out.log</string>
+  <key>StandardErrorPath</key><string>$LOG_DIR/gardener.relay.err.log</string>
 </dict>
 </plist>
 EOF
