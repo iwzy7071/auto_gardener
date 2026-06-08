@@ -14,6 +14,11 @@ import (
 
 var ErrNotFound = errors.New("not found")
 
+const (
+	privateDirMode  os.FileMode = 0700
+	privateFileMode os.FileMode = 0600
+)
+
 type taskDiskCompat struct {
 	Task
 	LegacyWave            int `json:"wave,omitempty"`
@@ -34,13 +39,13 @@ type Store struct {
 }
 
 func NewStore(dataDir string, events *EventHub) (*Store, error) {
-	if err := os.MkdirAll(filepath.Join(dataDir, "forests"), 0755); err != nil {
+	if err := ensurePrivateDir(filepath.Join(dataDir, "forests")); err != nil {
 		return nil, err
 	}
 	if err := os.MkdirAll(filepath.Join(dataDir, "workspaces"), 0755); err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(filepath.Join(dataDir, "scratch"), 0755); err != nil {
+	if err := ensurePrivateDir(filepath.Join(dataDir, "scratch")); err != nil {
 		return nil, err
 	}
 	s := &Store{tasks: make(map[string]*Task), dataDir: dataDir, events: events, settings: defaultSettings()}
@@ -443,7 +448,7 @@ func (s *Store) WriteSchedule(taskID, content string) error {
 	if err := os.MkdirAll(filepath.Dir(t.SchedulePath), 0755); err != nil {
 		return err
 	}
-	if err := os.WriteFile(t.SchedulePath, []byte(content), 0644); err != nil {
+	if err := writePrivateFile(t.SchedulePath, []byte(content)); err != nil {
 		return err
 	}
 	s.events.Publish(taskID, t)
@@ -465,28 +470,28 @@ func (s *Store) forestDir(taskID string) string {
 
 func (s *Store) persistTaskLocked(t *Task) error {
 	forestDir := s.forestDir(t.ID)
-	if err := os.MkdirAll(filepath.Join(forestDir, "gardener"), 0755); err != nil {
+	if err := ensurePrivateDir(filepath.Join(forestDir, "gardener")); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Join(forestDir, "trees"), 0755); err != nil {
+	if err := ensurePrivateDir(filepath.Join(forestDir, "trees")); err != nil {
 		return err
 	}
 	meta := cloneTask(t)
 	meta.Messages = nil
 	meta.Trees = nil
 	meta.Runtime = nil
-	if err := writeJSONFile(filepath.Join(forestDir, "forest.json"), meta); err != nil {
+	if err := writePrivateJSONFile(filepath.Join(forestDir, "forest.json"), meta); err != nil {
 		return err
 	}
-	if err := writeJSONFile(filepath.Join(forestDir, "messages.json"), t.Messages); err != nil {
+	if err := writePrivateJSONFile(filepath.Join(forestDir, "messages.json"), t.Messages); err != nil {
 		return err
 	}
 	for _, tr := range t.Trees {
 		dir := filepath.Join(forestDir, "trees", tr.ID)
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := ensurePrivateDir(dir); err != nil {
 			return err
 		}
-		if err := writeJSONFile(filepath.Join(dir, "tree.json"), tr); err != nil {
+		if err := writePrivateJSONFile(filepath.Join(dir, "tree.json"), tr); err != nil {
 			return err
 		}
 	}
@@ -553,7 +558,7 @@ func writeRecoveryFruit(path string, task *Task, tr *Tree, when time.Time) error
 
 建议由 Gardener 派验证子任务或修复子任务检查 workspace 状态。
 `, tr.ID, task.ID, task.Title, tr.Name, when.Format(time.RFC3339), task.WorkspacePath, tr.Objective)
-	return os.WriteFile(path, []byte(body), 0644)
+	return writePrivateFile(path, []byte(body))
 }
 
 func readJSON(path string, v any) error {
@@ -577,6 +582,31 @@ func writeJSONFileMode(path string, v any, perm os.FileMode) error {
 		return err
 	}
 	return os.WriteFile(path, b, perm)
+}
+
+func writePrivateJSONFile(path string, v any) error {
+	if err := ensurePrivateDir(filepath.Dir(path)); err != nil {
+		return err
+	}
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return err
+	}
+	return writePrivateFile(path, b)
+}
+
+func ensurePrivateDir(path string) error {
+	if err := os.MkdirAll(path, privateDirMode); err != nil {
+		return err
+	}
+	return os.Chmod(path, privateDirMode)
+}
+
+func writePrivateFile(path string, b []byte) error {
+	if err := os.WriteFile(path, b, privateFileMode); err != nil {
+		return err
+	}
+	return os.Chmod(path, privateFileMode)
 }
 
 func compactProgressLine(line string) string {
@@ -650,14 +680,17 @@ func shouldDeleteManagedScratch(dataDir, taskID, scratchPath string) bool {
 }
 
 func appendFile(path, s string) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	if err := ensurePrivateDir(filepath.Dir(path)); err != nil {
 		return err
 	}
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, privateFileMode)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
+	if err := f.Chmod(privateFileMode); err != nil {
+		return err
+	}
 	_, err = f.WriteString(s)
 	return err
 }

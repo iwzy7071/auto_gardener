@@ -939,7 +939,7 @@ func (o *Orchestrator) writeTreeGoal(task *Task, tr *Tree, status string, start 
 	if path == "" {
 		return nil
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	if err := ensurePrivateDir(filepath.Dir(path)); err != nil {
 		return err
 	}
 	var b strings.Builder
@@ -972,12 +972,12 @@ func (o *Orchestrator) writeTreeGoal(task *Task, tr *Tree, status string, start 
 		b.WriteString("\n## CLI 输出摘要\n\n")
 		b.WriteString(codex.Truncate(strings.TrimSpace(output), 2000) + "\n")
 	}
-	return os.WriteFile(path, []byte(b.String()), 0644)
+	return writePrivateFile(path, []byte(b.String()))
 }
 
 func (o *Orchestrator) writeFruit(task *Task, tr *Tree, output string, runErr error, start, end time.Time) (string, error) {
 	dir := filepath.Join(o.dataDir, "forests", task.ID, "trees", tr.ID)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := ensurePrivateDir(dir); err != nil {
 		return "", err
 	}
 	path := filepath.Join(dir, "fruit.md")
@@ -1029,7 +1029,7 @@ func (o *Orchestrator) writeFruit(task *Task, tr *Tree, output string, runErr er
 
 由 Gardener 读取本报告和验证报告后决定是否派出新的子任务修复或继续。
 `, tr.ID, task.ID, task.Title, tr.Name, start.Format(time.RFC3339), end.Format(time.RFC3339), task.WorkspacePath, taskWorkDir(task), strings.Join(tr.Scope, ", "), tr.IsValidation, tr.Objective, strings.TrimSpace(output), errText, codex.Truncate(output, 1200))
-	return path, os.WriteFile(path, []byte(body), 0644)
+	return path, writePrivateFile(path, []byte(body))
 }
 
 func taskWorkDir(t *Task) string {
