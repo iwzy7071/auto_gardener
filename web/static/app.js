@@ -361,9 +361,15 @@ function messageSignature(messages, task) {
   return [task?.status || '', all.length, maxMessages, rows].join('::');
 }
 
+const MAX_PROGRESS_SIGNATURE_CHARS = 200;
+function progressSignatureText(value) {
+  const chars = Array.from(String(value || ''));
+  return chars.length > MAX_PROGRESS_SIGNATURE_CHARS ? chars.slice(0, MAX_PROGRESS_SIGNATURE_CHARS).join('') : chars.join('');
+}
+
 function progressSignature(task) {
   const raw = Array.isArray(task?.gardenerProgress) ? task.gardenerProgress : [];
-  return [task?.status || '', task?.gardenerStatus || '', task?.lastProgressAt || '', raw.slice(-10).join('|')].join('::');
+  return [task?.status || '', task?.gardenerStatus || '', task?.lastProgressAt || '', raw.slice(-10).map(progressSignatureText).join('|')].join('::');
 }
 
 function forestSignature(task) {
