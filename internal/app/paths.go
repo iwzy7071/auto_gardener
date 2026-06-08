@@ -9,7 +9,9 @@ import (
 
 func DefaultDataDir() string {
 	if v := os.Getenv("AUTO_GARDENER_DATA"); strings.TrimSpace(v) != "" {
-		return expandHome(v)
+		if safe, ok := safeConfiguredDataDir(v); ok {
+			return safe
+		}
 	}
 	home, err := os.UserHomeDir()
 	if err != nil || home == "" {
@@ -20,6 +22,21 @@ func DefaultDataDir() string {
 		return filepath.Join(desktop, "forest_data")
 	}
 	return filepath.Join(home, "forest_data")
+}
+
+func safeConfiguredDataDir(p string) (string, bool) {
+	p = strings.TrimSpace(expandHome(p))
+	if p == "" || p == "." || p == ".." || strings.Contains(p, ".."+string(os.PathSeparator)) || strings.HasPrefix(p, ".."+string(os.PathSeparator)) {
+		return "", false
+	}
+	abs, err := filepath.Abs(filepath.Clean(p))
+	if err != nil {
+		return "", false
+	}
+	if abs == filepath.Clean(string(os.PathSeparator)) {
+		return "", false
+	}
+	return abs, true
 }
 
 func expandHome(p string) string {
