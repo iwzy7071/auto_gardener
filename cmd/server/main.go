@@ -35,8 +35,8 @@ func main() {
 	log.Printf("auto_gardener listening on %s", listenURL(addr))
 	log.Printf("data dir: configured")
 	log.Printf("static dir: configured")
-	log.Printf("codex command: %s", getenv("AUTO_GARDENER_CODEX_CMD", "codex"))
-	log.Printf("claude command: %s", getenv("AUTO_GARDENER_CLAUDE_CMD", "claude"))
+	log.Printf("codex command: configured")
+	log.Printf("claude command: configured")
 	log.Printf("compat proxy: %s", proxy.BaseURL())
 	if isExternalBind(addr) && os.Getenv("AUTO_GARDENER_ALLOW_EXTERNAL_BIND") != "1" {
 		log.Fatalf("refusing to listen on non-loopback address %q without AUTO_GARDENER_ALLOW_EXTERNAL_BIND=1", addr)
