@@ -39,6 +39,67 @@ func TestAllowSameOriginAPIWrite(t *testing.T) {
 	}
 }
 
+func TestAllowReverseProxyHostWithoutPublicPort(t *testing.T) {
+	hub := NewEventHub()
+	store, err := NewStore(t.TempDir(), hub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := NewServer(store, nil, t.TempDir(), hub)
+	req := httptest.NewRequest(http.MethodPut, "http://8.137.101.238/api/settings", strings.NewReader(`{"logLevel":"quiet"}`))
+	req.Host = "8.137.101.238"
+	req.Header.Set("Origin", "http://8.137.101.238:28081")
+	rr := httptest.NewRecorder()
+	server.Routes().ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("reverse-proxy same host with stripped port should be allowed; status=%d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestAllowForwardedHostAPIWrite(t *testing.T) {
+	hub := NewEventHub()
+	store, err := NewStore(t.TempDir(), hub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := NewServer(store, nil, t.TempDir(), hub)
+	req := httptest.NewRequest(http.MethodPut, "http://127.0.0.1:8080/api/settings", strings.NewReader(`{"logLevel":"quiet"}`))
+	req.Host = "127.0.0.1:8080"
+	req.Header.Set("Origin", "http://8.137.101.238:28081")
+	req.Header.Set("X-Forwarded-Host", "8.137.101.238:28081")
+	rr := httptest.NewRecorder()
+	server.Routes().ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("forwarded host should be allowed; status=%d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestAllowConfiguredOriginAPIWrite(t *testing.T) {
+	t.Setenv("AUTO_GARDENER_ALLOWED_ORIGINS", "http://8.137.101.238:28081")
+	hub := NewEventHub()
+	store, err := NewStore(t.TempDir(), hub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := NewServer(store, nil, t.TempDir(), hub)
+	req := httptest.NewRequest(http.MethodPut, "http://127.0.0.1:8080/api/settings", strings.NewReader(`{"logLevel":"quiet"}`))
+	req.Header.Set("Origin", "http://8.137.101.238:28081")
+	rr := httptest.NewRecorder()
+	server.Routes().ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("configured origin should be allowed; status=%d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestRejectSameHostDifferentExplicitPort(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "http://gardener.local:8080/api/tasks", nil)
+	req.Host = "gardener.local:8080"
+	req.Header.Set("Origin", "http://gardener.local:9999")
+	if requestHasSameOrigin(req) {
+		t.Fatal("same host with different explicit ports should not be considered same-origin")
+	}
+}
+
 func TestAllowDingTalkRobotWithoutBrowserOrigin(t *testing.T) {
 	called := false
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

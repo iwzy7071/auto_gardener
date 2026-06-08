@@ -84,12 +84,123 @@ func isUnsafeMethod(method string) bool {
 
 func requestHasSameOrigin(r *http.Request) bool {
 	if origin := strings.TrimSpace(r.Header.Get("Origin")); origin != "" {
-		return headerURLMatchesHost(origin, r.Host)
+		return requestOriginAllowed(r, origin)
 	}
 	if referer := strings.TrimSpace(r.Header.Get("Referer")); referer != "" {
-		return headerURLMatchesHost(referer, r.Host)
+		return requestOriginAllowed(r, referer)
 	}
 	return true
+}
+
+func requestOriginAllowed(r *http.Request, rawURL string) bool {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Host == "" {
+		return false
+	}
+	for _, allowed := range allowedOriginHosts(r) {
+		if hostsMatchForCSRF(u.Host, allowed) {
+			return true
+		}
+	}
+	for _, allowed := range configuredAllowedOrigins() {
+		if originMatchesConfiguredAllowed(u, allowed) {
+			return true
+		}
+	}
+	return false
+}
+
+func allowedOriginHosts(r *http.Request) []string {
+	var hosts []string
+	add := func(v string) {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			return
+		}
+		for _, part := range strings.Split(v, ",") {
+			part = strings.TrimSpace(part)
+			if part != "" {
+				hosts = append(hosts, part)
+			}
+		}
+	}
+	add(r.Host)
+	add(r.Header.Get("X-Forwarded-Host"))
+	add(r.Header.Get("X-Original-Host"))
+	if forwarded := strings.TrimSpace(r.Header.Get("Forwarded")); forwarded != "" {
+		for _, item := range strings.Split(forwarded, ";") {
+			key, value, ok := strings.Cut(strings.TrimSpace(item), "=")
+			if ok && strings.EqualFold(strings.TrimSpace(key), "host") {
+				add(strings.Trim(strings.TrimSpace(value), `"`))
+			}
+		}
+	}
+	return hosts
+}
+
+func configuredAllowedOrigins() []string {
+	raw := strings.TrimSpace(os.Getenv("AUTO_GARDENER_ALLOWED_ORIGINS"))
+	if raw == "" {
+		return nil
+	}
+	fields := strings.FieldsFunc(raw, func(r rune) bool { return r == ',' || r == ';' || r == '\n' || r == '\t' || r == ' ' })
+	out := make([]string, 0, len(fields))
+	for _, field := range fields {
+		field = strings.TrimSpace(field)
+		if field != "" {
+			out = append(out, field)
+		}
+	}
+	return out
+}
+
+func originMatchesConfiguredAllowed(origin *url.URL, allowed string) bool {
+	if allowed == "*" {
+		return true
+	}
+	if strings.Contains(allowed, "://") {
+		u, err := url.Parse(allowed)
+		if err != nil || u.Host == "" {
+			return false
+		}
+		return strings.EqualFold(origin.Scheme, u.Scheme) && hostsMatchForCSRF(origin.Host, u.Host)
+	}
+	return hostsMatchForCSRF(origin.Host, allowed)
+}
+
+func hostsMatchForCSRF(originHost, requestHost string) bool {
+	originHost = strings.TrimSpace(originHost)
+	requestHost = strings.TrimSpace(requestHost)
+	if originHost == "" || requestHost == "" {
+		return false
+	}
+	if strings.EqualFold(originHost, requestHost) {
+		return true
+	}
+	originName, originPort := splitHostPortLoose(originHost)
+	requestName, requestPort := splitHostPortLoose(requestHost)
+	if originName == "" || requestName == "" || !strings.EqualFold(originName, requestName) {
+		return false
+	}
+	// Some reverse proxies pass Host as $host, which strips the public port.
+	// Treat same-host requests as same-origin when one side has no explicit port,
+	// while still rejecting different explicit ports.
+	return originPort == "" || requestPort == ""
+}
+
+func splitHostPortLoose(host string) (string, string) {
+	host = strings.TrimSpace(host)
+	if host == "" {
+		return "", ""
+	}
+	u, err := url.Parse("//" + host)
+	if err == nil && u.Hostname() != "" {
+		return strings.ToLower(u.Hostname()), u.Port()
+	}
+	if h, p, ok := strings.Cut(host, ":"); ok && !strings.Contains(p, ":") {
+		return strings.ToLower(strings.Trim(h, "[]")), p
+	}
+	return strings.ToLower(strings.Trim(host, "[]")), ""
 }
 
 func headerURLMatchesHost(rawURL, host string) bool {
@@ -97,7 +208,7 @@ func headerURLMatchesHost(rawURL, host string) bool {
 	if err != nil || u.Host == "" {
 		return false
 	}
-	return strings.EqualFold(u.Host, host)
+	return hostsMatchForCSRF(u.Host, host)
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
