@@ -1128,8 +1128,14 @@ function isActiveFileRender(taskId, token) {
   return state.activeTaskId === taskId && (!token || token === state.fileViewerToken);
 }
 
+const MAX_FILE_FINGERPRINT_PATH_CHARS = 400;
+function fileFingerprintPath(path) {
+  const chars = Array.from(String(path || ''));
+  return chars.length > MAX_FILE_FINGERPRINT_PATH_CHARS ? chars.slice(0, MAX_FILE_FINGERPRINT_PATH_CHARS).join('') : chars.join('');
+}
+
 function fileListFingerprint(files) {
-  return (files || []).map(f => `${f.path}:${f.size || 0}:${f.modTime || ''}`).join('|');
+  return (files || []).map(f => `${fileFingerprintPath(f.path)}:${f.size || 0}:${f.modTime || ''}`).join('|');
 }
 
 function newestFile(files) {
