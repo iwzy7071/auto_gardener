@@ -154,7 +154,11 @@ func normalizeSettings(settings AppSettings) AppSettings {
 }
 
 func (s *Store) persistSettingsLocked() error {
-	return writeJSONFileMode(s.settingsPath(), s.settings, 0600)
+	path := s.settingsPath()
+	if err := writeJSONFileMode(path, s.settings, 0600); err != nil {
+		return err
+	}
+	return os.Chmod(path, 0600)
 }
 
 func (s *Store) Load() error {

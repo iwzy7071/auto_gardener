@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 )
@@ -65,5 +66,27 @@ func TestUpdateSettingsPreservesTokensWhenOmitted(t *testing.T) {
 	if updated.MiniMaxToken != "minimax-secret" || updated.KimiToken != "kimi-secret" {
 		b, _ := json.Marshal(updated)
 		t.Fatalf("empty token update did not preserve tokens: %s", b)
+	}
+}
+
+func TestUpdateSettingsEnforcesPrivateFileMode(t *testing.T) {
+	dataDir := t.TempDir()
+	store, err := NewStore(dataDir, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	settingsPath := store.settingsPath()
+	if err := os.Chmod(settingsPath, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.UpdateSettings(AppSettings{LogLevel: LogLevelQuiet, ModelMode: ModelModeMiniMax, MiniMaxToken: "secret"}); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(settingsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := info.Mode().Perm(); got != 0600 {
+		t.Fatalf("settings mode = %o, want 600", got)
 	}
 }
