@@ -26,6 +26,7 @@ MAC_PACKAGE_URLS = {
     'arm64': os.environ.get('GARDENER_RELAY_MAC_ARM64_PACKAGE_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/Gardener-macOS-arm64.tar.gz'),
     'amd64': os.environ.get('GARDENER_RELAY_MAC_AMD64_PACKAGE_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/Gardener-macOS-amd64.tar.gz'),
 }
+FRPS_CONF_MAX_BYTES = 64 * 1024
 
 
 def require_relay_configured():
@@ -131,8 +132,16 @@ def find_free_slot(instances):
     raise SystemExit('error: no free port slot available')
 
 
+def read_limited_text(path, max_bytes, description):
+    with path.open('rb') as f:
+        data = f.read(max_bytes + 1)
+    if len(data) > max_bytes:
+        raise SystemExit(f'error: {description} is too large')
+    return data.decode()
+
+
 def read_frp_token():
-    text = FRPS_CONF.read_text()
+    text = read_limited_text(FRPS_CONF, FRPS_CONF_MAX_BYTES, '/etc/frp/frps.toml')
     for line in text.splitlines():
         line = line.strip()
         if line.startswith('auth.token'):
