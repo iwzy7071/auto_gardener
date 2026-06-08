@@ -14,6 +14,11 @@ $FrpcExe = Join-Path $Root "frpc.exe"
 $FrpcConfig = Join-Path $Root "frpc.toml"
 $FrpcOutLog = Join-Path $Root "frpc.out.log"
 $FrpcErrLog = Join-Path $Root "frpc.err.log"
+$GardenerPowerCfgMaxLines = 200
+
+function Invoke-GardenerPowerCfg([string[]]$ArgsList) {
+  powercfg @ArgsList 2>$null | Select-Object -First $GardenerPowerCfgMaxLines | Out-String -Width 4096
+}
 
 function Show-GardenerPowerWarning {
   try {
@@ -21,13 +26,13 @@ function Show-GardenerPowerWarning {
     foreach ($item in @(@('STANDBYIDLE','sleep'), @('HIBERNATEIDLE','hibernate'))) {
       $alias = $item[0]
       $label = $item[1]
-      $out = powercfg /query SCHEME_CURRENT SUB_SLEEP $alias 2>$null | Out-String
+      $out = Invoke-GardenerPowerCfg -ArgsList @('/query', 'SCHEME_CURRENT', 'SUB_SLEEP', $alias)
       $ac = [regex]::Match($out, 'Current AC Power Setting Index:\s*0x([0-9a-fA-F]+)')
       $dc = [regex]::Match($out, 'Current DC Power Setting Index:\s*0x([0-9a-fA-F]+)')
       if ($ac.Success -and ([Convert]::ToInt64($ac.Groups[1].Value,16) -gt 0)) { $bad += "AC $label timeout is not Never" }
       if ($dc.Success -and ([Convert]::ToInt64($dc.Groups[1].Value,16) -gt 0)) { $bad += "Battery $label timeout is not Never" }
     }
-    $lid = powercfg /query SCHEME_CURRENT SUB_BUTTONS LIDACTION 2>$null | Out-String
+    $lid = Invoke-GardenerPowerCfg -ArgsList @('/query', 'SCHEME_CURRENT', 'SUB_BUTTONS', 'LIDACTION')
     $lac = [regex]::Match($lid, 'Current AC Power Setting Index:\s*0x([0-9a-fA-F]+)')
     $ldc = [regex]::Match($lid, 'Current DC Power Setting Index:\s*0x([0-9a-fA-F]+)')
     if (($lac.Success -and ([Convert]::ToInt64($lac.Groups[1].Value,16) -ne 0)) -or ($ldc.Success -and ([Convert]::ToInt64($ldc.Groups[1].Value,16) -ne 0))) { $bad += "lid close action may sleep/hibernate/shutdown" }
