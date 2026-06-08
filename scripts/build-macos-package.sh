@@ -94,8 +94,8 @@ fetch_frpc() {
     fi
     safe_extract_tar "$tmp/frp.tgz" "$tmp"
     local found
-    found="$(find "$tmp" -name frpc -type f | head -n 1)"
-    if [[ -z "$found" ]]; then echo "frpc not found for $arch" >&2; exit 1; fi
+    found="$tmp/frp_${FRP_VERSION}_darwin_${url_arch}/frpc"
+    if [[ ! -f "$found" ]]; then echo "expected frpc not found for $arch" >&2; exit 1; fi
     cp "$found" "$cache"
     chmod +x "$cache"
     rm -rf "$tmp"
