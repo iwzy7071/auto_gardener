@@ -38,6 +38,10 @@ type Orchestrator struct {
 	activeRuns map[string]string
 }
 
+type CreateTaskOptions struct {
+	PlanOnly bool
+}
+
 func NewOrchestrator(store *Store, runner codex.Runner, dataDir, compatBaseURL string) *Orchestrator {
 	return &Orchestrator{
 		store:         store,
@@ -100,6 +104,10 @@ scratchPath: %s
 }
 
 func (o *Orchestrator) CreateTask(prompt, workspacePath string) (*Task, error) {
+	return o.CreateTaskWithOptions(prompt, workspacePath, CreateTaskOptions{})
+}
+
+func (o *Orchestrator) CreateTaskWithOptions(prompt, workspacePath string, opts CreateTaskOptions) (*Task, error) {
 	prompt = strings.TrimSpace(prompt)
 	if prompt == "" {
 		return nil, fmt.Errorf("任务内容不能为空")
@@ -158,7 +166,11 @@ func (o *Orchestrator) CreateTask(prompt, workspacePath string) (*Task, error) {
 	}
 	_ = o.store.WriteSchedule(id, initialSchedule(task))
 	o.store.AppendGardenerLog(id, "任务创建，交付目录="+absWorkspace+"，临时工作目录="+absScratch)
-	o.startForestRun(id, prompt)
+	if opts.PlanOnly {
+		o.startPlanApprovalRun(id, prompt)
+	} else {
+		o.startForestRun(id, prompt)
+	}
 	created, _ := o.store.GetTask(id)
 	return created, nil
 }
@@ -257,6 +269,30 @@ func (o *Orchestrator) sendMessageWithInstruction(taskID, visibleContent, instru
 	o.store.AppendGardenerLog(taskID, "用户追加消息："+compactLogValue(visibleContent, 160))
 	o.startForestRun(taskID, instruction)
 	return t, nil
+}
+
+func (o *Orchestrator) ApproveTaskPlan(taskID string) (*Task, error) {
+	t, ok := o.store.GetTask(taskID)
+	if !ok {
+		return nil, ErrNotFound
+	}
+	if t.Status != StatusPendingApproval || len(t.PendingPlan) == 0 {
+		return nil, fmt.Errorf("当前任务没有等待确认的计划")
+	}
+	plan := GardenerPlan{Trees: append([]TreePlan(nil), t.PendingPlan...)}
+	updated, err := o.store.UpdateTask(taskID, func(t *Task) {
+		t.Status = StatusRunning
+		t.GardenerStatus = StatusRunning
+		t.StopRequested = false
+		t.PendingPlan = nil
+		t.Messages = append(t.Messages, Message{ID: newID("msg"), Role: RoleUser, Content: "批准计划，开始执行。", CreatedAt: time.Now()})
+	})
+	if err != nil {
+		return nil, err
+	}
+	o.store.AppendGardenerLog(taskID, "用户批准执行计划，开始运行已确认的子任务。")
+	o.startApprovedPlanRun(taskID, plan)
+	return updated, nil
 }
 
 func compactLogValue(value string, maxRunes int) string {
@@ -433,6 +469,159 @@ func (o *Orchestrator) startForestRun(taskID, instruction string) {
 		}()
 		o.runForest(ctx, taskID, instruction, runID)
 	}()
+}
+
+func (o *Orchestrator) startPlanApprovalRun(taskID, instruction string) {
+	o.cancelTaskProcesses(taskID)
+	ctx, cancel := context.WithCancel(context.Background())
+	runID := newID("run")
+	key := taskID + ":gardener:" + runID
+	o.registerRun(taskID, runID, key, cancel)
+	go func() {
+		defer o.unregisterCancel(key)
+		defer func() {
+			if rec := recover(); rec != nil {
+				o.store.AppendGardenerLog(taskID, fmt.Sprintf("计划预览运行异常中断：%v", rec))
+				o.appendSystemMessage(taskID, "生成执行计划时发生异常。你可以点击“继续任务”重新规划。")
+				if o.isActiveRun(taskID, runID) {
+					o.finishTask(taskID, "计划预览因运行异常已暂停。")
+				}
+			}
+		}()
+		o.runPlanForApproval(ctx, taskID, instruction, runID)
+	}()
+}
+
+func (o *Orchestrator) startApprovedPlanRun(taskID string, plan GardenerPlan) {
+	o.cancelTaskProcesses(taskID)
+	ctx, cancel := context.WithCancel(context.Background())
+	runID := newID("run")
+	key := taskID + ":gardener:" + runID
+	o.registerRun(taskID, runID, key, cancel)
+	go func() {
+		defer o.unregisterCancel(key)
+		defer func() {
+			if rec := recover(); rec != nil {
+				o.store.AppendGardenerLog(taskID, fmt.Sprintf("已批准计划运行异常中断：%v", rec))
+				o.appendSystemMessage(taskID, "执行已批准计划时发生异常，任务已暂停。你可以点击“继续任务”，Gardener 会检查当前进度后接着处理。")
+				if o.isActiveRun(taskID, runID) {
+					o.finishTask(taskID, "已批准计划因运行异常已暂停。")
+				}
+			}
+		}()
+		o.runApprovedPlan(ctx, taskID, plan, runID)
+	}()
+}
+
+func (o *Orchestrator) runPlanForApproval(ctx context.Context, taskID, instruction, runID string) {
+	if _, ok := o.store.GetTask(taskID); !ok {
+		return
+	}
+	o.store.AppendGardenerLog(taskID, "Gardener 开始生成待确认计划。")
+	o.runGardenerGitInit(ctx, taskID)
+	if ctx.Err() != nil || isStopRequested(o.store, taskID) {
+		if o.isActiveRun(taskID, runID) {
+			o.finishAfterStop(taskID)
+		}
+		return
+	}
+	plan := o.runGardenerPlan(ctx, taskID, instruction)
+	if ctx.Err() != nil || isStopRequested(o.store, taskID) {
+		if o.isActiveRun(taskID, runID) {
+			o.finishAfterStop(taskID)
+		}
+		return
+	}
+	if plan.ForestFinished || len(plan.Trees) == 0 {
+		if strings.TrimSpace(plan.MessageToUser) != "" {
+			_, _ = o.store.UpdateTask(taskID, func(t *Task) {
+				t.Messages = append(t.Messages, Message{ID: newID("msg"), Role: RoleGardener, Content: userFacingMessage(plan.MessageToUser), CreatedAt: time.Now()})
+			})
+		}
+		if o.isActiveRun(taskID, runID) {
+			o.finishTask(taskID, "计划预览判断任务无需执行。")
+		}
+		return
+	}
+	current, ok := o.store.GetTask(taskID)
+	if !ok {
+		return
+	}
+	if len(plan.Trees) > current.MaxTreesPerForest {
+		plan.Trees = plan.Trees[:current.MaxTreesPerForest]
+	}
+	nextForest := current.Forest + 1
+	o.appendSchedulePlan(taskID, nextForest, plan)
+	if o.isActiveRun(taskID, runID) {
+		_, _ = o.store.UpdateTask(taskID, func(t *Task) {
+			t.Status = StatusPendingApproval
+			t.GardenerStatus = StatusFinished
+			t.PendingPlan = append([]TreePlan(nil), plan.Trees...)
+			if strings.TrimSpace(plan.MessageToUser) != "" {
+				t.Messages = append(t.Messages, Message{ID: newID("msg"), Role: RoleGardener, Content: userFacingMessage(plan.MessageToUser), CreatedAt: time.Now()})
+			}
+			t.Messages = append(t.Messages, Message{ID: newID("msg"), Role: RoleSystem, Content: "执行计划已生成，等待你确认后再开始修改。", CreatedAt: time.Now()})
+		})
+		o.store.AppendGardenerLog(taskID, "执行计划已生成，等待用户确认。")
+	}
+}
+
+func (o *Orchestrator) runApprovedPlan(ctx context.Context, taskID string, plan GardenerPlan, runID string) {
+	for autoForest := 1; ; autoForest++ {
+		if ctx.Err() != nil || isStopRequested(o.store, taskID) {
+			if o.isActiveRun(taskID, runID) {
+				o.finishAfterStop(taskID)
+			}
+			return
+		}
+		current, ok := o.store.GetTask(taskID)
+		if !ok {
+			return
+		}
+		if len(plan.Trees) > current.MaxTreesPerForest {
+			plan.Trees = plan.Trees[:current.MaxTreesPerForest]
+		}
+		nextForest := current.Forest + 1
+		_, _ = o.store.UpdateTask(taskID, func(t *Task) {
+			t.Forest = nextForest
+			t.Status = StatusRunning
+			t.GardenerStatus = StatusRunning
+		})
+		o.runTreeForest(ctx, taskID, nextForest, plan.Trees)
+		if ctx.Err() != nil || isStopRequested(o.store, taskID) {
+			if o.isActiveRun(taskID, runID) {
+				o.finishAfterStop(taskID)
+			}
+			return
+		}
+		o.runValidationTree(ctx, taskID, nextForest)
+		if ctx.Err() != nil || isStopRequested(o.store, taskID) {
+			if o.isActiveRun(taskID, runID) {
+				o.finishAfterStop(taskID)
+			}
+			return
+		}
+		decision := o.runGardenerDecision(ctx, taskID, nextForest)
+		if ctx.Err() != nil || isStopRequested(o.store, taskID) {
+			if o.isActiveRun(taskID, runID) {
+				o.finishAfterStop(taskID)
+			}
+			return
+		}
+		if decision.ForestFinished || len(decision.Trees) == 0 {
+			if strings.TrimSpace(decision.MessageToUser) != "" {
+				_, _ = o.store.UpdateTask(taskID, func(t *Task) {
+					t.Messages = append(t.Messages, Message{ID: newID("msg"), Role: RoleGardener, Content: codex.Truncate(userFacingMessage(decision.MessageToUser), 900), CreatedAt: time.Now()})
+				})
+			}
+			if o.isActiveRun(taskID, runID) {
+				o.finishTask(taskID, fmt.Sprintf("第 %d 个阶段已完成。", nextForest))
+			}
+			return
+		}
+		plan = decision
+		o.store.AppendGardenerLog(taskID, fmt.Sprintf("已批准计划执行完毕，Gardener 判断仍需继续，自动追加第 %d 批子任务。", autoForest+1))
+	}
 }
 
 func (o *Orchestrator) runForest(ctx context.Context, taskID, instruction, runID string) {

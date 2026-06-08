@@ -5,8 +5,9 @@ import "time"
 type Status string
 
 const (
-	StatusRunning  Status = "Running"
-	StatusFinished Status = "Finished"
+	StatusRunning         Status = "Running"
+	StatusPendingApproval Status = "PendingApproval"
+	StatusFinished        Status = "Finished"
 )
 
 type LogLevel string
@@ -137,6 +138,7 @@ type Task struct {
 	SchedulePath       string       `json:"schedulePath"`
 	LogPath            string       `json:"logPath"`
 	Trees              []*Tree      `json:"trees"`
+	PendingPlan        []TreePlan   `json:"pendingPlan,omitempty"`
 	Messages           []Message    `json:"messages"`
 	GardenerProgress   []string     `json:"gardenerProgress"`
 	LastProgressAt     *time.Time   `json:"lastProgressAt,omitempty"`
@@ -166,6 +168,7 @@ type Tree struct {
 type CreateTaskRequest struct {
 	Prompt        string `json:"prompt"`
 	WorkspacePath string `json:"workspacePath"`
+	PlanOnly      bool   `json:"planOnly,omitempty"`
 }
 
 type SendMessageRequest struct {

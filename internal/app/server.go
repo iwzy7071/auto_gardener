@@ -466,7 +466,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		if !decodeLimitedJSON(w, r, &req, maxTaskJSONBodyBytes, "请求体不是合法 JSON") {
 			return
 		}
-		task, err := s.orchestrator.CreateTask(req.Prompt, req.WorkspacePath)
+		task, err := s.orchestrator.CreateTaskWithOptions(req.Prompt, req.WorkspacePath, CreateTaskOptions{PlanOnly: req.PlanOnly})
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
@@ -622,6 +622,20 @@ func (s *Server) handleTaskSubroutes(w http.ResponseWriter, r *http.Request) {
 
 	if len(parts) == 2 && parts[1] == "resume" && r.Method == http.MethodPost {
 		task, err := s.orchestrator.ResumeTask(taskID)
+		if err != nil {
+			status := http.StatusBadRequest
+			if errors.Is(err, ErrNotFound) {
+				status = http.StatusNotFound
+			}
+			writeError(w, status, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"task": publicTask(task)})
+		return
+	}
+
+	if len(parts) == 2 && parts[1] == "approve" && r.Method == http.MethodPost {
+		task, err := s.orchestrator.ApproveTaskPlan(taskID)
 		if err != nil {
 			status := http.StatusBadRequest
 			if errors.Is(err, ErrNotFound) {
