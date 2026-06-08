@@ -78,3 +78,21 @@ func assertPerm(t *testing.T, path string, want os.FileMode) {
 		t.Fatalf("%s mode = %v, want %v", path, got, want)
 	}
 }
+
+func TestEnsurePrivateDirRejectsSymlink(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink creation requires privileges on some Windows setups")
+	}
+	root := t.TempDir()
+	target := filepath.Join(root, "target")
+	if err := os.Mkdir(target, 0755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(root, "link")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+	if err := ensurePrivateDir(link); err == nil {
+		t.Fatal("ensurePrivateDir accepted symlink directory")
+	}
+}
