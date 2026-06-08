@@ -37,6 +37,7 @@ fetch_frpc() {
   local url_arch="$arch"
   local tmp
   tmp="$(mktemp -d)"
+  trap 'rm -rf "$tmp"' RETURN
   local url="https://github.com/fatedier/frp/releases/download/v${FRP_VERSION}/frp_${FRP_VERSION}_darwin_${url_arch}.tar.gz"
   if [[ "${DOWNLOAD_FRPC:-0}" == "1" ]]; then
     echo "Downloading frpc for darwin/$arch..." >&2
