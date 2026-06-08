@@ -119,6 +119,20 @@ def make_password():
     return ''.join(secrets.choice(alphabet) for _ in range(18))
 
 
+def password_from_args(args):
+    if getattr(args, 'password_file', None):
+        password = Path(args.password_file).read_text().strip()
+        if not password:
+            raise SystemExit('error: password file is empty')
+        return password
+    if getattr(args, 'password', None):
+        return args.password
+    env_password = os.environ.get('GARDENER_RELAY_PASSWORD', '').strip()
+    if env_password:
+        return env_password
+    return make_password()
+
+
 def htpasswd_hash(password):
     salt = '$6$' + secrets.token_urlsafe(12)
     return crypt.crypt(password, salt)
@@ -270,7 +284,7 @@ def add_user(args):
         raise SystemExit('error: requested port already assigned')
     if port_listening(public, '0.0.0.0') or port_listening(remote, '127.0.0.1'):
         raise SystemExit('error: requested port already in use')
-    password = args.password or make_password()
+    password = password_from_args(args)
     user_dir = USERS / user
     user_dir.mkdir(parents=True, exist_ok=False)
     ensure_permissions(user_dir)
@@ -391,6 +405,7 @@ def main():
     a.add_argument('--public-port', type=int)
     a.add_argument('--remote-port', type=int)
     a.add_argument('--password')
+    a.add_argument('--password-file', help='read web login password from a local file instead of the command line')
     a.add_argument('--setup-key', help='optional preselected secret setup key, default: random sk_*')
     a.set_defaults(func=add_user)
     r = sub.add_parser('remove')
