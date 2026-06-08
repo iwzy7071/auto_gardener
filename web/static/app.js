@@ -174,9 +174,28 @@ async function syncFromRoute() {
 }
 
 
+function isValidHealthResponse(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return false;
+  const power = data.power;
+  if (power === undefined || power === null) return true;
+  if (typeof power !== 'object' || Array.isArray(power)) return false;
+  if (typeof power.ok !== 'boolean') return false;
+  for (const key of ['platform', 'checkedAt']) {
+    if (power[key] !== undefined && typeof power[key] !== 'string') return false;
+  }
+  if (power.checked !== undefined && typeof power.checked !== 'boolean') return false;
+  for (const key of ['warnings', 'advice']) {
+    if (power[key] === undefined) continue;
+    if (!Array.isArray(power[key]) || power[key].length > 20) return false;
+    if (!power[key].every(item => typeof item === 'string')) return false;
+  }
+  return true;
+}
+
 async function loadHealthStatus() {
   try {
     const data = await api('/api/health');
+    if (!isValidHealthResponse(data)) throw new Error('Invalid health response');
     state.powerStatus = data.power || null;
     renderPowerBanner();
   } catch (err) {
