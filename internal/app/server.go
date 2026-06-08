@@ -31,9 +31,10 @@ type Server struct {
 	staticDir    string
 	events       *EventHub
 
-	dingTalkMu       sync.Mutex
-	dingTalkSessions map[string]string
-	httpClient       *http.Client
+	dingTalkMu           sync.Mutex
+	dingTalkSessions     map[string]string
+	dingTalkSessionOrder []string
+	httpClient           *http.Client
 }
 
 func NewServer(store *Store, orchestrator *Orchestrator, staticDir string, events *EventHub) *Server {

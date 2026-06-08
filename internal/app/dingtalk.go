@@ -17,6 +17,8 @@ import (
 	"time"
 )
 
+const maxDingTalkSessions = 256
+
 type dingTalkIncomingMessage struct {
 	ConversationID string `json:"conversationId"`
 	SenderID       string `json:"senderId"`
@@ -238,7 +240,18 @@ func dingTalkSessionKey(msg dingTalkIncomingMessage) string {
 func (s *Server) setDingTalkSessionTask(key, taskID string) {
 	s.dingTalkMu.Lock()
 	defer s.dingTalkMu.Unlock()
+	if s.dingTalkSessions == nil {
+		s.dingTalkSessions = make(map[string]string)
+	}
+	if _, ok := s.dingTalkSessions[key]; !ok {
+		s.dingTalkSessionOrder = append(s.dingTalkSessionOrder, key)
+	}
 	s.dingTalkSessions[key] = taskID
+	for len(s.dingTalkSessionOrder) > maxDingTalkSessions {
+		oldest := s.dingTalkSessionOrder[0]
+		s.dingTalkSessionOrder = s.dingTalkSessionOrder[1:]
+		delete(s.dingTalkSessions, oldest)
+	}
 }
 
 func (s *Server) getDingTalkSessionTask(key string) string {

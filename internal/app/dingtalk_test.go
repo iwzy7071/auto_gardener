@@ -131,3 +131,19 @@ func TestDingTalkReplyErrorDoesNotExposeTransportDetails(t *testing.T) {
 		t.Fatalf("response missing generic reply failure: %s", body)
 	}
 }
+
+func TestDingTalkSessionLimit(t *testing.T) {
+	server := NewServer(nil, nil, "", nil)
+	for i := 0; i < maxDingTalkSessions+20; i++ {
+		server.setDingTalkSessionTask("session-"+strconv.Itoa(i), "task")
+	}
+	if got := len(server.dingTalkSessions); got != maxDingTalkSessions {
+		t.Fatalf("session count = %d, want %d", got, maxDingTalkSessions)
+	}
+	if taskID := server.getDingTalkSessionTask("session-0"); taskID != "" {
+		t.Fatalf("oldest session was not evicted: %q", taskID)
+	}
+	if taskID := server.getDingTalkSessionTask("session-" + strconv.Itoa(maxDingTalkSessions+19)); taskID != "task" {
+		t.Fatalf("newest session missing: %q", taskID)
+	}
+}
