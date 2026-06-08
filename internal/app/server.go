@@ -24,6 +24,8 @@ type workspaceFileEntry struct {
 	TreeIDs []string `json:"treeIds,omitempty"`
 }
 
+const maxWorkspaceDownloadBytes int64 = 64 * 1024 * 1024
+
 type Server struct {
 	store        *Store
 	orchestrator *Orchestrator
@@ -755,6 +757,10 @@ func (s *Server) serveWorkspaceFile(w http.ResponseWriter, r *http.Request, task
 		return
 	}
 	if r.URL.Query().Get("download") == "1" {
+		if info.Size() > maxWorkspaceDownloadBytes {
+			writeError(w, http.StatusBadRequest, "文件过大，暂不支持下载")
+			return
+		}
 		w.Header().Set("Content-Disposition", "attachment; filename="+filepath.Base(abs))
 		http.ServeFile(w, r, abs)
 		return
