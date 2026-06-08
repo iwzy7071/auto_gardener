@@ -270,7 +270,6 @@ fi
 local_url="http://127.0.0.1:8080"
 public_url=""
 web_user=""
-web_pass=""
 if [[ -f "$INSTALL_DIR/gardener.relay.json" ]]; then
   public_url="$(python3 - "$INSTALL_DIR/gardener.relay.json" <<'PY'
 import json,sys
@@ -280,11 +279,6 @@ PY
   web_user="$(python3 - "$INSTALL_DIR/gardener.relay.json" <<'PY'
 import json,sys
 j=json.load(open(sys.argv[1])); print(j.get('webUsername',''))
-PY
-)"
-  web_pass="$(python3 - "$INSTALL_DIR/gardener.relay.json" <<'PY'
-import json,sys
-j=json.load(open(sys.argv[1])); print(j.get('webPassword',''))
 PY
 )"
 fi
