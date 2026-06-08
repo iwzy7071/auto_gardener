@@ -83,7 +83,7 @@ function Set-GardenerFirewallPolicy([string]$ExePath) {
     New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Program $ExePath -Action Block -Profile Any -Enabled True | Out-Null
     Write-Host "Firewall: external inbound access to gardener.exe is blocked; local browser and relay access still work." -ForegroundColor Green
   } catch {
-    Write-Host "Warning: could not configure Windows Firewall rule: $_" -ForegroundColor Yellow
+    Write-Host "Warning: could not configure Windows Firewall rule." -ForegroundColor Yellow
   }
 }
 
