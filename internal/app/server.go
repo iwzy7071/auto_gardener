@@ -60,7 +60,17 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/api/dingtalk/robot", s.handleDingTalkRobot)
 	mux.HandleFunc("/api/tasks/", s.handleTaskSubroutes)
 	mux.HandleFunc("/", s.serveStaticApp)
-	return logRequests(rejectCrossOriginAPIWrites(mux))
+	return securityHeaders(logRequests(rejectCrossOriginAPIWrites(mux)))
+}
+
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("Referrer-Policy", "same-origin")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'")
+		next.ServeHTTP(w, r)
+	})
 }
 
 func rejectCrossOriginAPIWrites(next http.Handler) http.Handler {
