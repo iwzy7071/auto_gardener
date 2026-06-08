@@ -109,7 +109,7 @@ func (p *Proxy) handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req responseRequest
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxCompatProxyBodyBytes)).Decode(&req); err != nil {
+	if err := decodeCompatResponseRequest(w, r, &req); err != nil {
 		var maxBytesErr *http.MaxBytesError
 		if errors.As(err, &maxBytesErr) {
 			writeProxyError(w, http.StatusRequestEntityTooLarge, "responses request body too large")
@@ -121,6 +121,21 @@ func (p *Proxy) handle(w http.ResponseWriter, r *http.Request) {
 	if err := p.forwardChatStream(w, r, spec, token, req); err != nil {
 		log.Printf("compat proxy %s error: %v", spec.Name, err)
 	}
+}
+
+func decodeCompatResponseRequest(w http.ResponseWriter, r *http.Request, dst *responseRequest) error {
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxCompatProxyBodyBytes))
+	if err := dec.Decode(dst); err != nil {
+		return err
+	}
+	var extra any
+	if err := dec.Decode(&extra); err != io.EOF {
+		if err == nil {
+			return errors.New("trailing JSON value")
+		}
+		return err
+	}
+	return nil
 }
 
 func bearerToken(header string) string {

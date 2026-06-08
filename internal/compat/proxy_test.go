@@ -80,3 +80,16 @@ func TestStartSetsReadHeaderTimeout(t *testing.T) {
 		t.Fatal("ReadHeaderTimeout is not configured")
 	}
 }
+
+func TestHandleRejectsTrailingJSON(t *testing.T) {
+	p := &Proxy{client: http.DefaultClient}
+	req := httptest.NewRequest(http.MethodPost, "/minimax/v1/responses", strings.NewReader(`{"model":"test","input":"hello","stream":true} {}`))
+	req.Header.Set("Authorization", "Bearer token")
+	rr := httptest.NewRecorder()
+
+	p.handle(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
