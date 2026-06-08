@@ -254,9 +254,21 @@ func (o *Orchestrator) sendMessageWithInstruction(taskID, visibleContent, instru
 	if err != nil {
 		return nil, err
 	}
-	o.store.AppendGardenerLog(taskID, "用户追加消息："+visibleContent)
+	o.store.AppendGardenerLog(taskID, "用户追加消息："+compactLogValue(visibleContent, 160))
 	o.startForestRun(taskID, instruction)
 	return t, nil
+}
+
+func compactLogValue(value string, maxRunes int) string {
+	value = strings.Join(strings.Fields(value), " ")
+	if maxRunes <= 0 {
+		return value
+	}
+	runes := []rune(value)
+	if len(runes) > maxRunes {
+		return string(runes[:maxRunes]) + "..."
+	}
+	return value
 }
 
 func isProgressQuery(content string) bool {
