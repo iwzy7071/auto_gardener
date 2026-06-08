@@ -4,6 +4,16 @@ RELAY_BASE_URL="${GARDENER_RELAY_BASE_URL:-}"
 INSTALL_DIR="$HOME/Applications/Gardener"
 START_AFTER_UPDATE=1
 PACKAGE_URL=""
+validate_install_dir() {
+  local dir="${1:-}"
+  case "$dir" in
+    ""|"/"|"."|".."|../*|*/../*)
+      echo "Refusing unsafe install directory: $dir" >&2
+      exit 1
+      ;;
+  esac
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --package-url) PACKAGE_URL="${2:-}"; shift 2 ;;
@@ -13,6 +23,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "Unknown argument: $1" >&2; exit 1 ;;
   esac
 done
+validate_install_dir "$INSTALL_DIR"
 arch="$(uname -m)"; [[ "$arch" == "x86_64" ]] && arch="amd64"
 if [[ -z "$PACKAGE_URL" ]]; then
   if [[ -z "$RELAY_BASE_URL" ]]; then
