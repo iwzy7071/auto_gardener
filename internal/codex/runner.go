@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -391,8 +393,35 @@ func firstNonEmpty(items ...string) string {
 }
 
 func usesLocalhost(rawURL string) bool {
-	value := strings.ToLower(rawURL)
-	return strings.Contains(value, "127.0.0.1") || strings.Contains(value, "localhost")
+	host := baseURLHostname(rawURL)
+	if host == "" {
+		return false
+	}
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.IsLoopback()
+	}
+	return false
+}
+
+func baseURLHostname(rawURL string) string {
+	value := strings.TrimSpace(rawURL)
+	if value == "" {
+		return ""
+	}
+	u, err := url.Parse(value)
+	if err == nil && u.Hostname() != "" {
+		return u.Hostname()
+	}
+	if !strings.Contains(value, "://") {
+		u, err = url.Parse("//" + value)
+		if err == nil {
+			return u.Hostname()
+		}
+	}
+	return ""
 }
 
 func ensureNoProxy(env []string, host string) []string {

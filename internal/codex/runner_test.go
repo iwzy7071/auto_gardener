@@ -32,3 +32,16 @@ func TestWithGoalEnvelope(t *testing.T) {
 		}
 	}
 }
+
+func TestUsesLocalhostParsesHostname(t *testing.T) {
+	for _, in := range []string{"http://localhost:8080", "https://127.0.0.1/v1", "[::1]:8080"} {
+		if !usesLocalhost(in) {
+			t.Fatalf("usesLocalhost(%q) = false, want true", in)
+		}
+	}
+	for _, in := range []string{"https://localhost.evil.example/v1", "https://127.0.0.1.evil.example", "https://example.com/?next=localhost"} {
+		if usesLocalhost(in) {
+			t.Fatalf("usesLocalhost(%q) = true, want false", in)
+		}
+	}
+}
