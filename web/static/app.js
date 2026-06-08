@@ -864,6 +864,12 @@ async function renderUsage(task) {
   }
 }
 
+const MAX_RENDERED_USAGE_MODEL_CHARS = 120;
+function renderedUsageModelName(model) {
+  const chars = Array.from(String(model || 'unknown'));
+  return chars.length > MAX_RENDERED_USAGE_MODEL_CHARS ? chars.slice(0, MAX_RENDERED_USAGE_MODEL_CHARS).join('') + '…' : chars.join('');
+}
+
 function paintUsage(panel, usage) {
   const total = Number(usage?.totalTokens || 0);
   if (!total) {
@@ -875,7 +881,7 @@ function paintUsage(panel, usage) {
   const models = Array.isArray(usage.models) ? usage.models.slice(0, 3) : [];
   const modelHTML = models.map(m => `
     <span class="usage-model">
-      <span class="usage-model-name">${escapeHTML(m.model || 'unknown')}</span>
+      <span class="usage-model-name">${escapeHTML(renderedUsageModelName(m.model))}</span>
       <span>${formatTokenCount(m.totalTokens)}</span>
     </span>`).join('');
   panel.innerHTML = `
