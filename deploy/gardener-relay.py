@@ -258,10 +258,16 @@ def write_provision(instance, password, setup_key=None):
     return setup_key, path
 
 
+def powershell_single_quote(value):
+    return "'" + str(value).replace("'", "''") + "'"
+
 def install_command(setup_key):
+    script_url = powershell_single_quote(INSTALL_SCRIPT_URL)
+    relay_base_url = powershell_single_quote(RELAY_PUBLIC_BASE_URL)
+    safe_setup_key = powershell_single_quote(setup_key)
     return ('powershell -ExecutionPolicy Bypass -Command '
-            f'"iwr {INSTALL_SCRIPT_URL} -OutFile install-gardener.ps1; '
-            f'.\\install-gardener.ps1 -RelayBaseUrl {RELAY_PUBLIC_BASE_URL} -SetupKey {setup_key} -DesktopShortcut -StartMenuShortcut -StartAfterInstall"')
+            f'"iwr {script_url} -OutFile install-gardener.ps1; '
+            f'.\\install-gardener.ps1 -RelayBaseUrl {relay_base_url} -SetupKey {safe_setup_key} -DesktopShortcut -StartMenuShortcut -StartAfterInstall"')
 
 
 def mac_install_command(setup_key):
