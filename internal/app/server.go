@@ -272,12 +272,20 @@ func compactTaskList(tasks []*Task) []*Task {
 		}
 		cp := *task
 		cp.Prompt = ""
+		cp.WorkspacePath = ""
+		cp.ScratchPath = ""
+		cp.SchedulePath = ""
+		cp.LogPath = ""
 		cp.Messages = nil
 		cp.GardenerProgress = nil
 		cp.Trees = make([]*Tree, 0, len(task.Trees))
 		for _, tr := range task.Trees {
 			if tr == nil {
 				continue
+			}
+			fruitReady := ""
+			if tr.FruitPath != "" {
+				fruitReady = "ready"
 			}
 			cp.Trees = append(cp.Trees, &Tree{
 				ID:           tr.ID,
@@ -286,7 +294,7 @@ func compactTaskList(tasks []*Task) []*Task {
 				Name:         tr.Name,
 				IsValidation: tr.IsValidation,
 				Status:       tr.Status,
-				FruitPath:    tr.FruitPath,
+				FruitPath:    fruitReady,
 				UpdatedAt:    tr.UpdatedAt,
 			})
 		}
