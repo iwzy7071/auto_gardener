@@ -383,6 +383,12 @@ function overviewSignature(task) {
   return [state.overviewCollapsed ? 1 : 0, state.chatCollapsed ? 1 : 0, task.status || '', forestSignature(task), usage?.totalTokens || 0, task.runtime?.phase || '', task.runtime?.severity || '', task.runtime?.idleSeconds || 0].join('::');
 }
 
+const MAX_TASK_CHROME_SIGNATURE_TITLE_CHARS = 200;
+function taskChromeSignatureTitle(value) {
+  const chars = Array.from(String(value || ''));
+  return chars.length > MAX_TASK_CHROME_SIGNATURE_TITLE_CHARS ? chars.slice(0, MAX_TASK_CHROME_SIGNATURE_TITLE_CHARS).join('') : chars.join('');
+}
+
 function scheduleTaskRender(task, options = {}) {
   state.pendingTaskRender = { task, options: { ...(state.pendingTaskRender?.options || {}), ...options } };
   if (state.pendingTaskRenderFrame) return;
@@ -528,7 +534,7 @@ function renderTask(task, options = {}) {
   applyChatCollapsed();
   ensureSelectedForest(task);
   const cache = state.renderCache[task.id] || (state.renderCache[task.id] = {});
-  const chromeSig = [task.title || '', task.status || '', state.settings.language || ''].join('::');
+  const chromeSig = [taskChromeSignatureTitle(task.title), task.status || '', state.settings.language || ''].join('::');
   if (cache.chromeSig !== chromeSig) {
     cache.chromeSig = chromeSig;
     if (!state.editingTitle) $('pageTitle').textContent = task.title;
