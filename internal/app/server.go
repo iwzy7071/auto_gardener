@@ -418,9 +418,15 @@ func isAllowedDirectoryBrowsePath(path string) bool {
 	if err != nil {
 		return false
 	}
+	if realRoot, err := filepath.EvalSymlinks(root); err == nil {
+		root = realRoot
+	}
 	abs, err := filepath.Abs(filepath.Clean(path))
 	if err != nil {
 		return false
+	}
+	if realAbs, err := filepath.EvalSymlinks(abs); err == nil {
+		abs = realAbs
 	}
 	return abs == root || strings.HasPrefix(abs, root+string(filepath.Separator))
 }
