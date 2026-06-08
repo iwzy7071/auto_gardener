@@ -1,6 +1,8 @@
 package app
 
 import (
+	"errors"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"strconv"
@@ -99,5 +101,33 @@ func TestValidateDingTalkWebhookURL(t *testing.T) {
 		if err := validateDingTalkWebhookURL(rawURL); err == nil {
 			t.Fatalf("invalid DingTalk webhook accepted: %s", rawURL)
 		}
+	}
+}
+
+type failingRoundTripper struct{}
+
+func (failingRoundTripper) RoundTrip(*http.Request) (*http.Response, error) {
+	return nil, errors.New("transport failed with access_token=secret")
+}
+
+func TestDingTalkReplyErrorDoesNotExposeTransportDetails(t *testing.T) {
+	req := httptest.NewRequest("POST", "/api/dingtalk/robot", strings.NewReader(`{
+		"conversationId":"c1",
+		"senderId":"s1",
+		"msgtype":"text",
+		"sessionWebhook":"https://oapi.dingtalk.com/robot/send?access_token=secret",
+		"text":{"content":"帮助"}
+	}`))
+	server := &Server{httpClient: &http.Client{Transport: failingRoundTripper{}}}
+	rr := httptest.NewRecorder()
+
+	server.handleDingTalkRobot(rr, req)
+
+	body := rr.Body.String()
+	if strings.Contains(body, "access_token=secret") || strings.Contains(body, "transport failed") {
+		t.Fatalf("response exposed transport error details: %s", body)
+	}
+	if !strings.Contains(body, "发送钉钉回复失败") {
+		t.Fatalf("response missing generic reply failure: %s", body)
 	}
 }
