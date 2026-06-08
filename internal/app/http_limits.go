@@ -3,6 +3,7 @@ package app
 import (
 	"encoding/json"
 	"errors"
+	"mime"
 	"net/http"
 )
 
@@ -22,6 +23,15 @@ func decodeLimitedJSON(w http.ResponseWriter, r *http.Request, dst any, maxBytes
 			return false
 		}
 		writeError(w, http.StatusBadRequest, badMessage)
+		return false
+	}
+	return true
+}
+
+func requireJSONContentType(w http.ResponseWriter, r *http.Request) bool {
+	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || mediaType != "application/json" {
+		writeError(w, http.StatusUnsupportedMediaType, "Content-Type 必须是 application/json")
 		return false
 	}
 	return true

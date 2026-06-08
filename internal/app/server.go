@@ -428,6 +428,9 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"tasks": publicTasks(tasks)})
 	case http.MethodPost:
+		if !requireJSONContentType(w, r) {
+			return
+		}
 		var req CreateTaskRequest
 		if !decodeLimitedJSON(w, r, &req, maxTaskJSONBodyBytes, "请求体不是合法 JSON") {
 			return
@@ -448,6 +451,9 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		writeJSON(w, http.StatusOK, SettingsResponse{Settings: s.store.GetPublicSettings()})
 	case http.MethodPut:
+		if !requireJSONContentType(w, r) {
+			return
+		}
 		var settings AppSettings
 		if !decodeLimitedJSON(w, r, &settings, maxSettingsJSONBodyBytes, "请求体不是合法 JSON") {
 			return
@@ -493,6 +499,9 @@ func (s *Server) handleTaskSubroutes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if r.Method == http.MethodPatch {
+			if !requireJSONContentType(w, r) {
+				return
+			}
 			var req RenameTaskRequest
 			if !decodeLimitedJSON(w, r, &req, maxMessageJSONBodyBytes, "请求体不是合法 JSON") {
 				return
@@ -551,6 +560,9 @@ func (s *Server) handleTaskSubroutes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(parts) == 2 && parts[1] == "messages" && r.Method == http.MethodPost {
+		if !requireJSONContentType(w, r) {
+			return
+		}
 		var req SendMessageRequest
 		if !decodeLimitedJSON(w, r, &req, maxMessageJSONBodyBytes, "请求体不是合法 JSON") {
 			return
