@@ -6,6 +6,27 @@ FRP_VERSION="${FRP_VERSION:-0.52.3}"
 ARCHES="${ARCHES:-arm64 amd64}"
 mkdir -p "$OUT_DIR"
 
+safe_extract_tar() {
+  local archive="$1" dest="$2"
+  python3 - "$archive" "$dest" <<'PYINNER'
+import pathlib, sys, tarfile
+archive, dest = sys.argv[1:3]
+root = pathlib.Path(dest).resolve()
+with tarfile.open(archive, 'r:gz') as tf:
+    for member in tf.getmembers():
+        name = member.name
+        if name.startswith('/') or name == '..' or name.startswith('../') or '/../' in name:
+            raise SystemExit(f'Unsafe archive path: {name}')
+        target = (root / name).resolve()
+        if target != root and root not in target.parents:
+            raise SystemExit(f'Unsafe archive path: {name}')
+        if member.issym() or member.islnk():
+            raise SystemExit(f'Archive links are not allowed: {name}')
+    tf.extractall(root)
+PYINNER
+}
+
+
 fetch_frpc() {
   local arch="$1"
   local cache="packaging/macos/frpc-darwin-${arch}"
@@ -23,7 +44,7 @@ fetch_frpc() {
       url="https://gh-proxy.com/https://github.com/fatedier/frp/releases/download/v${FRP_VERSION}/frp_${FRP_VERSION}_darwin_${url_arch}.tar.gz"
       curl -L --fail --connect-timeout 20 --max-time 240 -o "$tmp/frp.tgz" "$url"
     fi
-    tar -xzf "$tmp/frp.tgz" -C "$tmp"
+    safe_extract_tar "$tmp/frp.tgz" "$tmp"
     local found
     found="$(find "$tmp" -name frpc -type f | head -n 1)"
     if [[ -z "$found" ]]; then echo "frpc not found for $arch" >&2; exit 1; fi

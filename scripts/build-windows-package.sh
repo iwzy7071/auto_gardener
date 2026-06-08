@@ -8,6 +8,25 @@ ZIP_PATH="$OUT_DIR/Gardener-Windows.zip"
 rm -rf "$PKG_DIR" "$ZIP_PATH"
 mkdir -p "$PKG_DIR/web"
 
+safe_extract_zip() {
+  local archive="$1" dest="$2"
+  python3 - "$archive" "$dest" <<'PYINNER'
+import pathlib, sys, zipfile
+archive, dest = sys.argv[1:3]
+root = pathlib.Path(dest).resolve()
+with zipfile.ZipFile(archive) as zf:
+    for info in zf.infolist():
+        name = info.filename
+        if name.startswith('/') or name == '..' or name.startswith('../') or '/../' in name:
+            raise SystemExit(f'Unsafe archive path: {name}')
+        target = (root / name).resolve()
+        if target != root and root not in target.parents:
+            raise SystemExit(f'Unsafe archive path: {name}')
+    zf.extractall(root)
+PYINNER
+}
+
+
 GOOS=windows GOARCH=amd64 go build -ldflags "-X auto_gardener/internal/app.Version=$VERSION" -o "$PKG_DIR/gardener.exe" ./cmd/server
 cp -R web/static "$PKG_DIR/web/static"
 cp packaging/windows/start-gardener.bat "$PKG_DIR/start-gardener.bat"
@@ -29,7 +48,7 @@ elif [[ "${DOWNLOAD_FRPC:-0}" == "1" ]]; then
   url="https://github.com/fatedier/frp/releases/download/v${FRP_VERSION}/frp_${FRP_VERSION}_windows_amd64.zip"
   echo "Downloading frpc.exe..."
   curl -L --fail --connect-timeout 20 --max-time 240 -o "$tmp/frp.zip" "$url"
-  unzip -q "$tmp/frp.zip" -d "$tmp/frp"
+  safe_extract_zip "$tmp/frp.zip" "$tmp/frp"
   found="$(find "$tmp/frp" -name frpc.exe -type f | head -n 1)"
   if [[ -z "$found" ]]; then
     echo "frpc.exe not found in downloaded archive" >&2
