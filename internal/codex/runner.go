@@ -211,6 +211,7 @@ func (r ShellRunner) runCodex(ctx context.Context, req RunRequest) RunResult {
 	output := redactSensitiveText(out.String(), req.Model)
 	mu.Unlock()
 	if req.OutputFile != "" {
+		restrictOutputFile(req.OutputFile)
 		if b, readErr := os.ReadFile(req.OutputFile); readErr == nil && len(b) > 0 {
 			// The Codex final message is the authoritative output. stdout/stderr is
 			// already streamed through OnLine into log.md/progress.log. Keeping only
@@ -218,7 +219,7 @@ func (r ShellRunner) runCodex(ctx context.Context, req RunRequest) RunResult {
 			// by CLI progress text.
 			output = redactSensitiveText(string(b), req.Model)
 			if output != string(b) {
-				_ = os.WriteFile(req.OutputFile, []byte(output), 0644)
+				_ = writeOutputFile(req.OutputFile, []byte(output))
 			}
 		}
 	}
@@ -300,7 +301,7 @@ func (r ShellRunner) runClaude(ctx context.Context, req RunRequest) RunResult {
 	mu.Unlock()
 	if req.OutputFile != "" && strings.TrimSpace(output) != "" {
 		_ = os.MkdirAll(filepath.Dir(req.OutputFile), 0755)
-		_ = os.WriteFile(req.OutputFile, []byte(output), 0644)
+		_ = writeOutputFile(req.OutputFile, []byte(output))
 	}
 	return RunResult{Output: output, Err: err}
 }

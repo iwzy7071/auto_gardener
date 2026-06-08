@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -40,5 +41,22 @@ func TestRedactSensitiveTextRedactsModelToken(t *testing.T) {
 	}
 	if !strings.Contains(got, "[redacted-token]") {
 		t.Fatalf("redaction marker missing: %q", got)
+	}
+}
+
+func TestWriteOutputFileIsPrivate(t *testing.T) {
+	path := t.TempDir() + "/output.txt"
+	if err := os.WriteFile(path, []byte("old"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeOutputFile(path, []byte("new")); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := info.Mode().Perm(); got != privateOutputFileMode {
+		t.Fatalf("output mode = %o, want %o", got, privateOutputFileMode)
 	}
 }
