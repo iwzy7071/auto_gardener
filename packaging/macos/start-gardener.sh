@@ -44,5 +44,5 @@ PY
 )"
   [[ -n "$u" ]] && url="$u"
 fi
-open "$url" >/dev/null 2>&1 || true
+open -- "$url" >/dev/null 2>&1 || true
 echo "Gardener started: $url"
