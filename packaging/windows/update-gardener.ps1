@@ -106,7 +106,7 @@ Set-GardenerFirewallPolicy -ExePath (Join-Path $InstallDir "gardener.exe")
 
 Remove-Item -Path $Temp -Recurse -Force -ErrorAction SilentlyContinue
 Write-Host "Gardener updated successfully." -ForegroundColor Green
-Write-Host "Backup: $Backup"
+Write-Host "Backup: created under the Gardener install directory."
 
 if ($Restart) {
   Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$(Join-Path $InstallDir 'start-gardener.ps1')`""
