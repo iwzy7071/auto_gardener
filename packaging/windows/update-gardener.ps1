@@ -109,8 +109,8 @@ Test-GardenerZipEntries -ZipPath $Zip
 Expand-Archive -Path $Zip -DestinationPath $Extract -Force
 Unblock-GardenerPackageFiles -Dir $Extract
 
-$Source = Get-ChildItem -Path $Extract -Directory | Select-Object -First 1
-if ($null -eq $Source) { $Source = Get-Item $Extract }
+$Source = Get-ChildItem -Path $Extract -Directory | Where-Object { $_.Name -eq "Gardener-Windows" } | Select-Object -First 1
+if ($null -eq $Source) { throw "Package is missing expected Gardener-Windows directory" }
 
 Write-Host "Stopping running Gardener processes for this install directory if any..."
 Stop-GardenerInstalledProcess -ProcessName "gardener.exe" -ExePath (Join-Path $InstallDir "gardener.exe")
