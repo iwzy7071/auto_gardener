@@ -82,6 +82,16 @@ def sanitize_setup_key(key):
 def make_setup_key():
     return 'sk_' + secrets.token_urlsafe(24).rstrip('=')
 
+def setup_key_from_args(args):
+    if args.setup_key:
+        return args.setup_key
+    if getattr(args, 'setup_key_file', None):
+        try:
+            return Path(args.setup_key_file).read_text().strip()
+        except OSError as exc:
+            raise SystemExit(f'error: cannot read setup key file: {exc}') from exc
+    return os.environ.get('GARDENER_RELAY_SETUP_KEY', '')
+
 
 def port_listening(port, host='127.0.0.1'):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -342,7 +352,7 @@ def add_user(args):
         'frpcConfig': str(user_dir / 'frpc.toml'),
     }
     try:
-        setup_key, provision_path = write_provision(instance, password, args.setup_key)
+        setup_key, provision_path = write_provision(instance, password, setup_key_from_args(args))
         instance['setupKey'] = setup_key
         instance['provisionUrl'] = f'{RELAY_PUBLIC_BASE_URL}/downloads/provision/{setup_key}/gardener.provision.json'
         instance['provisionPath'] = str(provision_path)
@@ -444,6 +454,7 @@ def main():
     a.add_argument('--password')
     a.add_argument('--password-file', help='read web login password from a local file instead of the command line')
     a.add_argument('--setup-key', help='optional preselected secret setup key, default: random sk_*')
+    a.add_argument('--setup-key-file', help='read optional preselected setup key from a local file')
     a.add_argument('--show-secrets', action='store_true', help='print generated password, setup key and install commands')
     a.set_defaults(func=add_user)
     r = sub.add_parser('remove')
