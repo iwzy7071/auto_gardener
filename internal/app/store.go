@@ -126,10 +126,7 @@ func (s *Store) GetSettings() AppSettings {
 }
 
 func (s *Store) GetPublicSettings() AppSettings {
-	settings := s.GetSettings()
-	settings.MiniMaxToken = ""
-	settings.KimiToken = ""
-	return settings
+	return publicSettings(s.GetSettings())
 }
 
 func (s *Store) UpdateSettings(settings AppSettings) (AppSettings, error) {

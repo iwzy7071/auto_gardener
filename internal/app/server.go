@@ -410,10 +410,17 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, SettingsResponse{Settings: updated})
+		writeJSON(w, http.StatusOK, SettingsResponse{Settings: publicSettings(updated)})
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
+}
+
+func publicSettings(settings AppSettings) AppSettings {
+	settings = normalizeSettings(settings)
+	settings.MiniMaxToken = ""
+	settings.KimiToken = ""
+	return settings
 }
 
 func (s *Server) handleTaskSubroutes(w http.ResponseWriter, r *http.Request) {
