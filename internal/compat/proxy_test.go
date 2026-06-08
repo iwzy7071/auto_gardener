@@ -1,6 +1,7 @@
 package compat
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -66,5 +67,16 @@ func TestNormalizeChatMessagesMergesSystem(t *testing.T) {
 	}
 	if got[1].Role != "user" {
 		t.Fatalf("unexpected second message: %#v", got[1])
+	}
+}
+
+func TestStartSetsReadHeaderTimeout(t *testing.T) {
+	p, err := Start()
+	if err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	defer p.server.Shutdown(context.Background())
+	if p.server.ReadHeaderTimeout <= 0 {
+		t.Fatal("ReadHeaderTimeout is not configured")
 	}
 }
