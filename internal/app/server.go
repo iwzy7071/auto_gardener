@@ -329,6 +329,12 @@ func (s *Server) handleDirectoryBrowse(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "目录不存在或不可访问")
 		return
 	}
+	realAbs, err := filepath.EvalSymlinks(abs)
+	if err != nil || !isAllowedDirectoryBrowsePath(realAbs) {
+		writeError(w, http.StatusForbidden, "只能浏览用户主目录内的目录")
+		return
+	}
+	abs = realAbs
 	entries, _ := os.ReadDir(abs)
 	dirs := make([]directoryEntry, 0)
 	for _, entry := range entries {
