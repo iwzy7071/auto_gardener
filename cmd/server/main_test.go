@@ -22,3 +22,10 @@ func TestIsExternalBind(t *testing.T) {
 		}
 	}
 }
+
+func TestNewHTTPServerHasHeaderTimeout(t *testing.T) {
+	server := newHTTPServer("127.0.0.1:0", nil)
+	if server.ReadHeaderTimeout <= 0 {
+		t.Fatal("ReadHeaderTimeout must be set")
+	}
+}
