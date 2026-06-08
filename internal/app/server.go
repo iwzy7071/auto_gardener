@@ -342,6 +342,16 @@ func publicReadyMarker(path string) string {
 	return "ready"
 }
 
+func publicTree(tree *Tree) *Tree {
+	if tree == nil {
+		return nil
+	}
+	cp := *tree
+	cp.FruitPath = publicReadyMarker(tree.FruitPath)
+	cp.GoalPath = ""
+	return &cp
+}
+
 type directoryEntry struct {
 	Name string `json:"name"`
 	Path string `json:"path"`
@@ -645,7 +655,7 @@ func (s *Server) handleTaskSubroutes(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "Tree 不存在")
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"tree": tree})
+		writeJSON(w, http.StatusOK, map[string]any{"tree": publicTree(tree)})
 		return
 	}
 
