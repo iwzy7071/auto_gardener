@@ -72,7 +72,14 @@ $Relay = $null
 if (Test-Path $RelayJson) {
   try {
     $Relay = Get-Content $RelayJson -Raw | ConvertFrom-Json
-    if ($Relay.publicUrl) { $openUrl = [string]$Relay.publicUrl }
+    if ($Relay.publicUrl) {
+      $candidateUrl = [string]$Relay.publicUrl
+      if ($candidateUrl -match '^https?://') {
+        $openUrl = $candidateUrl
+      } else {
+        Write-Host "Warning: relay publicUrl is not http(s); refusing to open it automatically." -ForegroundColor Yellow
+      }
+    }
   } catch {
     Write-Host "Warning: cannot parse gardener.relay.json: $_" -ForegroundColor Yellow
   }
