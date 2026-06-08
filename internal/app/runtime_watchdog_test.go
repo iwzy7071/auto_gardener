@@ -114,3 +114,20 @@ func TestMockRunnerCompletesEndToEndTask(t *testing.T) {
 	got, _ := store.GetTask(task.ID)
 	t.Fatalf("task did not finish; status=%v progress=%v", got.Status, got.GardenerProgress)
 }
+
+func TestGetenvDurationSecondsRejectsOverLimit(t *testing.T) {
+	const key = "AUTO_GARDENER_TEST_WATCHDOG_SECONDS"
+	fallback := 42 * time.Second
+	t.Setenv(key, "604801")
+	if got := getenvDurationSeconds(key, fallback); got != fallback {
+		t.Fatalf("getenvDurationSeconds over-limit = %v, want fallback %v", got, fallback)
+	}
+	t.Setenv(key, "604800")
+	if got := getenvDurationSeconds(key, fallback); got != 604800*time.Second {
+		t.Fatalf("getenvDurationSeconds max = %v, want 604800s", got)
+	}
+	t.Setenv(key, "999999999999999999999999")
+	if got := getenvDurationSeconds(key, fallback); got != fallback {
+		t.Fatalf("getenvDurationSeconds huge = %v, want fallback %v", got, fallback)
+	}
+}
