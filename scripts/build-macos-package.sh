@@ -2,6 +2,12 @@
 set -euo pipefail
 VERSION="${VERSION:-dev}"
 OUT_DIR="${OUT_DIR:-dist}"
+case "$OUT_DIR" in
+  ""|"/"|"."|".."|../*|*/../*)
+    echo "Refusing unsafe OUT_DIR: $OUT_DIR" >&2
+    exit 1
+    ;;
+esac
 FRP_VERSION="${FRP_VERSION:-0.52.3}"
 ARCHES="${ARCHES:-arm64 amd64}"
 mkdir -p "$OUT_DIR"
