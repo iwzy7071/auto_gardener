@@ -1327,15 +1327,45 @@ func normalizePlan(p GardenerPlan, t *Task, instruction string) GardenerPlan {
 	return p
 }
 
+const (
+	maxTreeSummaryEntries    = 40
+	maxTreeSummaryFieldRunes = 160
+)
+
 func treeSummary(t *Task) string {
 	if len(t.Trees) == 0 {
 		return "暂无子任务。"
 	}
 	var b strings.Builder
+	shown := 0
 	for _, tr := range t.Trees {
-		b.WriteString(fmt.Sprintf("- %s / %s / 阶段 %d / Status %s / report: %s / scope: %s\n", tr.ID, tr.Name, tr.Forest, tr.Status, tr.FruitPath, strings.Join(tr.Scope, ", ")))
+		if tr == nil {
+			continue
+		}
+		if shown >= maxTreeSummaryEntries {
+			b.WriteString(fmt.Sprintf("- ... 另有 %d 个子任务已省略。\n", len(t.Trees)-shown))
+			break
+		}
+		b.WriteString(fmt.Sprintf("- %s / %s / 阶段 %d / Status %s / report: %s / scope: %s\n",
+			trimTreeSummaryField(tr.ID),
+			trimTreeSummaryField(tr.Name),
+			tr.Forest,
+			tr.Status,
+			trimTreeSummaryField(tr.FruitPath),
+			trimTreeSummaryField(strings.Join(tr.Scope, ", ")),
+		))
+		shown++
 	}
 	return b.String()
+}
+
+func trimTreeSummaryField(s string) string {
+	s = strings.TrimSpace(s)
+	r := []rune(s)
+	if len(r) <= maxTreeSummaryFieldRunes {
+		return s
+	}
+	return string(r[:maxTreeSummaryFieldRunes]) + "..."
 }
 
 func isStopRequested(store *Store, taskID string) bool {

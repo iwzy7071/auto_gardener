@@ -97,3 +97,29 @@ func TestActiveGardenerPlanErrorStillAppendsCLIFailureMessage(t *testing.T) {
 	}
 	t.Fatalf("active runner error should still append actionable CLI failure message, got %+v", got.Messages)
 }
+
+func TestTreeSummaryLimitsPromptContext(t *testing.T) {
+	task := &Task{}
+	longName := strings.Repeat("x", maxTreeSummaryFieldRunes+20)
+	for i := 0; i < maxTreeSummaryEntries+5; i++ {
+		task.Trees = append(task.Trees, &Tree{
+			ID:        newID("tree"),
+			Name:      longName,
+			Forest:    i + 1,
+			Status:    StatusFinished,
+			FruitPath: strings.Repeat("/tmp/report", 30),
+			Scope:     []string{strings.Repeat("scope", 80)},
+		})
+	}
+
+	summary := treeSummary(task)
+	if strings.Count(summary, "\n") != maxTreeSummaryEntries+1 {
+		t.Fatalf("summary line count = %d, want %d", strings.Count(summary, "\n"), maxTreeSummaryEntries+1)
+	}
+	if !strings.Contains(summary, "已省略") {
+		t.Fatalf("expected omitted marker, got %q", summary)
+	}
+	if strings.Contains(summary, longName) {
+		t.Fatalf("long tree field was not truncated")
+	}
+}
