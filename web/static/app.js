@@ -137,6 +137,10 @@ function taskURL(taskId) {
   return `/forests/${encodeURIComponent(taskId)}`;
 }
 
+function taskAPIPath(taskId, suffix = '') {
+  return `/api/tasks/${encodeURIComponent(String(taskId || ''))}${suffix}`;
+}
+
 function routeTaskId() {
   const match = window.location.pathname.match(/^\/forests\/([^/]+)\/?$/);
   if (!match) return '';
@@ -300,7 +304,7 @@ async function loadTasks(options = {}) {
 async function loadActiveTask(render = true) {
   if (!state.activeTaskId) return false;
   try {
-    const data = await api(`/api/tasks/${state.activeTaskId}`);
+    const data = await api(taskAPIPath(state.activeTaskId));
     const previous = state.tasks.find(t => t.id === data.task.id);
     upsertTask(data.task);
     if (render) renderTask(data.task, { skipFileViewer: shouldSkipFileViewer(previous, data.task) });
@@ -436,7 +440,7 @@ function connectEvents(taskId) {
   state.activeRefreshPoller = setInterval(() => {
     if (state.activeTaskId === taskId && !document.hidden) loadActiveTask(true);
   }, viewportRefreshMs());
-  const es = new EventSource(`/api/tasks/${taskId}/events`);
+  const es = new EventSource(taskAPIPath(taskId, '/events'));
   state.eventSource = es;
   es.addEventListener('open', () => setConnected(true));
   es.addEventListener('task', (ev) => {
@@ -501,8 +505,8 @@ function renderTask(task, options = {}) {
     if (!state.editingTitle) $('pageTitle').textContent = task.title;
     $('forestStatus').textContent = statusText(task.status);
     $('forestStatus').className = 'status-pill ' + task.status;
-    setTaskReportLink($('scheduleLink'), `/api/tasks/${task.id}/gardener/schedule.md`, t('taskPlan'));
-    setTaskReportLink($('logLink'), `/api/tasks/${task.id}/gardener/log.md`, t('workRecord'));
+    setTaskReportLink($('scheduleLink'), taskAPIPath(task.id, '/gardener/schedule.md'), t('taskPlan'));
+    setTaskReportLink($('logLink'), taskAPIPath(task.id, '/gardener/log.md'), t('workRecord'));
     $('stopTaskBtn').disabled = task.status === 'Finished';
     const resumeBtn = $('resumeTaskBtn');
     if (resumeBtn) {
@@ -737,7 +741,7 @@ async function commitTitleEdit() {
   if (!next || next === task.title) return cancelTitleEdit(true);
   $('renameTaskBtn').disabled = true;
   try {
-    const data = await api(`/api/tasks/${task.id}`, { method:'PATCH', body: JSON.stringify({ title: next }) });
+    const data = await api(taskAPIPath(task.id), { method:'PATCH', body: JSON.stringify({ title: next }) });
     state.editingTitle = false;
     cancelTitleEdit(false);
     upsertTask(data.task);
@@ -824,7 +828,7 @@ function setSelectedForest(task, forestNo) {
 async function deleteTask(taskId) {
   if (!confirm(t('deleteConfirm'))) return;
   try {
-    await api(`/api/tasks/${taskId}`, { method:'DELETE' });
+    await api(taskAPIPath(taskId), { method:'DELETE' });
     state.tasks = state.tasks.filter(task => task.id !== taskId);
     if (state.activeTaskId === taskId) backToList({ replaceRoute: true });
     renderTaskList();
@@ -844,7 +848,7 @@ async function renderUsage(task) {
   if (state.usagePending[task.id] || (cached && now - (state.usageFetchedAt[task.id] || 0) < freshFor)) return;
   state.usagePending[task.id] = true;
   try {
-    const data = await api(`/api/tasks/${task.id}/usage`);
+    const data = await api(taskAPIPath(task.id, '/usage'));
     if (task.id !== state.activeTaskId) return;
     state.usage[task.id] = data.usage;
     state.usageFetchedAt[task.id] = Date.now();
@@ -1102,7 +1106,7 @@ async function previewLatestReport(task, token) {
     preview.textContent = t('loadingFiles');
   }
   try {
-    const text = await fetchText(`/api/tasks/${task.id}/trees/${tr.id}/fruit.md`);
+    const text = await fetchText(taskAPIPath(task.id, `/trees/${tr.id}/fruit.md`));
     if (!isActiveFileRender(task.id, token)) return;
     preview.className = 'file-preview markdown-preview';
     preview.innerHTML = renderMarkdown(text || t('emptyResult'));
@@ -1153,7 +1157,7 @@ async function renderFileViewer(task) {
     const params = new URLSearchParams();
     if (filter.value) params.set('treeId', filter.value);
     const qs = params.toString() ? `?${params.toString()}` : '';
-    const data = await api(`/api/tasks/${task.id}/files${qs}`);
+    const data = await api(taskAPIPath(task.id, `/files${qs}`));
     if (!isActiveFileRender(task.id, token)) return;
     const files = data.files || [];
     fileSelect.innerHTML = '';
@@ -1208,13 +1212,13 @@ async function previewFile(taskId, path, renderToken = 0) {
   preview.textContent = t('loadingFiles');
   try {
     if (isBinaryPreviewPath(path)) {
-      const href = `/api/tasks/${taskId}/files?path=${encodeURIComponent(path)}&download=1`;
+      const href = `${taskAPIPath(taskId, '/files')}?path=${encodeURIComponent(path)}&download=1`;
       if (state.activeTaskId !== taskId || previewToken !== state.previewToken || (renderToken && renderToken !== state.fileViewerToken)) return;
       preview.className = 'file-preview plain-preview';
       preview.innerHTML = `<div class="file-empty">${escapeHTML(t('binaryFile'))}<br><br><a class="primary small" href="${escapeHTML(href)}" target="_blank" rel="noopener">${escapeHTML(t('downloadFile'))}</a></div>`;
       return;
     }
-    const rawText = await fetchText(`/api/tasks/${taskId}/files?path=${encodeURIComponent(path)}`);
+    const rawText = await fetchText(`${taskAPIPath(taskId, '/files')}?path=${encodeURIComponent(path)}`);
     const { text, notice } = trimPreviewText(rawText, path);
     const withNotice = html => notice ? `<div class="preview-note">${escapeHTML(notice)}</div>${html}` : html;
     if (state.activeTaskId !== taskId || previewToken !== state.previewToken || (renderToken && renderToken !== state.fileViewerToken)) return;
@@ -1393,7 +1397,7 @@ function setTaskReportLink(anchor, url, title) {
 }
 
 function setFruitLink(anchor, taskId, tree) {
-  const url = `/api/tasks/${taskId}/trees/${tree.id}/fruit.md`;
+  const url = taskAPIPath(taskId, `/trees/${tree.id}/fruit.md`);
   anchor.href = url;
   anchor.removeAttribute('target');
   anchor.removeAttribute('rel');
@@ -1656,7 +1660,7 @@ async function resumeActiveTask() {
     renderTask(optimistic, { skipFileViewer: true });
   }
   try {
-    const data = await api(`/api/tasks/${taskId}/resume`, { method:'POST', body:'{}' });
+    const data = await api(taskAPIPath(taskId, '/resume'), { method:'POST', body:'{}' });
     upsertTask(data.task);
     if (state.activeTaskId === taskId) renderTask(data.task, { skipFileViewer: true });
   } catch (err) {
@@ -1697,7 +1701,7 @@ $('sendMessageBtn').onclick = async () => {
     renderTask(optimistic, { skipFileViewer: true });
   }
   try {
-    const data = await api(`/api/tasks/${taskId}/messages`, { method:'POST', body: JSON.stringify({ content }) });
+    const data = await api(taskAPIPath(taskId, '/messages'), { method:'POST', body: JSON.stringify({ content }) });
     upsertTask(data.task);
     if (state.activeTaskId === taskId) renderTask(data.task, { skipFileViewer: true });
   } catch(err){
@@ -1710,8 +1714,8 @@ $('sendMessageBtn').onclick = async () => {
   }
 };
 $('resumeTaskBtn').onclick = resumeActiveTask;
-$('stopTaskBtn').onclick = async () => { if (!state.activeTaskId) return; if (!confirm(t('stopConfirm'))) return; $('stopTaskBtn').disabled = true; try { await api(`/api/tasks/${state.activeTaskId}/stop`, { method:'POST', body:'{}' }); } catch(err){ alert(err.message); } };
-$('deleteTaskBtn').onclick = async () => { if (!state.activeTaskId) return; if (!confirm(t('deleteConfirm'))) return; const deleted = state.activeTaskId; $('deleteTaskBtn').disabled = true; try { await api(`/api/tasks/${deleted}`, { method:'DELETE' }); state.tasks = state.tasks.filter(t => t.id !== deleted); backToList({ replaceRoute: true }); renderTaskList(); renderHomeGarden(); } catch(err){ alert((t('deleteFailed') || 'Delete failed: ') + err.message); } finally { $('deleteTaskBtn').disabled = false; } };
+$('stopTaskBtn').onclick = async () => { if (!state.activeTaskId) return; if (!confirm(t('stopConfirm'))) return; $('stopTaskBtn').disabled = true; try { await api(taskAPIPath(state.activeTaskId, '/stop'), { method:'POST', body:'{}' }); } catch(err){ alert(err.message); } };
+$('deleteTaskBtn').onclick = async () => { if (!state.activeTaskId) return; if (!confirm(t('deleteConfirm'))) return; const deleted = state.activeTaskId; $('deleteTaskBtn').disabled = true; try { await api(taskAPIPath(deleted), { method:'DELETE' }); state.tasks = state.tasks.filter(t => t.id !== deleted); backToList({ replaceRoute: true }); renderTaskList(); renderHomeGarden(); } catch(err){ alert((t('deleteFailed') || 'Delete failed: ') + err.message); } finally { $('deleteTaskBtn').disabled = false; } };
 $('renameTaskBtn').addEventListener('mousedown', e => { if (state.editingTitle) e.preventDefault(); });
 $('renameTaskBtn').onclick = () => { state.editingTitle ? commitTitleEdit() : beginTitleEdit(); };
 $('pageTitle').ondblclick = beginTitleEdit;
