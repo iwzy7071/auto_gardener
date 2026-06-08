@@ -879,17 +879,10 @@ func (o *Orchestrator) finishTask(taskID, message string) {
 }
 
 func (o *Orchestrator) appendSchedulePlan(taskID string, forest int, plan GardenerPlan) {
-	t, ok := o.store.GetTask(taskID)
-	if !ok {
+	if _, ok := o.store.GetTask(taskID); !ok {
 		return
 	}
 	var b strings.Builder
-	if existing, err := os.ReadFile(t.SchedulePath); err == nil {
-		b.Write(existing)
-		if !strings.HasSuffix(b.String(), "\n") {
-			b.WriteByte('\n')
-		}
-	}
 	b.WriteString(fmt.Sprintf("\n## 阶段 %d - %s\n\n", forest, time.Now().Format(time.RFC3339)))
 	b.WriteString("### Gardener 给用户的说明\n\n")
 	b.WriteString(plan.MessageToUser + "\n\n")
@@ -899,7 +892,7 @@ func (o *Orchestrator) appendSchedulePlan(taskID string, forest int, plan Garden
 		b.WriteString("   - 目标：" + tr.Objective + "\n")
 		b.WriteString("   - 范围：" + strings.Join(tr.Scope, ", ") + "\n")
 	}
-	_ = o.store.WriteSchedule(taskID, b.String())
+	_ = o.store.AppendSchedule(taskID, b.String())
 }
 
 func (o *Orchestrator) treeGoalPath(taskID, treeID string) string {
