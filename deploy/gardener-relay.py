@@ -429,6 +429,8 @@ def show_user(args):
             if args.with_frpc:
                 out['frpc'] = (USERS / user / 'frpc.toml').read_text()
             if args.with_provision:
+                if not args.show_secrets:
+                    raise SystemExit('error: --with-provision prints relay passwords and frp tokens; add --show-secrets to confirm')
                 if not out.get('provisionPath') or not Path(out['provisionPath']).exists():
                     raise SystemExit('error: this user has no provision file; rotate/reset the user to create one')
                 out['provision'] = json.loads(Path(out['provisionPath']).read_text())
@@ -470,6 +472,7 @@ def main():
     s.add_argument('--with-frpc', action='store_true')
     s.add_argument('--with-provision', action='store_true')
     s.add_argument('--with-setup-key', action='store_true', help='include setup key and install commands in output')
+    s.add_argument('--show-secrets', action='store_true', help='confirm printing provision secrets')
     s.set_defaults(func=show_user)
     args = p.parse_args()
     args.func(args)
