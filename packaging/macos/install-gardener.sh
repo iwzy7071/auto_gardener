@@ -56,7 +56,7 @@ trap cleanup EXIT
 
 PROVISION_JSON="$TMP/provision.json"
 if [[ -n "$PROVISION_URL" ]]; then
-  echo "Loading Gardener relay provision: $PROVISION_URL"
+  echo "Loading Gardener relay provision..."
   curl -fsSL --connect-timeout 20 --max-time 120 "$PROVISION_URL" -o "$PROVISION_JSON"
 fi
 
