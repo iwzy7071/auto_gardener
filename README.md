@@ -132,6 +132,8 @@ Common variables:
 | `AUTO_GARDENER_CODEX_CMD` | Path to Codex CLI. |
 | `AUTO_GARDENER_CLAUDE_CMD` | Path to Claude Code CLI. |
 | `AUTO_GARDENER_DINGTALK_WEBHOOK` | Optional DingTalk reply webhook. |
+| `AUTO_GARDENER_ALLOWED_ORIGINS` | Optional comma-separated browser origins allowed for API writes behind custom proxies. |
+| `AUTO_GARDENER_TRUSTED_PROXIES` | Optional comma-separated proxy IPs/CIDRs whose forwarded host headers may be trusted for CSRF checks. Loopback proxies are trusted by default. |
 
 Relay deployment examples start from:
 
@@ -140,6 +142,8 @@ cp config/gardener-relay.env.example config/gardener-relay.env.local
 ```
 
 Then edit the `.local` file. It is intentionally ignored by git.
+
+Official relay installs keep the Gardener process behind loopback frpc/proxy paths, so no extra CSRF proxy setting is required. For Docker/LAN/custom reverse proxies where the browser public host differs from the upstream `Host`, set `AUTO_GARDENER_TRUSTED_PROXIES` to only the proxy IP/CIDR, or use `AUTO_GARDENER_ALLOWED_ORIGINS` for exact public origins.
 
 ### Repository map
 
@@ -303,6 +307,8 @@ Gardener 使用本地环境变量和被 git 忽略的本地配置文件。不要
 | `AUTO_GARDENER_CODEX_CMD` | Codex CLI 路径。 |
 | `AUTO_GARDENER_CLAUDE_CMD` | Claude Code CLI 路径。 |
 | `AUTO_GARDENER_DINGTALK_WEBHOOK` | 可选钉钉回复 webhook。 |
+| `AUTO_GARDENER_ALLOWED_ORIGINS` | 自定义代理后允许执行 API 写操作的浏览器 origin 列表，逗号分隔。 |
+| `AUTO_GARDENER_TRUSTED_PROXIES` | CSRF 检查中允许信任 forwarded host 的代理 IP/CIDR 列表，逗号分隔；loopback 代理默认可信。 |
 
 公网中转部署示例从这里开始：
 
@@ -311,6 +317,8 @@ cp config/gardener-relay.env.example config/gardener-relay.env.local
 ```
 
 然后编辑 `.local` 文件。该文件会被 git 忽略。
+
+官方 relay 安装会让 Gardener 进程位于本机 loopback frpc/proxy 路径后面，因此无需额外 CSRF 代理配置。若使用 Docker、LAN 网关或自定义反向代理，且浏览器公网 host 与 upstream `Host` 不一致，请只把受控代理 IP/CIDR 写入 `AUTO_GARDENER_TRUSTED_PROXIES`，或用 `AUTO_GARDENER_ALLOWED_ORIGINS` 精确列出公网 origin。
 
 ### 仓库结构
 
