@@ -1,0 +1,36 @@
+services:
+  auto-gardener:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.codexsafe
+    image: codexsafe:latest
+    container_name: auto-gardener
+    restart: unless-stopped
+    working_dir: /root/workspace/auto_gardener
+    entrypoint: ["/usr/bin/tini", "--"]
+    command: ["sh", "-lc", "go build -o /tmp/auto-gardener-server ./cmd/server && exec /tmp/auto-gardener-server"]
+    environment:
+      CODEX_HOME: /codex-home
+      HOME: /root/workspace
+      AUTO_GARDENER_ADDR: 0.0.0.0:8080
+      AUTO_GARDENER_ALLOW_EXTERNAL_BIND: "1"
+      AUTO_GARDENER_STATIC: /root/workspace/auto_gardener/web/static
+      AUTO_GARDENER_DATA: /data
+      AUTO_GARDENER_CODEX_CMD: /usr/local/bin/codex
+    volumes:
+      - /root/workspace:/root/workspace
+      - /root/.codexsafe/codex-home:/codex-home
+      - /opt/auto-gardener-data:/data
+    networks:
+      - moo_edge
+    expose:
+      - "8080"
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+networks:
+  moo_edge:
+    external: true

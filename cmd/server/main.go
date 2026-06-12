@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"auto_gardener/internal/app"
 	"auto_gardener/internal/codex"
@@ -23,6 +25,12 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	checkCtx, cancelCheck := context.WithTimeout(context.Background(), 10*time.Second)
+	resolvedCodex, err := codex.ValidateCodexCommandFromEnv(checkCtx)
+	cancelCheck()
+	if err != nil {
+		log.Fatalf("codex command validation failed: %v", err)
+	}
 	proxy, err := compat.Start()
 	if err != nil {
 		log.Fatal(err)
@@ -35,7 +43,7 @@ func main() {
 	log.Printf("auto_gardener listening on %s", listenURL(addr))
 	log.Printf("data dir: configured")
 	log.Printf("static dir: configured")
-	log.Printf("codex command: configured")
+	log.Printf("codex command: %s", resolvedCodex)
 	log.Printf("claude command: configured")
 	log.Printf("compat proxy: %s", proxy.BaseURL())
 	if isExternalBind(addr) && os.Getenv("AUTO_GARDENER_ALLOW_EXTERNAL_BIND") != "1" {

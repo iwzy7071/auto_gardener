@@ -1,0 +1,138 @@
+# syntax=docker/dockerfile:1
+# codexsafe: an externally-sandboxed Codex CLI runtime.
+# Includes common Node/Python/Go/Rust development tools and a writable /tmp/venv.
+FROM node:22-bookworm
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG CODEX_VERSION=0.135.0
+ARG GO_VERSION=auto
+ARG INSTALL_BUN=1
+
+ENV LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8 \
+    VIRTUAL_ENV=/tmp/venv \
+    GOPATH=/tmp/go \
+    GOCACHE=/tmp/go-build \
+    CARGO_HOME=/tmp/cargo \
+    RUSTUP_HOME=/opt/rustup \
+    NPM_CONFIG_PREFIX=/opt/npm-global \
+    NPM_CONFIG_CACHE=/tmp/npm-cache \
+    PIP_CACHE_DIR=/tmp/pip-cache \
+    BUN_INSTALL=/opt/bun \
+    PATH=/tmp/venv/bin:/opt/npm-global/bin:/tmp/go/bin:/tmp/cargo/bin:/opt/cargo/bin:/opt/bun/bin:/usr/local/go/bin:${PATH}
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      bash \
+      ca-certificates \
+      curl \
+      git \
+      git-lfs \
+      openssh-client \
+      gnupg \
+      less \
+      locales \
+      sudo \
+      tini \
+      procps \
+      psmisc \
+      lsof \
+      jq \
+      ripgrep \
+      fd-find \
+      tree \
+      vim-tiny \
+      nano \
+      build-essential \
+      pkg-config \
+      make \
+      cmake \
+      clang \
+      python3 \
+      python3-dev \
+      python3-pip \
+      python3-venv \
+      libssl-dev \
+      zlib1g-dev \
+      libffi-dev \
+      libbz2-dev \
+      libreadline-dev \
+      libsqlite3-dev \
+      liblzma-dev \
+      tk-dev \
+      unzip \
+      zip \
+      xz-utils \
+      tar \
+      gzip \
+ && rm -rf /var/lib/apt/lists/* \
+ && ln -sf /usr/bin/fdfind /usr/local/bin/fd
+
+# Install a current Go toolchain from go.dev instead of Debian bookworm's older apt Go.
+RUN set -eux; \
+    arch="$(dpkg --print-architecture)"; \
+    case "$arch" in \
+      amd64) goarch="amd64" ;; \
+      arm64) goarch="arm64" ;; \
+      armhf) goarch="armv6l" ;; \
+      *) echo "unsupported Go arch: $arch" >&2; exit 1 ;; \
+    esac; \
+    version="$GO_VERSION"; \
+    if [ "$version" = "auto" ]; then \
+      version="$(curl -fsSL 'https://go.dev/VERSION?m=text' | awk 'NR==1{sub(/^go/, ""); print}')"; \
+    fi; \
+    curl -fsSL "https://go.dev/dl/go${version}.linux-${goarch}.tar.gz" -o /tmp/go.tgz; \
+    rm -rf /usr/local/go; \
+    tar -C /usr/local -xzf /tmp/go.tgz; \
+    rm /tmp/go.tgz; \
+    /usr/local/go/bin/go version
+
+# Runtime-writable developer scratch areas. They are deliberately under /tmp so
+# each --rm codexsafe session starts clean unless the user mounts something else.
+RUN mkdir -p /tmp/home /tmp/go /tmp/go-build /tmp/cargo /opt/npm-global /tmp/npm-cache /tmp/pip-cache \
+ && chmod -R 0777 /tmp/home /tmp/go /tmp/go-build /tmp/cargo /opt/npm-global /tmp/npm-cache /tmp/pip-cache \
+ && python3 -m venv /tmp/venv \
+ && /tmp/venv/bin/python -m pip install --no-cache-dir --upgrade pip setuptools wheel \
+ && chmod -R a+rwX /tmp/venv
+
+RUN corepack enable || true
+
+# Rust stable via rustup. Toolchains live in /opt, while per-run cargo cache/bin
+# defaults to /tmp/cargo (see CARGO_HOME above).
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+    | env RUSTUP_HOME=/opt/rustup CARGO_HOME=/opt/cargo sh -s -- \
+        -y --profile minimal --default-toolchain stable --no-modify-path \
+ && chmod -R a+rwX /opt/rustup /opt/cargo
+
+# Bun is useful for many Node repos; set INSTALL_BUN=0 at build time to skip it.
+RUN if [ "${INSTALL_BUN}" = "1" ]; then \
+      curl -fsSL https://bun.sh/install | bash; \
+      chmod -R a+rx /opt/bun; \
+      [ -e /opt/bun/bin/bun ] && ln -sf /opt/bun/bin/bun /usr/local/bin/bun; \
+      [ -e /opt/bun/bin/bunx ] && ln -sf /opt/bun/bin/bunx /usr/local/bin/bunx || true; \
+    fi
+
+RUN npm install -g "@openai/codex@${CODEX_VERSION}" \
+ && npm cache clean --force \
+ && ln -sf /opt/npm-global/bin/codex /usr/local/bin/codex \
+ && /usr/local/bin/codex --version
+
+# Make login shells keep the same developer-tool PATH as Docker ENV.
+RUN printf '%s\n' \
+      'export VIRTUAL_ENV=/tmp/venv' \
+      'export GOPATH=/tmp/go' \
+      'export GOCACHE=/tmp/go-build' \
+      'export CARGO_HOME=/tmp/cargo' \
+      'export RUSTUP_HOME=/opt/rustup' \
+      'export NPM_CONFIG_PREFIX=/opt/npm-global' \
+      'export NPM_CONFIG_CACHE=/tmp/npm-cache' \
+      'export PIP_CACHE_DIR=/tmp/pip-cache' \
+      'export BUN_INSTALL=/opt/bun' \
+      'export PATH=/tmp/venv/bin:/opt/npm-global/bin:/tmp/go/bin:/tmp/cargo/bin:/opt/cargo/bin:/opt/bun/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' \
+      > /etc/profile.d/codexsafe-env.sh
+
+RUN useradd -m -s /bin/bash -u 1000 codex || true
+
+WORKDIR /workspace
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["codex"]
