@@ -369,6 +369,63 @@ label{display:block;margin:11px 0 6px;color:var(--muted);font-size:12px}textarea
   min-height:44px;
 }
 
+.diff-preview{
+  padding:0;
+  background:#fffdf7;
+  color:#24292f;
+  white-space:normal;
+}
+.diff-wrap{
+  min-width:max-content;
+  padding-bottom:10px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+}
+.diff-title{
+  position:sticky;
+  top:0;
+  z-index:2;
+  padding:9px 12px;
+  border-bottom:1px solid var(--line);
+  background:#f6f8fa;
+  color:#57606a;
+  font:12px/1.4 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-weight:720;
+}
+.diff-table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:12px;
+  line-height:1.55;
+}
+.diff-line-no{
+  width:44px;
+  padding:0 8px;
+  border-right:1px solid rgba(31,35,40,.08);
+  color:#6e7781;
+  text-align:right;
+  user-select:none;
+}
+.diff-marker{
+  width:18px;
+  padding:0 4px;
+  text-align:center;
+  user-select:none;
+}
+.diff-code{
+  min-width:420px;
+  padding:0 12px 0 4px;
+  white-space:pre;
+}
+.diff-code code{font:inherit}
+.diff-row.add{background:#e6ffec}
+.diff-row.add .diff-line-no,.diff-row.add .diff-marker{background:#ccffd8;color:#1a7f37}
+.diff-row.del{background:#ffebe9}
+.diff-row.del .diff-line-no,.diff-row.del .diff-marker{background:#ffd7d5;color:#cf222e}
+.diff-row.hunk{background:#ddf4ff;color:#0969da}
+.diff-row.hunk .diff-line-no,.diff-row.hunk .diff-marker{background:#b6e3ff}
+.diff-row.meta{background:#f6f8fa;color:#57606a}
+.diff-row.meta .diff-line-no,.diff-row.meta .diff-marker{background:#f6f8fa}
+
 /* JSON / HTML / Python files render as readable code, not raw blobs. */
 .code-preview{
   padding:0;
