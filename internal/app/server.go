@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -919,6 +921,12 @@ func (s *Server) serveWorkspaceFile(w http.ResponseWriter, r *http.Request, task
 		writeError(w, http.StatusNotFound, "文件不存在")
 		return
 	}
+	if r.URL.Query().Get("diff") == "1" {
+		w.Header().Set("Content-Type", "text/x-diff; charset=utf-8")
+		diff := workspaceFileDiff(root, rel)
+		_, _ = w.Write([]byte(diff))
+		return
+	}
 	if r.URL.Query().Get("download") == "1" {
 		w.Header().Set("Content-Disposition", contentDisposition("attachment", abs))
 		http.ServeFile(w, r, abs)
@@ -930,6 +938,22 @@ func (s *Server) serveWorkspaceFile(w http.ResponseWriter, r *http.Request, task
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	http.ServeFile(w, r, abs)
+}
+
+const maxWorkspaceDiffBytes = 512 * 1024
+
+func workspaceFileDiff(root, rel string) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "git", "-C", root, "diff", "--no-ext-diff", "--unified=80", "HEAD", "--", filepath.ToSlash(rel))
+	out, err := cmd.Output()
+	if err != nil || ctx.Err() != nil || len(out) == 0 {
+		return ""
+	}
+	if len(out) > maxWorkspaceDiffBytes {
+		out = append(out[:maxWorkspaceDiffBytes], []byte("\n... diff truncated ...\n")...)
+	}
+	return string(out)
 }
 
 func treeIDsForForest(task *Task, forestFilter string) []string {
