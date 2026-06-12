@@ -345,7 +345,6 @@ func compactTaskList(tasks []*Task) []*Task {
 		}
 		cp := *task
 		cp.Prompt = ""
-		cp.WorkspacePath = ""
 		cp.ScratchPath = ""
 		cp.SchedulePath = ""
 		cp.LogPath = ""
@@ -390,7 +389,6 @@ func publicTask(task *Task) *Task {
 	}
 	cp := *task
 	cp.Prompt = ""
-	cp.WorkspacePath = ""
 	cp.ScratchPath = ""
 	cp.SchedulePath = ""
 	cp.LogPath = ""

@@ -1904,3 +1904,41 @@ label{display:block;margin:11px 0 6px;color:var(--muted);font-size:12px}textarea
   .task-template-grid{grid-template-columns:1fr}
   .task-template-card{min-height:60px}
 }
+
+/* Mobile detail containment: long reports and controls must not widen the page. */
+@media(max-width:820px){
+  .app-shell.focused .main,
+  .app-shell.focused .forest-detail-layout,
+  .app-shell.focused .right-pane,
+  .app-shell.focused .forest-summary,
+  .app-shell.focused .forest-summary-head,
+  .app-shell.focused .overview-mini-panel,
+  .app-shell.focused .overview-mini-chip,
+  .app-shell.focused .file-zone,
+  .app-shell.focused .file-zone-head,
+  .app-shell.focused .file-controls,
+  .app-shell.focused .switch-field,
+  .app-shell.focused .forest-control,
+  .app-shell.focused .file-zone-body,
+  .app-shell.focused .file-preview{
+    max-width:100%!important;
+    min-width:0!important;
+  }
+  .app-shell.focused .file-preview{
+    width:100%!important;
+    overflow-x:auto!important;
+  }
+  .app-shell.focused .markdown-preview{
+    overflow-wrap:anywhere;
+    word-break:break-word;
+  }
+  .app-shell.focused .markdown-preview table{
+    display:block;
+    max-width:100%;
+    overflow-x:auto;
+  }
+  .app-shell.focused .file-zone-head select,
+  .app-shell.focused .switch-field select{
+    min-width:0!important;
+  }
+}
