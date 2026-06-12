@@ -1,6 +1,10 @@
 package codex
 
 import (
+	"context"
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -40,5 +44,38 @@ func TestRedactSensitiveTextRedactsModelToken(t *testing.T) {
 	}
 	if !strings.Contains(got, "[redacted-token]") {
 		t.Fatalf("redaction marker missing: %q", got)
+	}
+}
+
+func TestValidateCodexCommandFromEnv(t *testing.T) {
+	dir := t.TempDir()
+	name := "fake-codex"
+	body := "#!/bin/sh\necho codex-cli test\n"
+	if runtime.GOOS == "windows" {
+		name += ".bat"
+		body = "@echo off\r\necho codex-cli test\r\n"
+	}
+	path := filepath.Join(dir, name)
+	if err := os.WriteFile(path, []byte(body), 0755); err != nil {
+		t.Fatalf("write fake codex: %v", err)
+	}
+	t.Setenv("AUTO_GARDENER_RUNNER", "")
+	t.Setenv("AUTO_GARDENER_CODEX_CMD", path)
+
+	got, err := ValidateCodexCommandFromEnv(context.Background())
+	if err != nil {
+		t.Fatalf("ValidateCodexCommandFromEnv: %v", err)
+	}
+	if got != path {
+		t.Fatalf("resolved command = %q, want %q", got, path)
+	}
+}
+
+func TestValidateCodexCommandFromEnvFailsMissingCommand(t *testing.T) {
+	t.Setenv("AUTO_GARDENER_RUNNER", "")
+	t.Setenv("AUTO_GARDENER_CODEX_CMD", filepath.Join(t.TempDir(), "missing-codex"))
+
+	if _, err := ValidateCodexCommandFromEnv(context.Background()); err == nil {
+		t.Fatal("ValidateCodexCommandFromEnv succeeded for missing command")
 	}
 }

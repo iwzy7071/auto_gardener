@@ -62,6 +62,33 @@ type ShellRunner struct {
 	ClaudeCommand string
 }
 
+// ValidateCodexCommandFromEnv resolves and executes the configured Codex CLI once.
+// It is intended for server startup fail-fast checks so task execution does not
+// discover a missing or broken CLI only after work has been scheduled.
+func ValidateCodexCommandFromEnv(ctx context.Context) (string, error) {
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("AUTO_GARDENER_RUNNER")), "mock") {
+		return "mock", nil
+	}
+	codexCmd := strings.TrimSpace(os.Getenv("AUTO_GARDENER_CODEX_CMD"))
+	if codexCmd == "" {
+		codexCmd = "codex"
+	}
+	command, env, err := resolveCommand(codexCmd, "Codex CLI", "AUTO_GARDENER_CODEX_CMD")
+	if err != nil {
+		return "", err
+	}
+	check := exec.CommandContext(ctx, command, "--version")
+	check.Env = env
+	out, err := check.CombinedOutput()
+	if ctx.Err() != nil {
+		return "", fmt.Errorf("Codex CLI 校验超时：%w", ctx.Err())
+	}
+	if err != nil {
+		return "", fmt.Errorf("Codex CLI 校验失败（%s --version）：%w: %s", command, err, truncateForError(string(out), 2048))
+	}
+	return command, nil
+}
+
 func NewRunnerFromEnv() Runner {
 	if strings.EqualFold(strings.TrimSpace(os.Getenv("AUTO_GARDENER_RUNNER")), "mock") {
 		r := NewMockRunnerFromEnv()
@@ -437,6 +464,14 @@ func envListContains(value, target string) bool {
 		}
 	}
 	return false
+}
+
+func truncateForError(value string, max int) string {
+	value = strings.TrimSpace(value)
+	if max <= 0 || len(value) <= max {
+		return value
+	}
+	return value[:max] + "..."
 }
 
 func resolveCommand(command, label, envVar string) (string, []string, error) {
