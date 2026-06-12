@@ -50,6 +50,15 @@ with zipfile.ZipFile(archive) as zf:
 PYINNER
 }
 
+write_sha256_file() {
+  local file="$1"
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$file" > "$file.sha256"
+  else
+    shasum -a 256 "$file" > "$file.sha256"
+  fi
+}
+
 
 GOOS=windows GOARCH=amd64 go build -ldflags "-X auto_gardener/internal/app.Version=$VERSION" -o "$PKG_DIR/gardener.exe" ./cmd/server
 cp -R web/static "$PKG_DIR/web/static"
@@ -86,5 +95,5 @@ fi
 printf '%s\n' "$VERSION" > "$PKG_DIR/VERSION.txt"
 
 ( cd "$OUT_DIR" && zip -qr "Gardener-Windows.zip" "Gardener-Windows" )
-( cd "$OUT_DIR" && sha256sum "Gardener-Windows.zip" > "Gardener-Windows.zip.sha256" )
+write_sha256_file "$ZIP_PATH"
 echo "Built $ZIP_PATH"

@@ -53,6 +53,15 @@ normalize_arches() {
 mapfile -t BUILD_ARCHES < <(normalize_arches)
 mkdir -p "$OUT_DIR"
 
+write_sha256_file() {
+  local file="$1"
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$file" > "$file.sha256"
+  else
+    shasum -a 256 "$file" > "$file.sha256"
+  fi
+}
+
 safe_extract_tar() {
   local archive="$1" dest="$2"
   python3 - "$archive" "$dest" <<'PYINNER'
@@ -131,6 +140,6 @@ for arch in "${BUILD_ARCHES[@]}"; do
   fi
   printf '%s\n' "$VERSION" > "$pkg_dir/VERSION.txt"
   ( cd "$OUT_DIR" && tar -czf "Gardener-macOS-$arch.tar.gz" "Gardener-macOS-$arch" )
-  ( cd "$OUT_DIR" && sha256sum "Gardener-macOS-$arch.tar.gz" > "Gardener-macOS-$arch.tar.gz.sha256" )
+  write_sha256_file "$tar_path"
   echo "Built $tar_path"
 done

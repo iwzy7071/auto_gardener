@@ -131,15 +131,20 @@ if [[ -n "$PROVISION_URL" ]]; then
 fi
 
 if [[ -s "$PROVISION_JSON" ]]; then
-  package_from_provision="$(python3 - "$PROVISION_JSON" "$pkg_arch" <<'PY'
+  provision_package_info="$(python3 - "$PROVISION_JSON" "$pkg_arch" <<'PY'
 import json, sys
 j=json.load(open(sys.argv[1]))
 arch=sys.argv[2]
 urls=j.get('macPackageUrls') or {}
+sha_urls=j.get('macPackageSha256Urls') or {}
 print(urls.get(arch) or j.get('macPackageUrl') or '')
+print(sha_urls.get(arch) or j.get('macPackageSha256Url') or j.get('packageSha256Url') or '')
 PY
 )"
+  package_from_provision="$(printf '%s\n' "$provision_package_info" | sed -n '1p')"
+  package_sha_from_provision="$(printf '%s\n' "$provision_package_info" | sed -n '2p')"
   if [[ -n "$package_from_provision" ]]; then PACKAGE_URL="$package_from_provision"; fi
+  if [[ -n "$package_sha_from_provision" ]]; then PACKAGE_SHA256_URL="$package_sha_from_provision"; fi
 fi
 
 MAX_PMSET_OUTPUT_BYTES=65536
