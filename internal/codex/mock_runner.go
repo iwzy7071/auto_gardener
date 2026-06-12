@@ -38,6 +38,8 @@ func (r MockRunner) Run(ctx context.Context, req RunRequest) RunResult {
 	switch {
 	case strings.Contains(prompt, "Git 统一初始化"):
 		output = "Mock git initialization complete."
+	case req.Role == "gardener" && strings.Contains(prompt, "快速提问模式"):
+		output = "Mock quick answer."
 	case req.Role == "gardener" && (strings.Contains(prompt, "已经结束") || strings.Contains(prompt, "决策") || strings.Contains(prompt, "判断")):
 		output = `{"message_to_user":"Mock run finished successfully.","forest_finished":true,"trees":[]}`
 	case req.Role == "gardener":
