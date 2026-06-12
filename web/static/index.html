@@ -81,7 +81,13 @@
           <div id="messages" class="messages phone-messages"></div>
           <div class="chat-box phone-input">
             <textarea id="messageInput" class="chat-textarea" data-i18n-placeholder="messagePlaceholder" placeholder="给 Gardener 发消息" rows="1"></textarea>
-            <button id="sendMessageBtn" class="primary-btn" data-i18n="send">发送</button>
+            <div class="chat-actions">
+              <select id="messageModeSelect" class="mode-select" data-i18n-title="messageModeTitle" title="发送模式">
+                <option value="run" data-i18n="messageModeRun">执行</option>
+                <option value="ask" data-i18n="messageModeAsk">提问</option>
+              </select>
+              <button id="sendMessageBtn" class="primary-btn" data-i18n="send">发送</button>
+            </div>
           </div>
         </section>
 

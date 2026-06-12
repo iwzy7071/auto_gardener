@@ -653,7 +653,15 @@ func (s *Server) handleTaskSubroutes(w http.ResponseWriter, r *http.Request) {
 		if !decodeLimitedJSON(w, r, &req, maxMessageJSONBodyBytes, "请求体不是合法 JSON") {
 			return
 		}
-		task, err := s.orchestrator.SendMessage(taskID, req.Content)
+		var (
+			task *Task
+			err  error
+		)
+		if strings.EqualFold(strings.TrimSpace(req.Mode), "ask") {
+			task, err = s.orchestrator.AskMessage(taskID, req.Content)
+		} else {
+			task, err = s.orchestrator.SendMessage(taskID, req.Content)
+		}
 		if err != nil {
 			status := http.StatusBadRequest
 			if errors.Is(err, ErrNotFound) {

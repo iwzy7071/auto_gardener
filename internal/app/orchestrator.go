@@ -227,6 +227,61 @@ func (o *Orchestrator) SendMessage(taskID, content string) (*Task, error) {
 	return o.sendMessageWithInstruction(taskID, content, content)
 }
 
+func (o *Orchestrator) AskMessage(taskID, content string) (*Task, error) {
+	content = strings.TrimSpace(content)
+	if content == "" {
+		return nil, fmt.Errorf("消息不能为空")
+	}
+	if err := validateUserTextSize("消息", content); err != nil {
+		return nil, err
+	}
+	start := time.Now()
+	t, err := o.store.UpdateTask(taskID, func(t *Task) {
+		t.Messages = append(t.Messages, Message{ID: newID("msg"), Role: RoleUser, Content: content, CreatedAt: start})
+	})
+	if err != nil {
+		return nil, err
+	}
+	o.store.AppendGardenerLog(taskID, "用户快速提问："+compactLogValue(content, 160))
+	outFile := filepath.Join(o.dataDir, "forests", taskID, "gardener", "ask_"+newID("msg")+".md")
+	usage := o.newUsageRecorder(taskID, newID("agent"), "gardener", "", "Quick Ask")
+	result := o.runner.Run(context.Background(), codex.RunRequest{
+		Role:       "gardener",
+		CLI:        string(normalizeCLIEngine(t.CLIEngine)),
+		Prompt:     buildAskPrompt(t, content),
+		WorkDir:    taskWorkDir(t),
+		OutputFile: outFile,
+		Model:      o.modelConfigForTask(t),
+		OnLine: func(line string) {
+			usage.Record(line)
+			if cleaned, ok := o.codexLogLine(line); ok {
+				o.store.AppendGardenerLog(taskID, "快速提问："+cleaned)
+			}
+		},
+	})
+	answer := strings.TrimSpace(result.Output)
+	if answer == "" {
+		if result.Err != nil {
+			answer = "这次快速提问没有成功生成回复：" + result.Err.Error()
+		} else {
+			answer = "这次快速提问没有生成可显示的回复。"
+		}
+	}
+	answer = codex.Truncate(userFacingMessage(answer), 1800)
+	updated, updateErr := o.store.UpdateTask(taskID, func(t *Task) {
+		t.Messages = append(t.Messages, Message{ID: newID("msg"), Role: RoleGardener, Content: answer, CreatedAt: time.Now()})
+	})
+	if updateErr != nil {
+		return updated, updateErr
+	}
+	if result.Err != nil {
+		o.store.AppendGardenerLog(taskID, "快速提问失败："+result.Err.Error())
+		return updated, nil
+	}
+	o.store.AppendGardenerLog(taskID, "快速提问已回复。")
+	return updated, nil
+}
+
 func (o *Orchestrator) ResumeTask(taskID string) (*Task, error) {
 	t, ok := o.store.GetTask(taskID)
 	if !ok {
@@ -1279,6 +1334,59 @@ log.md: %s
 子任务摘要：
 %s
 `, forest, t.ID, t.Prompt, t.WorkspacePath, taskWorkDir(t), t.SchedulePath, t.LogPath, treeSummary(t))
+}
+
+func buildAskPrompt(t *Task, question string) string {
+	var recentMessages []string
+	if t != nil {
+		start := len(t.Messages) - 8
+		if start < 0 {
+			start = 0
+		}
+		for _, msg := range t.Messages[start:] {
+			content := strings.Join(strings.Fields(msg.Content), " ")
+			if content == "" {
+				continue
+			}
+			recentMessages = append(recentMessages, fmt.Sprintf("- %s: %s", msg.Role, codex.Truncate(content, 500)))
+		}
+	}
+	var treeReports []string
+	if t != nil {
+		for _, tr := range t.Trees {
+			if tr == nil || strings.TrimSpace(tr.FruitPath) == "" {
+				continue
+			}
+			treeReports = append(treeReports, fmt.Sprintf("- %s: %s", tr.Name, tr.FruitPath))
+		}
+	}
+	return fmt.Sprintf(`你是 Gardener 的快速提问模式。用户只是想问一个问题，不是在追加新的执行任务。
+
+规则：
+- 不要规划阶段，不要派出或要求创建任何子任务。
+- 默认只做只读检查；除非用户明确要求，不要修改文件、不要创建交付物。
+- 可以读取已有任务记录、报告和当前 workspace 中的文件来回答。
+- 回复要简洁、直接、面向用户；如果信息不足，请说明需要用户补充什么。
+- 不要输出调度 JSON；直接输出给用户看的自然语言/Markdown 回复。
+
+任务 ID: %s
+任务标题: %s
+任务原始目标: %s
+任务状态: %s
+outputPath: %s
+scratchPath: %s
+schedulePath: %s
+logPath: %s
+
+已有子任务报告：
+%s
+
+最近对话：
+%s
+
+用户问题：
+%s
+`, t.ID, t.Title, t.Prompt, t.Status, t.WorkspacePath, taskWorkDir(t), t.SchedulePath, t.LogPath, strings.Join(treeReports, "\n"), strings.Join(recentMessages, "\n"), question)
 }
 
 func initialSchedule(t *Task) string {

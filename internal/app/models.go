@@ -170,6 +170,7 @@ type CreateTaskRequest struct {
 
 type SendMessageRequest struct {
 	Content string `json:"content"`
+	Mode    string `json:"mode,omitempty"`
 }
 
 type RenameTaskRequest struct {
