@@ -2,7 +2,7 @@ package app
 
 import "testing"
 
-func TestPublicTaskRedactsFilesystemPaths(t *testing.T) {
+func TestPublicTaskExposesWorkspacePathOnly(t *testing.T) {
 	task := publicTask(&Task{
 		ID:            "task1",
 		Prompt:        "secret prompt",
@@ -18,7 +18,10 @@ func TestPublicTaskRedactsFilesystemPaths(t *testing.T) {
 			GoalPath:  "/Users/alice/Desktop/forest_data/forests/task1/trees/tree1/goal.md",
 		}},
 	})
-	if task.Prompt != "" || task.WorkspacePath != "" || task.ScratchPath != "" || task.SchedulePath != "" || task.LogPath != "" {
+	if task.WorkspacePath != "/Users/alice/project" {
+		t.Fatalf("public task should expose workspace path for UI, got %#v", task.WorkspacePath)
+	}
+	if task.Prompt != "" || task.ScratchPath != "" || task.SchedulePath != "" || task.LogPath != "" {
 		t.Fatalf("public task exposed sensitive fields: %#v", task)
 	}
 	if len(task.Messages) != 1 {

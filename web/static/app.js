@@ -721,7 +721,24 @@ function renderTaskList() {
   });
 }
 
+
+function scrollPageToTop() {
+  try { window.scrollTo({ top: 0, left: 0, behavior: 'auto' }); }
+  catch { try { window.scrollTo(0, 0); } catch {} }
+  try { document.scrollingElement.scrollTop = 0; document.scrollingElement.scrollLeft = 0; } catch {}
+  try { document.documentElement.scrollTop = 0; document.documentElement.scrollLeft = 0; } catch {}
+  try { document.body.scrollTop = 0; document.body.scrollLeft = 0; } catch {}
+}
+
+function scrollPageToTopSoon() {
+  scrollPageToTop();
+  if (window.requestAnimationFrame) requestAnimationFrame(scrollPageToTop);
+  setTimeout(scrollPageToTop, 0);
+  setTimeout(scrollPageToTop, 80);
+}
+
 async function selectTask(taskId, options = {}) {
+  scrollPageToTopSoon();
   state.activeTaskId = taskId;
   invalidateRenderCache(taskId);
   resetFileViewerForTask(taskId);
@@ -731,6 +748,7 @@ async function selectTask(taskId, options = {}) {
   renderTaskList();
   if (!options.fromRoute) setRoute(taskURL(taskId), !!options.replaceRoute);
   const ok = await loadActiveTask(true);
+  scrollPageToTopSoon();
   if (!ok) {
     backToList({ replaceRoute: true });
     return;
@@ -739,6 +757,7 @@ async function selectTask(taskId, options = {}) {
 }
 
 function backToList(options = {}) {
+  scrollPageToTopSoon();
   state.activeTaskId = null;
   if (state.pendingTaskRenderFrame) { try { cancelAnimationFrame(state.pendingTaskRenderFrame); } catch {} state.pendingTaskRenderFrame = 0; state.pendingTaskRender = null; }
   $('appShell').classList.remove('focused');

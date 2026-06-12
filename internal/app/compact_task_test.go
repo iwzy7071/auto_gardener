@@ -2,7 +2,7 @@ package app
 
 import "testing"
 
-func TestCompactTaskListRedactsFilesystemPaths(t *testing.T) {
+func TestCompactTaskListExposesWorkspacePathOnly(t *testing.T) {
 	tasks := compactTaskList([]*Task{{
 		ID:            "task1",
 		Prompt:        "secret prompt",
@@ -21,7 +21,10 @@ func TestCompactTaskListRedactsFilesystemPaths(t *testing.T) {
 		t.Fatalf("expected 1 task, got %d", len(tasks))
 	}
 	got := tasks[0]
-	if got.Prompt != "" || got.WorkspacePath != "" || got.ScratchPath != "" || got.SchedulePath != "" || got.LogPath != "" || got.Messages != nil {
+	if got.WorkspacePath != "/Users/alice/project" {
+		t.Fatalf("compact task should expose workspace path for UI, got %#v", got.WorkspacePath)
+	}
+	if got.Prompt != "" || got.ScratchPath != "" || got.SchedulePath != "" || got.LogPath != "" || got.Messages != nil {
 		t.Fatalf("compact task exposed sensitive fields: %#v", got)
 	}
 	if len(got.Trees) != 1 || got.Trees[0].FruitPath != "ready" {
