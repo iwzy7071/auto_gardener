@@ -19,6 +19,7 @@ REMOTE_END = int(os.environ.get('GARDENER_RELAY_REMOTE_END', '18100'))
 PROVISION_RETENTION_SECONDS = int(os.environ.get('GARDENER_RELAY_PROVISION_RETENTION_SECONDS', '86400'))
 RELAY_PUBLIC_BASE_URL = os.environ.get('GARDENER_RELAY_PUBLIC_BASE_URL', f'http://{SERVER_ADDR}')
 PACKAGE_URL = os.environ.get('GARDENER_RELAY_WINDOWS_PACKAGE_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/Gardener-Windows.zip')
+PACKAGE_SHA256_URL = os.environ.get('GARDENER_RELAY_WINDOWS_PACKAGE_SHA256_URL', f'{PACKAGE_URL}.sha256')
 INSTALL_SCRIPT_URL = os.environ.get('GARDENER_RELAY_WINDOWS_INSTALL_SCRIPT_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/install-gardener.ps1')
 MAC_INSTALL_SCRIPT_URL = os.environ.get('GARDENER_RELAY_MAC_INSTALL_SCRIPT_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/install-gardener-macos.sh')
 MAX_FRPC_CONFIG_BYTES = 64 * 1024
@@ -27,6 +28,7 @@ MAC_PACKAGE_URLS = {
     'arm64': os.environ.get('GARDENER_RELAY_MAC_ARM64_PACKAGE_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/Gardener-macOS-arm64.tar.gz'),
     'amd64': os.environ.get('GARDENER_RELAY_MAC_AMD64_PACKAGE_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/Gardener-macOS-amd64.tar.gz'),
 }
+MAC_PACKAGE_SHA256_URLS = {arch: os.environ.get(f'GARDENER_RELAY_MAC_{arch.upper()}_PACKAGE_SHA256_URL', f'{url}.sha256') for arch, url in MAC_PACKAGE_URLS.items()}
 FRPS_CONF_MAX_BYTES = 64 * 1024
 
 
@@ -310,9 +312,11 @@ def write_provision(instance, password, setup_key=None):
         'webUsername': instance['basicAuthUser'],
         'webPassword': password,
         'packageUrl': PACKAGE_URL,
+        'packageSha256Url': PACKAGE_SHA256_URL,
         'installScriptUrl': INSTALL_SCRIPT_URL,
         'macInstallScriptUrl': MAC_INSTALL_SCRIPT_URL,
         'macPackageUrls': MAC_PACKAGE_URLS,
+        'macPackageSha256Urls': MAC_PACKAGE_SHA256_URLS,
         'frpcToml': read_text_limited(USERS / instance['user'] / 'frpc.toml', MAX_FRPC_CONFIG_BYTES, 'frpc config'),
         'createdAt': time.strftime('%Y-%m-%dT%H:%M:%S%z'),
         'note': 'Treat this setup key as a secret. Anyone with this URL can configure this Gardener relay client.',

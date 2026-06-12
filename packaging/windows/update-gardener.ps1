@@ -1,5 +1,7 @@
 param(
   [Parameter(Mandatory=$true)] [string]$PackageUrl,
+  [string]$PackageSha256Url,
+  [string]$ExpectedPackageSha256,
   [string]$InstallDir = (Split-Path -Parent $MyInvocation.MyCommand.Path),
   [switch]$Restart
 )
@@ -30,6 +32,26 @@ function Unblock-GardenerPath([string]$Path) {
   }
 }
 
+
+
+function Get-GardenerSha256FromText([string]$Text) {
+  $m = [regex]::Match($Text, '(?i)\b[0-9a-f]{64}\b')
+  if (-not $m.Success) { throw "Package SHA256 digest is missing or invalid." }
+  return $m.Value.ToLowerInvariant()
+}
+
+function Test-GardenerPackageHash([string]$Path, [string]$Sha256Url, [string]$ExpectedSha256) {
+  $expected = $ExpectedSha256
+  if (-not $expected -and $Sha256Url) {
+    Write-Host "Loading Gardener package checksum..." -ForegroundColor Green
+    $expected = Get-GardenerSha256FromText (Invoke-WebRequest -Uri $Sha256Url).Content
+  }
+  if (-not $expected) { return }
+  $expected = Get-GardenerSha256FromText $expected
+  $actual = (Get-FileHash -Algorithm SHA256 -Path $Path).Hash.ToLowerInvariant()
+  if ($actual -ne $expected) { throw "Package SHA256 mismatch: expected $expected but got $actual" }
+  Write-Host "Package checksum verified." -ForegroundColor Green
+}
 
 function Test-GardenerZipEntries([string]$ZipPath) {
   Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -105,6 +127,7 @@ if ((Get-Item $Zip).Length -gt $PackageMaxBytes) {
   throw "Gardener package archive is too large."
 }
 Unblock-GardenerPath -Path $Zip
+Test-GardenerPackageHash -Path $Zip -Sha256Url $PackageSha256Url -ExpectedSha256 $ExpectedPackageSha256
 Test-GardenerZipEntries -ZipPath $Zip
 Expand-Archive -Path $Zip -DestinationPath $Extract -Force
 Unblock-GardenerPackageFiles -Dir $Extract

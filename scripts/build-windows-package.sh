@@ -86,4 +86,5 @@ fi
 printf '%s\n' "$VERSION" > "$PKG_DIR/VERSION.txt"
 
 ( cd "$OUT_DIR" && zip -qr "Gardener-Windows.zip" "Gardener-Windows" )
+( cd "$OUT_DIR" && sha256sum "Gardener-Windows.zip" > "Gardener-Windows.zip.sha256" )
 echo "Built $ZIP_PATH"
