@@ -112,6 +112,8 @@ func (o *Orchestrator) CreateTask(prompt, workspacePath string) (*Task, error) {
 	workspacePath = strings.TrimSpace(expandHome(workspacePath))
 	if workspacePath == "" {
 		workspacePath = defaultOutputPathForPrompt(prompt, id, title)
+	} else {
+		workspacePath = isolatedTaskWorkspacePath(workspacePath, id)
 	}
 	absWorkspace, err := filepath.Abs(workspacePath)
 	if err != nil {
@@ -1165,14 +1167,25 @@ func taskWorkDir(t *Task) string {
 func defaultOutputPathForPrompt(prompt, id, title string) string {
 	home, err := os.UserHomeDir()
 	if err != nil || strings.TrimSpace(home) == "" {
-		return filepath.Join(os.TempDir(), "GardenerOutputs", id)
+		return isolatedTaskWorkspacePath(filepath.Join(os.TempDir(), "GardenerOutputs"), id)
 	}
 	desktop := filepath.Join(home, "Desktop")
 	text := strings.ToLower(prompt)
 	if strings.Contains(prompt, "桌面") || strings.Contains(text, "desktop") {
-		return desktop
+		return isolatedTaskWorkspacePath(desktop, id)
 	}
-	return filepath.Join(desktop, "Gardener成果", id)
+	return isolatedTaskWorkspacePath(filepath.Join(desktop, "Gardener成果"), id)
+}
+
+func isolatedTaskWorkspacePath(basePath, id string) string {
+	basePath = filepath.Clean(strings.TrimSpace(expandHome(basePath)))
+	if basePath == "." || basePath == "" {
+		basePath = filepath.Join(os.TempDir(), "GardenerOutputs")
+	}
+	if filepath.Base(basePath) == id {
+		return basePath
+	}
+	return filepath.Join(basePath, id)
 }
 
 func buildGardenerPlanPrompt(t *Task, instruction string) string {
@@ -1245,7 +1258,7 @@ func buildTreePrompt(task *Task, tr *Tree) string {
 - 你的当前工作目录是 scratchPath；这里仅用于临时搜索、下载缓存、草稿、脚本和中间文件。
 - outputPath 是用户可见的交付目录。除非用户明确要求保存某个文件，否则不要在 outputPath 或 Gardener 数据目录中创建过程文件。
 - 只有最终交付物、用户明确要求保存的文件、或对用户项目的必要最终修改，才可以放入 outputPath。
-- 如果用户明确说“下载到桌面 / 保存到桌面 / save to Desktop”，最终文件必须保存到 outputPath 指向的桌面目录，临时文件仍留在 scratchPath。
+- 如果用户明确说“下载到桌面 / 保存到桌面 / save to Desktop”，最终文件必须保存到 outputPath 指向的本任务专属桌面子目录，临时文件仍留在 scratchPath。
 - 多个子任务可能并行运行；请尽量只改你的工作范围。
 - 如果发现冲突或其他子任务造成的问题，请记录到报告中，不要大范围重写无关部分。
 - 完成后请在最终回答中给出 Markdown 报告，系统会写入内部报告文件。

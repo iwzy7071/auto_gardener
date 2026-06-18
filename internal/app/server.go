@@ -857,6 +857,9 @@ func (s *Server) listWorkspaceFiles(w http.ResponseWriter, r *http.Request, task
 			if name == ".git" || name == "node_modules" || name == ".next" || name == "dist" || name == "build" || name == "vendor" {
 				return filepath.SkipDir
 			}
+			if path != root && s.isOtherTaskWorkspaceRoot(task, root, path) {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 		info, err := d.Info()
@@ -914,6 +917,10 @@ func (s *Server) serveWorkspaceFile(w http.ResponseWriter, r *http.Request, task
 		writeError(w, http.StatusForbidden, "只能读取保存位置内的文件")
 		return
 	}
+	if s.isInsideOtherTaskWorkspace(task, root, abs) {
+		writeError(w, http.StatusForbidden, "不能通过当前任务读取其他任务的保存位置")
+		return
+	}
 	info, err := os.Stat(abs)
 	if err != nil || info.IsDir() {
 		writeError(w, http.StatusNotFound, "文件不存在")
@@ -930,6 +937,60 @@ func (s *Server) serveWorkspaceFile(w http.ResponseWriter, r *http.Request, task
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	http.ServeFile(w, r, abs)
+}
+
+func (s *Server) isOtherTaskWorkspaceRoot(current *Task, currentRoot, candidate string) bool {
+	if s == nil || s.store == nil || current == nil {
+		return false
+	}
+	candidateAbs, err := filepath.Abs(filepath.Clean(candidate))
+	if err != nil {
+		return false
+	}
+	currentRootAbs, err := filepath.Abs(filepath.Clean(currentRoot))
+	if err != nil {
+		return false
+	}
+	for _, other := range s.store.ListTasks() {
+		if other == nil || other.ID == current.ID || strings.TrimSpace(other.WorkspacePath) == "" {
+			continue
+		}
+		otherRoot, err := filepath.Abs(filepath.Clean(other.WorkspacePath))
+		if err != nil || otherRoot == currentRootAbs {
+			continue
+		}
+		if candidateAbs == otherRoot {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Server) isInsideOtherTaskWorkspace(current *Task, currentRoot, candidate string) bool {
+	if s == nil || s.store == nil || current == nil {
+		return false
+	}
+	candidateAbs, err := filepath.Abs(filepath.Clean(candidate))
+	if err != nil {
+		return false
+	}
+	currentRootAbs, err := filepath.Abs(filepath.Clean(currentRoot))
+	if err != nil {
+		return false
+	}
+	for _, other := range s.store.ListTasks() {
+		if other == nil || other.ID == current.ID || strings.TrimSpace(other.WorkspacePath) == "" {
+			continue
+		}
+		otherRoot, err := filepath.Abs(filepath.Clean(other.WorkspacePath))
+		if err != nil || otherRoot == currentRootAbs {
+			continue
+		}
+		if candidateAbs == otherRoot || strings.HasPrefix(candidateAbs, otherRoot+string(filepath.Separator)) {
+			return true
+		}
+	}
+	return false
 }
 
 func treeIDsForForest(task *Task, forestFilter string) []string {

@@ -133,16 +133,15 @@ forest_data/
           tree.json
           progress.log
           fruit.md
-  workspaces/
-    {forest_id}_{safe_task_title}/
-      # 用户未选择目标目录时自动创建的默认 workspace
 ```
 
-如果用户创建任务时选择了目标目录，则 `workspacePath` 使用用户选择的目录。若用户未选择，则自动创建：
+如果用户创建任务时选择了保存位置，则 `workspacePath` 使用该目录下的任务专属子目录。若用户未选择，则自动在桌面创建任务专属目录：
 
 ```text
-forest_data/workspaces/{forest_id}_{safe_task_title}
+~/Desktop/Gardener成果/{forest_id}
 ```
+
+如果用户明确要求保存到桌面，则使用 `~/Desktop/{forest_id}`。每个任务都必须有独立 `workspacePath`，避免不同任务的用户可见文件相互混入。
 
 ## 5. Git 初始化要求
 
