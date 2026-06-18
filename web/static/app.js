@@ -2,230 +2,12 @@ const state = { powerStatus: null, tasks: [], activeTaskId: null, eventSource: n
 const $ = (id) => document.getElementById(id);
 const MAX_CSV_PREVIEW_ROWS = 500;
 
-const TEMPLATE_UI = {
-  'zh-CN': { title: '任务模板', subtitle: '选择常见任务类型，自动补全目标、交付物和验证要求。', use: '套用', clear: '清空模板', appended: '已套用模板，可继续补充细节。' },
-  en: { title: 'Task templates', subtitle: 'Start from common task types with goals, deliverables, and validation requirements.', use: 'Use', clear: 'Clear template', appended: 'Template applied. You can keep editing the details.' }
-};
-
-const TASK_TEMPLATES = [
-  {
-    id: 'bugfix',
-    icon: '🐞',
-    zhTitle: 'Bug 修复',
-    enTitle: 'Bug fix',
-    zhDesc: '定位并修复一个明确问题，要求复现和回归验证。',
-    enDesc: 'Diagnose and fix a concrete bug with reproduction and regression checks.',
-    zhPrompt: `请帮我修复一个 bug。
-
-背景 / 现象：
-- [描述用户看到的问题、报错或异常行为]
-
-期望行为：
-- [描述正确结果]
-
-要求：
-1. 先复现或定位问题根因，不要做无关重构。
-2. 使用最小改动修复。
-3. 补充或更新回归测试；如果不适合加测试，请说明原因。
-4. 运行相关检查，并在最终报告中列出命令和结果。
-5. 最终说明改了哪些文件、风险和后续建议。`,
-    enPrompt: `Please fix a bug.
-
-Background / symptom:
-- [Describe the user-visible problem, error, or incorrect behavior]
-
-Expected behavior:
-- [Describe the correct result]
-
-Requirements:
-1. Reproduce or identify the root cause first; avoid unrelated refactors.
-2. Use the smallest targeted fix.
-3. Add or update regression tests; if tests are not practical, explain why.
-4. Run the relevant checks and report the commands/results.
-5. Summarize changed files, risks, and follow-up suggestions.`
-  },
-  {
-    id: 'security-audit',
-    icon: '🛡️',
-    zhTitle: '安全审计',
-    enTitle: 'Security audit',
-    zhDesc: '检查高风险安全问题，先列发现和证据。',
-    enDesc: 'Review high-risk security issues and report evidence first.',
-    zhPrompt: `请对当前项目做一次安全审计。
-
-重点检查：
-1. 路径穿越、任意文件读写、符号链接逃逸。
-2. CSRF/CORS/鉴权/远程访问边界。
-3. 命令执行、环境变量、日志和 secret 泄露。
-4. 安装/更新脚本的供应链风险。
-5. 大文件、长日志、并发任务导致的 DoS 或资源耗尽。
-
-要求：
-- 先输出风险清单，不要直接大改代码。
-- 每个问题说明影响、复现路径、相关文件和修复建议。
-- 明确区分高危/中危/低危。
-- 如果需要修复，请建议每个高危问题单独发 PR。`,
-    enPrompt: `Please perform a security audit of this project.
-
-Focus areas:
-1. Path traversal, arbitrary file reads/writes, and symlink escapes.
-2. CSRF/CORS/authentication/remote-access boundaries.
-3. Command execution, environment variables, logs, and secret exposure.
-4. Supply-chain risks in install/update scripts.
-5. DoS/resource exhaustion from large files, long logs, or concurrency.
-
-Requirements:
-- Report findings first; do not make broad code changes immediately.
-- For each finding, include impact, reproduction path, related files, and a fix recommendation.
-- Clearly classify high/medium/low severity.
-- If fixes are needed, recommend one focused PR per high-risk issue.`
-  },
-  {
-    id: 'tests',
-    icon: '✅',
-    zhTitle: '测试补全',
-    enTitle: 'Test coverage',
-    zhDesc: '为现有逻辑补测试，保持生产代码最小改动。',
-    enDesc: 'Add coverage for existing behavior with minimal production changes.',
-    zhPrompt: `请为当前项目补充测试覆盖。
-
-目标范围：
-- [说明要覆盖的模块、接口或 bug 场景]
-
-要求：
-1. 先阅读现有测试风格和测试工具。
-2. 优先添加小而稳定的回归测试。
-3. 不要为了测试大幅重构生产代码。
-4. 运行最相关测试；必要时运行更大的回归检查。
-5. 最终报告新增覆盖点、运行命令和仍未覆盖的风险。`,
-    enPrompt: `Please improve test coverage for this project.
-
-Target scope:
-- [Describe the module, API, or bug scenario to cover]
-
-Requirements:
-1. Inspect the existing test style and tooling first.
-2. Prefer small, stable regression tests.
-3. Do not broadly refactor production code just for tests.
-4. Run the most relevant tests; run broader checks when needed.
-5. Report new coverage, commands run, and remaining uncovered risks.`
-  },
-  {
-    id: 'docs',
-    icon: '📝',
-    zhTitle: '文档更新',
-    enTitle: 'Documentation',
-    zhDesc: '补 README、部署说明或用户指南。',
-    enDesc: 'Update README, deployment notes, or user-facing guides.',
-    zhPrompt: `请更新项目文档。
-
-文档目标：
-- [说明要解释的功能、部署流程或用户问题]
-
-要求：
-1. 先确认当前代码真实行为，不要写不存在的功能。
-2. 更新最相关的 README/指南/示例配置。
-3. 给出清晰步骤、注意事项和验证方式。
-4. 避免泄露真实域名、token、密码或本地路径。
-5. 最终列出改动文件和未覆盖的文档空白。`,
-    enPrompt: `Please update the project documentation.
-
-Documentation goal:
-- [Describe the feature, deployment flow, or user question]
-
-Requirements:
-1. Confirm the current code behavior before documenting it.
-2. Update the most relevant README/guide/example config.
-3. Provide clear steps, caveats, and verification guidance.
-4. Do not expose real domains, tokens, passwords, or local paths.
-5. Summarize changed files and any remaining documentation gaps.`
-  },
-  {
-    id: 'refactor',
-    icon: '🧹',
-    zhTitle: '小步重构',
-    enTitle: 'Focused refactor',
-    zhDesc: '改善结构但保持行为兼容。',
-    enDesc: 'Improve structure while preserving behavior.',
-    zhPrompt: `请做一次小步重构。
-
-重构目标：
-- [说明要改善的模块、重复逻辑或可读性问题]
-
-约束：
-1. 保持用户可见行为兼容。
-2. 不做无关格式化或大范围重写。
-3. 每个改动都应服务于上述重构目标。
-4. 保留或补充测试，证明行为未变。
-5. 最终说明重构收益、风险和验证结果。`,
-    enPrompt: `Please perform a focused refactor.
-
-Refactor goal:
-- [Describe the module, duplicated logic, or readability issue]
-
-Constraints:
-1. Preserve user-visible behavior.
-2. Avoid unrelated formatting or broad rewrites.
-3. Every change should support the stated refactor goal.
-4. Keep or add tests proving behavior is unchanged.
-5. Summarize benefits, risks, and verification results.`
-  },
-  {
-    id: 'release-check',
-    icon: '🚢',
-    zhTitle: '发布前检查',
-    enTitle: 'Release check',
-    zhDesc: '检查测试、打包、安全和发布风险。',
-    enDesc: 'Check tests, packaging, safety, and release risks.',
-    zhPrompt: `请做发布前检查。
-
-发布范围：
-- [说明版本、平台或要发布的改动]
-
-要求：
-1. 检查测试、构建、前端语法和打包脚本。
-2. 检查是否包含 secret、真实部署配置、运行时数据或二进制产物。
-3. 检查 Windows/macOS 安装和更新路径是否受影响。
-4. 汇总阻塞项、非阻塞风险和建议的发布步骤。
-5. 不要自动发布；只给出检查结论和必要修复建议。`,
-    enPrompt: `Please perform a pre-release check.
-
-Release scope:
-- [Describe the version, platform, or change set to release]
-
-Requirements:
-1. Check tests, builds, frontend syntax, and packaging scripts.
-2. Check for secrets, real deployment config, runtime data, or binaries.
-3. Review Windows/macOS install and update impact.
-4. Summarize blockers, non-blocking risks, and recommended release steps.
-5. Do not publish automatically; only report findings and required fixes.`
-  }
-];
-
-function templateUIText(key) {
-  const lang = state.settings?.language || 'zh-CN';
-  return (TEMPLATE_UI[lang] || TEMPLATE_UI['zh-CN'])[key] || TEMPLATE_UI['zh-CN'][key] || key;
-}
-
-function templateTitle(template) {
-  return state.settings?.language === 'en' ? template.enTitle : template.zhTitle;
-}
-
-function templateDescription(template) {
-  return state.settings?.language === 'en' ? template.enDesc : template.zhDesc;
-}
-
-function templatePrompt(template) {
-  return state.settings?.language === 'en' ? template.enPrompt : template.zhPrompt;
-}
-
-
 const I18N = {
   'zh-CN': {
-    newTask:'新建任务', taskLabel:'任务', homeTitle:'你想完成什么？', garden:'工作台', taskPlaceholder:'告诉 Gardener 你的目标、要求和交付物', saveLocation:'保存位置', defaultSave:'默认保存', create:'创建', tasks:'任务', refresh:'刷新', back:'返回', messagePlaceholder:'给 Gardener 发消息', send:'发送', taskPlan:'任务安排', workRecord:'工作记录', stop:'停止', workProcess:'工作过程', viewResult:'查看报告', settings:'设置', close:'关闭', defaultSaveLocation:'默认保存位置', autoSave:'留空则自动保存', saveLocationHelp:'不设置也可以正常使用。', showSaveLocation:'创建任务时显示保存位置', showPlanRecord:'在任务中显示安排和记录', language:'语言', logDetail:'记录详细程度', logQuiet:'简洁', logNormal:'标准', logDetailed:'详细', logHelp:'普通使用建议选择“简洁”。需要排查问题时再切换为“详细”。', save:'保存', copy:'复制', result:'报告', noTasks:'暂无任务', newTaskShort:'新任务', genericTask:'任务', inProgress:'进行中', done:'已完成', waitingForest:'等待阶段', noForest:'无阶段', gardenerWillContinue:'我会继续处理。', resultNotReady:'报告尚未生成。', openingResult:'正在打开报告', emptyResult:'内容为空', openFailed:'无法打开：', stopConfirm:'停止当前任务？', team:'子任务', validationTeam:'验证任务', files:'文件', recentForests:'已有任务', noRecent:'还没有任务', openForest:'打开', allFiles:'全部文件', allTreeFiles:'全部子任务', noFiles:'暂无可查看文件', loadingFiles:'正在读取文件', selectFile:'选择文件查看内容', fileTooLarge:'文件无法预览', treeStatus:'子任务状态', noTreesInForest:'当前阶段暂无子任务', browse:'选择', chooseFolder:'选择保存位置', parentFolder:'上一级', useFolder:'使用此目录', folderEmpty:'没有可选择的子目录', tokenUsage:'Token 消耗', tokenEstimate:'Token 消耗', tokenMaxEstimate:'', tokenNoData:'暂无 token 记录', delete:'删除', deleteConfirm:'删除这个任务并清除它的数据？', deleteFailed:'删除失败：', viewStatus:'查看状态', hideStatus:'收起状态', rename:'重命名', renamePrompt:'输入新的任务名称', renameFailed:'重命名失败：', model:'模型', modelDefault:'CLI 默认模型', cliEngine:'底层 CLI', cliCodex:'Codex CLI', cliClaude:'Claude Code', cliHelp:'创建任务后会固定使用所选 CLI。', modelToken:'Token', modelTokenPlaceholder:'输入当前模型的 token', gardenerProgress:'工作进展', gardenerWorking:'正在工作', gardenerProgressEmpty:'等待下一步进展', stage:'阶段', subtask:'子任务', file:'文件', resumeTask:'继续任务', resumeTaskHint:'任务已暂停。如未完成，可点击“继续任务”，Gardener 会检查当前进度后接着处理。', resumeFailed:'继续失败：', fileEncodingHint:'已自动尝试文本编码识别。', binaryFile:'文件可能不是文本，无法预览', noOutputYet:'正在等待产出文件或报告。', noOutputStale:'长时间没有新输出，底层 CLI 可能仍在处理。你可以直接询问进度，不会中断任务。', statusQuerySafe:'查看进度不会中断任务。', noOutputMinutes:'%dm 无新输出', collapseOverview:'收起概览', expandOverview:'展开概览', overview:'概览', recentMessagesOnly:'仅显示最近 %d 条消息。', previewTruncated:'文件较大，已仅预览前 %d 个字符。', downloadFile:'下载文件', powerWarningTitle:'远程访问提醒', powerWarningPrefix:'这台电脑的电源设置可能导致 Gardener 离线：', dashboard:'任务驾驶舱', duration:'运行时长', idle:'无输出', askProgressSafe:'询问进度不会中断任务', diagnosis:'诊断提示', collapseChat:'收起对话', expandChat:'展开对话', taskNow:'当前状态', taskNext:'是否需要操作', subtaskProgress:'子任务进度', currentStage:'当前阶段', progressDone:'已完成', progressRunning:'处理中', progressPending:'等待中', progressExplain:'蓝色表示正在处理，绿色表示已完成，紫色表示验证检查。', allSubtasksDone:'本阶段子任务都已返回，Gardener 正在整理结果。', noRunningSubtasks:'暂无正在执行的子任务', runningSubtasksNamed:'正在处理：', finishedCount:'已完成 %d / 共 %d', workingNormally:'正在正常处理，你可以等待；如果想了解进展，直接发消息询问，不会中断任务。', checkingResults:'子任务已返回，Gardener 正在检查结果并决定下一步。', planningTask:'Gardener 正在把目标拆成可执行的小任务。', finishedTaskHint:'任务已完成。如需补充或继续迭代，可以点击继续任务。'
+    newTask:'新建任务', taskLabel:'任务', homeTitle:'你想完成什么？', garden:'工作台', taskPlaceholder:'告诉 Gardener 你的目标、要求和交付物', saveLocation:'保存位置', defaultSave:'默认保存', create:'创建', tasks:'任务', refresh:'刷新', back:'返回', messagePlaceholder:'给 Gardener 发消息', send:'发送', taskPlan:'任务安排', workRecord:'工作记录', stop:'停止', workProcess:'工作过程', viewResult:'查看报告', settings:'设置', close:'关闭', defaultSaveLocation:'默认保存位置', autoSave:'留空则自动保存', saveLocationHelp:'不设置也可以正常使用。', showSaveLocation:'创建任务时显示保存位置', showPlanRecord:'在任务中显示安排和记录', language:'语言', logDetail:'记录详细程度', logQuiet:'简洁', logNormal:'标准', logDetailed:'详细', logHelp:'普通使用建议选择“简洁”。需要排查问题时再切换为“详细”。', save:'保存', copy:'复制', result:'报告', noTasks:'暂无任务', newTaskShort:'新任务', genericTask:'任务', inProgress:'进行中', done:'已完成', waitingForest:'等待阶段', noForest:'无阶段', gardenerWillContinue:'我会继续处理。', resultNotReady:'报告尚未生成。', openingResult:'正在打开报告', emptyResult:'内容为空', openFailed:'无法打开：', stopConfirm:'停止当前任务？', team:'子任务', validationTeam:'验证任务', files:'文件', recentForests:'已有任务', noRecent:'还没有任务', openForest:'打开', allFiles:'全部文件', allTreeFiles:'全部子任务', noFiles:'暂无可查看文件', loadingFiles:'正在读取文件', selectFile:'选择文件查看内容', fileTooLarge:'文件无法预览', treeStatus:'子任务状态', noTreesInForest:'当前阶段暂无子任务', browse:'选择', chooseFolder:'选择保存位置', parentFolder:'上一级', useFolder:'使用此目录', folderEmpty:'没有可选择的子目录', tokenUsage:'Token 消耗', tokenEstimate:'Token 消耗', tokenMaxEstimate:'', tokenNoData:'暂无 token 记录', delete:'删除', deleteConfirm:'删除这个任务并清除它的数据？', deleteFailed:'删除失败：', viewStatus:'查看状态', hideStatus:'收起状态', rename:'重命名', renamePrompt:'输入新的任务名称', renameFailed:'重命名失败：', model:'模型', modelDefault:'CLI 默认模型', cliEngine:'底层 CLI', cliCodex:'Codex CLI', cliClaude:'Claude Code', cliHelp:'创建任务后会固定使用所选 CLI。', modelToken:'Token', modelTokenPlaceholder:'输入当前模型的 token', gardenerProgress:'工作进展', gardenerWorking:'正在工作', gardenerProgressEmpty:'等待下一步进展', stage:'阶段', subtask:'子任务', file:'文件', resumeTask:'继续任务', resumeTaskHint:'任务已暂停。如未完成，可点击“继续任务”，Gardener 会检查当前进度后接着处理。', resumeFailed:'继续失败：', fileEncodingHint:'已自动尝试文本编码识别。', binaryFile:'文件可能不是文本，无法预览', noOutputYet:'正在等待产出文件或报告。', noOutputStale:'长时间没有新输出，底层 CLI 可能仍在处理。你可以直接询问进度，不会中断任务。', statusQuerySafe:'查看进度不会中断任务。', noOutputMinutes:'%dm 无新输出', collapseOverview:'收起概览', expandOverview:'展开概览', overview:'概览', recentMessagesOnly:'仅显示最近 %d 条消息。', previewTruncated:'文件较大，已仅预览前 %d 个字符。', downloadFile:'下载文件', powerWarningTitle:'远程访问提醒', powerWarningPrefix:'这台电脑的电源设置可能导致 Gardener 离线：', dashboard:'任务驾驶舱', duration:'运行时长', idle:'无输出', askProgressSafe:'询问进度不会中断任务', diagnosis:'诊断提示', collapseChat:'收起对话', expandChat:'展开对话', taskNow:'当前状态', taskNext:'是否需要操作', subtaskProgress:'子任务进度', currentStage:'当前阶段', progressDone:'已完成', progressRunning:'处理中', progressPending:'等待中', progressExplain:'蓝色表示正在处理，绿色表示已完成，紫色表示验证检查。', allSubtasksDone:'本阶段子任务都已返回，Gardener 正在整理结果。', noRunningSubtasks:'暂无正在执行的子任务', runningSubtasksNamed:'正在处理：', finishedCount:'已完成 %d / 共 %d', workingNormally:'正在正常处理，你可以等待；如果想了解进展，直接发消息询问，不会中断任务。', checkingResults:'子任务已返回，Gardener 正在检查结果并决定下一步。', planningTask:'Gardener 正在把目标拆成可执行的小任务。', finishedTaskHint:'任务已完成。如需补充或继续迭代，可以点击继续任务。', awaitingUserInput:'Gardener 正在等你补充需求。请直接在对话框回答它的问题。'
   },
   en: {
-    newTask:'New task', taskLabel:'Task', homeTitle:'What do you want to get done?', garden:'Workspace', taskPlaceholder:'Tell Gardener your goal, requirements, and deliverables', saveLocation:'Save location', defaultSave:'Default save location', create:'Create', tasks:'Tasks', refresh:'Refresh', back:'Back', messagePlaceholder:'Message Gardener', send:'Send', taskPlan:'Plan', workRecord:'Activity', stop:'Stop', workProcess:'Activity', viewResult:'View report', settings:'Settings', close:'Close', defaultSaveLocation:'Default save location', autoSave:'Leave blank to save automatically', saveLocationHelp:'You can use Gardener without setting this.', showSaveLocation:'Show save location when creating a task', showPlanRecord:'Show plan and activity inside a task', language:'Language', logDetail:'Activity detail', logQuiet:'Simple', logNormal:'Standard', logDetailed:'Detailed', logHelp:'Simple is recommended. Use Detailed only when troubleshooting.', save:'Save', copy:'Copy', result:'Report', noTasks:'No tasks', newTaskShort:'New task', genericTask:'Task', inProgress:'Running', done:'Done', waitingForest:'Waiting for stage', noForest:'No stage', gardenerWillContinue:'I will keep working on it.', resultNotReady:'Report is not ready yet.', openingResult:'Opening report', emptyResult:'Empty content', openFailed:'Unable to open: ', stopConfirm:'Stop this task?', team:'Subtask', validationTeam:'Validation', files:'Files', recentForests:'Tasks', noRecent:'No tasks yet', openForest:'Open', allFiles:'All files', allTreeFiles:'All subtasks', noFiles:'No files', loadingFiles:'Loading files', selectFile:'Select a file to preview', fileTooLarge:'File cannot be previewed', treeStatus:'Subtask status', noTreesInForest:'No subtasks in this stage', browse:'Choose', chooseFolder:'Choose folder', parentFolder:'Parent', useFolder:'Use this folder', folderEmpty:'No folders', tokenUsage:'Token usage', tokenEstimate:'Token usage', tokenMaxEstimate:'', tokenNoData:'No token records yet', delete:'Delete', deleteConfirm:'Delete this task and clear its data?', deleteFailed:'Delete failed: ', viewStatus:'View status', hideStatus:'Hide status', rename:'Rename', renamePrompt:'Enter a new task name', renameFailed:'Rename failed: ', model:'Model', modelDefault:'CLI default model', cliEngine:'Base CLI', cliCodex:'Codex CLI', cliClaude:'Claude Code', cliHelp:'A task keeps the selected CLI after creation.', modelToken:'Token', modelTokenPlaceholder:'Enter the token for the selected model', gardenerProgress:'Work progress', gardenerWorking:'Working', gardenerProgressEmpty:'Waiting for updates', stage:'Stage', subtask:'Subtask', file:'File', resumeTask:'Continue task', resumeTaskHint:'This task is paused. If it is not done, click Continue task and Gardener will inspect the current progress before continuing.', resumeFailed:'Continue failed: ', fileEncodingHint:'Text encoding was detected automatically.', binaryFile:'This file may not be text and cannot be previewed', noOutputYet:'Waiting for files or reports.', noOutputStale:'No new output for a while. The base CLI may still be working. You can ask for progress without interrupting the task.', statusQuerySafe:'Checking progress will not interrupt the task.', noOutputMinutes:'No output for %dm', collapseOverview:'Collapse', expandOverview:'Expand', overview:'Overview', recentMessagesOnly:'Showing latest %d messages only.', previewTruncated:'Large file: only first %d characters are shown.', downloadFile:'Download file', powerWarningTitle:'Remote access warning', powerWarningPrefix:'This computer may go offline because of its power settings: ', dashboard:'Task dashboard', duration:'Duration', idle:'Idle', askProgressSafe:'Asking progress will not interrupt the task', diagnosis:'Diagnostic cue', collapseChat:'Hide chat', expandChat:'Show chat', taskNow:'Current status', taskNext:'Do I need to act?', subtaskProgress:'Subtask progress', currentStage:'Current stage', progressDone:'Done', progressRunning:'Working', progressPending:'Waiting', progressExplain:'Blue means working, green means done, purple means validation.', allSubtasksDone:'All subtasks in this stage have returned; Gardener is summarizing results.', noRunningSubtasks:'No subtask is currently running', runningSubtasksNamed:'Working on: ', finishedCount:'Done %d / %d', workingNormally:'Gardener is working normally. You can wait or ask for progress without interrupting the task.', checkingResults:'Subtasks have returned. Gardener is checking results and deciding next steps.', planningTask:'Gardener is breaking the goal into executable subtasks.', finishedTaskHint:'The task is finished. Click Continue task if you want to add more work.'
+    newTask:'New task', taskLabel:'Task', homeTitle:'What do you want to get done?', garden:'Workspace', taskPlaceholder:'Tell Gardener your goal, requirements, and deliverables', saveLocation:'Save location', defaultSave:'Default save location', create:'Create', tasks:'Tasks', refresh:'Refresh', back:'Back', messagePlaceholder:'Message Gardener', send:'Send', taskPlan:'Plan', workRecord:'Activity', stop:'Stop', workProcess:'Activity', viewResult:'View report', settings:'Settings', close:'Close', defaultSaveLocation:'Default save location', autoSave:'Leave blank to save automatically', saveLocationHelp:'You can use Gardener without setting this.', showSaveLocation:'Show save location when creating a task', showPlanRecord:'Show plan and activity inside a task', language:'Language', logDetail:'Activity detail', logQuiet:'Simple', logNormal:'Standard', logDetailed:'Detailed', logHelp:'Simple is recommended. Use Detailed only when troubleshooting.', save:'Save', copy:'Copy', result:'Report', noTasks:'No tasks', newTaskShort:'New task', genericTask:'Task', inProgress:'Running', done:'Done', waitingForest:'Waiting for stage', noForest:'No stage', gardenerWillContinue:'I will keep working on it.', resultNotReady:'Report is not ready yet.', openingResult:'Opening report', emptyResult:'Empty content', openFailed:'Unable to open: ', stopConfirm:'Stop this task?', team:'Subtask', validationTeam:'Validation', files:'Files', recentForests:'Tasks', noRecent:'No tasks yet', openForest:'Open', allFiles:'All files', allTreeFiles:'All subtasks', noFiles:'No files', loadingFiles:'Loading files', selectFile:'Select a file to preview', fileTooLarge:'File cannot be previewed', treeStatus:'Subtask status', noTreesInForest:'No subtasks in this stage', browse:'Choose', chooseFolder:'Choose folder', parentFolder:'Parent', useFolder:'Use this folder', folderEmpty:'No folders', tokenUsage:'Token usage', tokenEstimate:'Token usage', tokenMaxEstimate:'', tokenNoData:'No token records yet', delete:'Delete', deleteConfirm:'Delete this task and clear its data?', deleteFailed:'Delete failed: ', viewStatus:'View status', hideStatus:'Hide status', rename:'Rename', renamePrompt:'Enter a new task name', renameFailed:'Rename failed: ', model:'Model', modelDefault:'CLI default model', cliEngine:'Base CLI', cliCodex:'Codex CLI', cliClaude:'Claude Code', cliHelp:'A task keeps the selected CLI after creation.', modelToken:'Token', modelTokenPlaceholder:'Enter the token for the selected model', gardenerProgress:'Work progress', gardenerWorking:'Working', gardenerProgressEmpty:'Waiting for updates', stage:'Stage', subtask:'Subtask', file:'File', resumeTask:'Continue task', resumeTaskHint:'This task is paused. If it is not done, click Continue task and Gardener will inspect the current progress before continuing.', resumeFailed:'Continue failed: ', fileEncodingHint:'Text encoding was detected automatically.', binaryFile:'This file may not be text and cannot be previewed', noOutputYet:'Waiting for files or reports.', noOutputStale:'No new output for a while. The base CLI may still be working. You can ask for progress without interrupting the task.', statusQuerySafe:'Checking progress will not interrupt the task.', noOutputMinutes:'No output for %dm', collapseOverview:'Collapse', expandOverview:'Expand', overview:'Overview', recentMessagesOnly:'Showing latest %d messages only.', previewTruncated:'Large file: only first %d characters are shown.', downloadFile:'Download file', powerWarningTitle:'Remote access warning', powerWarningPrefix:'This computer may go offline because of its power settings: ', dashboard:'Task dashboard', duration:'Duration', idle:'Idle', askProgressSafe:'Asking progress will not interrupt the task', diagnosis:'Diagnostic cue', collapseChat:'Hide chat', expandChat:'Show chat', taskNow:'Current status', taskNext:'Do I need to act?', subtaskProgress:'Subtask progress', currentStage:'Current stage', progressDone:'Done', progressRunning:'Working', progressPending:'Waiting', progressExplain:'Blue means working, green means done, purple means validation.', allSubtasksDone:'All subtasks in this stage have returned; Gardener is summarizing results.', noRunningSubtasks:'No subtask is currently running', runningSubtasksNamed:'Working on: ', finishedCount:'Done %d / %d', workingNormally:'Gardener is working normally. You can wait or ask for progress without interrupting the task.', checkingResults:'Subtasks have returned. Gardener is checking results and deciding next steps.', planningTask:'Gardener is breaking the goal into executable subtasks.', finishedTaskHint:'The task is finished. Click Continue task if you want to add more work.', awaitingUserInput:'Gardener is waiting for your clarification. Reply directly in the chat box.'
   }
 };
 
@@ -446,12 +228,23 @@ function normalizeCLIEngineValue(value) {
   if (['claude', 'claude-code', 'claude-cli', 'anthropic', 'cloud'].includes(v)) return 'claude';
   return 'codex';
 }
+
+function normalizeModelModeValue(value) {
+  const raw = String(value || '').trim();
+  const v = raw.toLowerCase();
+  if (v === 'minimaxm2.7' || v === 'minimax-m2.7' || v === 'minimaxm3' || v === 'minimax-m3' || raw === 'MiniMax-M3') return 'MiniMax-M3';
+  if (v === 'kimi-k2.7' || v === 'kimi-k2.7-code' || v === 'kimik2.7' || v === 'kimik2.7-code' || v === 'kimik2.6' || v === 'kimi-k2.6' || v === 'kimi-coding') return 'kimi-k2.7-code';
+  return 'default';
+}
+
 function compatibleCLIEngineValue(engine, mode) {
+  mode = normalizeModelModeValue(mode);
   const cli = normalizeCLIEngineValue(engine);
-  return mode === 'kimik2.6' && cli === 'codex' ? 'claude' : cli;
+  return mode === 'kimi-k2.7-code' && cli === 'codex' ? 'claude' : cli;
 }
 function normalizeSettingsCompatibility() {
-  state.settings.cliEngine = compatibleCLIEngineValue(state.settings.cliEngine || 'codex', state.settings.modelMode || 'default');
+  state.settings.modelMode = normalizeModelModeValue(state.settings.modelMode || 'default');
+  state.settings.cliEngine = compatibleCLIEngineValue(state.settings.cliEngine || 'codex', state.settings.modelMode);
 }
 
 function loadSettings() {
@@ -460,7 +253,9 @@ function loadSettings() {
     if (saved.minimaxToken || saved.kimiToken) {
       localStorage.setItem('autoGardenerSettings', JSON.stringify(persistedClientSettings(saved)));
     }
-    return { defaultWorkspace: '', showSavePath: false, showWorkRecord: false, logLevel: 'quiet', language: 'zh-CN', cliEngine: 'codex', modelMode: 'default', minimaxToken: '', kimiToken: '', ...persistedClientSettings(saved) };
+    const settings = { defaultWorkspace: '', showSavePath: false, showWorkRecord: false, logLevel: 'quiet', language: 'zh-CN', cliEngine: 'codex', modelMode: 'default', minimaxToken: '', kimiToken: '', ...persistedClientSettings(saved) };
+    settings.modelMode = normalizeModelModeValue(settings.modelMode);
+    return settings;
   } catch {
     return { defaultWorkspace: '', showSavePath: false, showWorkRecord: false, logLevel: 'quiet', language: 'zh-CN', cliEngine: 'codex', modelMode: 'default', minimaxToken: '', kimiToken: '' };
   }
@@ -476,7 +271,7 @@ async function loadServerSettings() {
     const data = await api('/api/settings');
     state.settings.logLevel = data.settings?.logLevel || state.settings.logLevel || 'quiet';
     state.settings.cliEngine = normalizeCLIEngineValue(data.settings?.cliEngine || state.settings.cliEngine || 'codex');
-    state.settings.modelMode = data.settings?.modelMode || state.settings.modelMode || 'default';
+    state.settings.modelMode = normalizeModelModeValue(data.settings?.modelMode || normalizeModelModeValue(state.settings.modelMode || 'default'));
     state.settings.minimaxToken = data.settings?.minimaxToken || state.settings.minimaxToken || '';
     state.settings.kimiToken = data.settings?.kimiToken || state.settings.kimiToken || '';
     applySettings();
@@ -487,7 +282,7 @@ async function saveSettings() {
   normalizeSettingsCompatibility();
   localStorage.setItem('autoGardenerSettings', JSON.stringify(persistedClientSettings(state.settings)));
   applySettings();
-  try { await api('/api/settings', { method: 'PUT', body: JSON.stringify({ logLevel: state.settings.logLevel || 'quiet', cliEngine: normalizeCLIEngineValue(state.settings.cliEngine || 'codex'), modelMode: state.settings.modelMode || 'default', minimaxToken: state.settings.minimaxToken || '', kimiToken: state.settings.kimiToken || '' }) }); } catch (err) { console.error(err); }
+  try { await api('/api/settings', { method: 'PUT', body: JSON.stringify({ logLevel: state.settings.logLevel || 'quiet', cliEngine: normalizeCLIEngineValue(state.settings.cliEngine || 'codex'), modelMode: normalizeModelModeValue(state.settings.modelMode || 'default'), minimaxToken: state.settings.minimaxToken || '', kimiToken: state.settings.kimiToken || '' }) }); } catch (err) { console.error(err); }
 }
 
 function applySettings() {
@@ -500,14 +295,13 @@ function applySettings() {
   $('languageSelect').value = state.settings.language || 'zh-CN';
   $('logLevelSelect').value = state.settings.logLevel || 'quiet';
   normalizeSettingsCompatibility();
-  $('cliEngineSelect').value = compatibleCLIEngineValue(state.settings.cliEngine || 'codex', state.settings.modelMode || 'default');
-  $('modelModeSelect').value = state.settings.modelMode || 'default';
+  $('cliEngineSelect').value = compatibleCLIEngineValue(state.settings.cliEngine || 'codex', normalizeModelModeValue(state.settings.modelMode || 'default'));
+  $('modelModeSelect').value = normalizeModelModeValue(state.settings.modelMode || 'default');
   applyModelTokenField();
   document.body.classList.toggle('hide-save-path', !state.settings.showSavePath);
   document.body.classList.toggle('hide-work-record', !state.settings.showWorkRecord);
   if (!$('workspaceInput').value.trim()) $('workspaceInput').value = state.settings.defaultWorkspace || '';
   applyI18n();
-  renderTaskTemplateLibrary();
   renderPowerBanner();
   if (Array.isArray(state.tasks)) {
     renderTaskList();
@@ -518,69 +312,21 @@ function applySettings() {
 }
 
 
-function renderTaskTemplateLibrary() {
-  const root = $('taskTemplateLibrary');
-  if (!root) return;
-  const selectedId = state.selectedTemplateId || '';
-  const cards = TASK_TEMPLATES.map(template => {
-    const selected = template.id === selectedId;
-    return `<button type="button" class="task-template-card${selected ? ' selected' : ''}" data-template-id="${escapeHTML(template.id)}" title="${escapeHTML(templateDescription(template))}">
-      <span class="task-template-icon" aria-hidden="true">${escapeHTML(template.icon)}</span>
-      <span class="task-template-copy"><strong>${escapeHTML(templateTitle(template))}</strong><small>${escapeHTML(templateDescription(template))}</small></span>
-    </button>`;
-  }).join('');
-  root.innerHTML = `
-    <div class="task-template-head">
-      <div><strong>${escapeHTML(templateUIText('title'))}</strong><p>${escapeHTML(templateUIText('subtitle'))}</p></div>
-      <button id="clearTaskTemplateBtn" type="button" class="ghost-mini task-template-clear">${escapeHTML(templateUIText('clear'))}</button>
-    </div>
-    <div class="task-template-grid">${cards}</div>
-    <div id="taskTemplateHint" class="task-template-hint" aria-live="polite"></div>`;
-  root.querySelectorAll('.task-template-card').forEach(btn => {
-    btn.onclick = () => applyTaskTemplate(btn.dataset.templateId || '');
-  });
-  const clear = $('clearTaskTemplateBtn');
-  if (clear) clear.onclick = clearTaskTemplateSelection;
-}
-
-function applyTaskTemplate(templateId) {
-  const template = TASK_TEMPLATES.find(item => item.id === templateId);
-  if (!template) return;
-  const input = $('taskInput');
-  if (!input) return;
-  const current = input.value.trim();
-  const prompt = templatePrompt(template);
-  input.value = current ? `${current}\n\n---\n${prompt}` : prompt;
-  state.selectedTemplateId = template.id;
-  renderTaskTemplateLibrary();
-  const hint = $('taskTemplateHint');
-  if (hint) hint.textContent = templateUIText('appended');
-  input.focus();
-  input.dispatchEvent(new Event('input', { bubbles: true }));
-}
-
-function clearTaskTemplateSelection() {
-  state.selectedTemplateId = '';
-  renderTaskTemplateLibrary();
-  const hint = $('taskTemplateHint');
-  if (hint) hint.textContent = '';
-}
-
 function currentModelToken() {
-  const mode = state.settings.modelMode || 'default';
-  if (mode === 'minimaxm2.7') return state.settings.minimaxToken || '';
-  if (mode === 'kimik2.6') return state.settings.kimiToken || '';
+  const mode = normalizeModelModeValue(state.settings.modelMode || 'default');
+  if (mode === 'MiniMax-M3') return state.settings.minimaxToken || '';
+  if (mode === 'kimi-k2.7-code') return state.settings.kimiToken || '';
   return '';
 }
 
 function setCurrentModelToken(token) {
-  const mode = state.settings.modelMode || 'default';
-  if (mode === 'minimaxm2.7') state.settings.minimaxToken = token;
-  if (mode === 'kimik2.6') state.settings.kimiToken = token;
+  const mode = normalizeModelModeValue(state.settings.modelMode || 'default');
+  if (mode === 'MiniMax-M3') state.settings.minimaxToken = token;
+  if (mode === 'kimi-k2.7-code') state.settings.kimiToken = token;
 }
 
 function applyModelTokenField() {
-  const mode = state.settings.modelMode || 'default';
+  const mode = normalizeModelModeValue(state.settings.modelMode || 'default');
   const section = $('modelTokenSection');
   const input = $('modelTokenInput');
   if (!section || !input) return;
@@ -844,7 +590,7 @@ function renderTask(task, options = {}) {
     $('stopTaskBtn').disabled = task.status === 'Finished';
     const resumeBtn = $('resumeTaskBtn');
     if (resumeBtn) {
-      const resumable = task.status === 'Finished';
+      const resumable = task.status === 'Finished' && !task.awaitingUserInput;
       resumeBtn.classList.toggle('hidden', !resumable);
       resumeBtn.disabled = !resumable;
       resumeBtn.title = t('resumeTaskHint');
@@ -973,6 +719,7 @@ function renderTaskDashboard(task) {
 
 function taskActionCue(task, rt, cue, runningTrees) {
   const phase = String(rt?.phase || '');
+  if (task?.awaitingUserInput) return t('awaitingUserInput');
   if (task?.status === 'Finished') return t('finishedTaskHint');
   if (String(rt?.severity || '') === 'blocked' && cue) return cue;
   if (phase === 'planning') return t('planningTask');
@@ -984,10 +731,10 @@ function taskActionCue(task, rt, cue, runningTrees) {
 function humanizePhase(phase) {
   const lang = state.settings?.language || 'zh-CN';
   const zh = {
-    planning:'规划中', running_subtasks:'子任务执行中', validating:'验证中', deciding:'判断下一步', running:'运行中', finished:'已完成', stopped:'已停止', unknown:'未知'
+    planning:'规划中', running_subtasks:'子任务执行中', validating:'验证中', deciding:'判断下一步', running:'运行中', awaiting_user:'等待补充需求', finished:'已完成', stopped:'已停止', unknown:'未知'
   };
   const en = {
-    planning:'Planning', running_subtasks:'Running subtasks', validating:'Validating', deciding:'Deciding', running:'Running', finished:'Finished', stopped:'Stopped', unknown:'Unknown'
+    planning:'Planning', running_subtasks:'Running subtasks', validating:'Validating', deciding:'Deciding', running:'Running', awaiting_user:'Waiting for clarification', finished:'Finished', stopped:'Stopped', unknown:'Unknown'
   };
   return (lang === 'en' ? en : zh)[phase] || phase;
 }
@@ -2070,7 +1817,7 @@ $('createTaskBtn').onclick = async () => {
   const workspacePath = $('workspaceInput').value.trim() || state.settings.defaultWorkspace || '';
   if (!prompt) return alert(t('taskPlaceholder'));
   $('createTaskBtn').disabled = true;
-  try { const data = await api('/api/tasks', { method:'POST', body: JSON.stringify({ prompt, workspacePath }) }); $('taskInput').value=''; state.selectedTemplateId = ''; renderTaskTemplateLibrary(); $('workspaceInput').value = state.settings.defaultWorkspace || ''; await loadTasks(); await selectTask(data.task.id); }
+  try { const data = await api('/api/tasks', { method:'POST', body: JSON.stringify({ prompt, workspacePath }) }); $('taskInput').value=''; $('workspaceInput').value = state.settings.defaultWorkspace || ''; await loadTasks(); await selectTask(data.task.id); }
   catch (err) { alert(renderedCreateTaskErrorMessage(err)); } finally { $('createTaskBtn').disabled = false; }
 };
 if ($('toggleOverviewBtn')) $('toggleOverviewBtn').onclick = toggleOverviewCollapsed;
@@ -2148,20 +1895,20 @@ $('saveSettingsBtn').onclick = async () => {
   state.settings.language = $('languageSelect').value;
   state.settings.logLevel = $('logLevelSelect').value;
   state.settings.cliEngine = normalizeCLIEngineValue($('cliEngineSelect').value);
-  state.settings.modelMode = $('modelModeSelect').value;
+  state.settings.modelMode = normalizeModelModeValue($('modelModeSelect').value);
   state.settings.cliEngine = compatibleCLIEngineValue($('cliEngineSelect').value, state.settings.modelMode);
   setCurrentModelToken($('modelTokenInput').value.trim());
   await saveSettings();
   closeSettings();
 };
 $('modelModeSelect').onchange = () => {
-  state.settings.modelMode = $('modelModeSelect').value;
+  state.settings.modelMode = normalizeModelModeValue($('modelModeSelect').value);
   state.settings.cliEngine = compatibleCLIEngineValue($('cliEngineSelect').value, state.settings.modelMode);
   $('cliEngineSelect').value = state.settings.cliEngine;
   applyModelTokenField();
 };
 $('cliEngineSelect').onchange = () => {
-  state.settings.cliEngine = compatibleCLIEngineValue($('cliEngineSelect').value, state.settings.modelMode || 'default');
+  state.settings.cliEngine = compatibleCLIEngineValue($('cliEngineSelect').value, normalizeModelModeValue(state.settings.modelMode || 'default'));
   $('cliEngineSelect').value = state.settings.cliEngine;
 };
 $('modelTokenInput').oninput = () => setCurrentModelToken($('modelTokenInput').value.trim());

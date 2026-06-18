@@ -73,7 +73,7 @@ Windows 支持范围包括：
 - 支持简体中文和英文界面。
 - 支持日志/工作记录详细程度配置：简洁、标准、详细。
 - 支持在设置中切换底层 CLI：Codex CLI / Claude Code。一个 Forest 创建后会固定使用其中一种，不会混用；两种 CLI 共享同一套 Forest/Tree/fruit 数据格式。
-- 支持在设置中切换 CLI 默认模型、`minimaxm2.7`、`kimi-coding`，并为外部模型保存本地 token。
+- 支持在设置中切换 CLI 默认模型、`MiniMax-M3`、`kimi-k2.7-code`（兼容旧值 `kimi-coding` / `kimik2.6`），并为外部模型保存本地 token。
 - MiniMax / Kimi 通过 Gardener 内置兼容层接入，用户不需要手动修改 `~/.codex/config.toml`。
 - 数据全部保存在本地文件中，不使用数据库。
 
@@ -277,8 +277,8 @@ Web 顶部齿轮进入设置：
   - Forest 数据是 CLI 中立格式：`schedule.md`、`log.md`、Tree `fruit.md`、workspace 文件、token 记录和前端预览均不绑定 Codex 或 Claude。`cloud`、`claude-code` 等历史/误写值会自动归一为 `claude`。
 - 模型：
   - CLI 默认模型：不注入外部模型参数，使用当前底层 CLI 的原生默认配置。
-  - `minimaxm2.7`：Gardener/Tree 调用 Codex CLI 时自动接入 Gardener 内置兼容层，再由兼容层转发到 MiniMax OpenAI Compatible Chat Completions API。
-  - `kimi-coding`：Codex CLI 会通过 Gardener 内置兼容层转发到 Kimi Coding API；Claude Code 会按 Kimi 官方方式注入 `ANTHROPIC_BASE_URL=https://api.kimi.com/coding/` 和 `ANTHROPIC_API_KEY`。
+  - `MiniMax-M3`：Gardener/Tree 调用 Codex CLI 时自动接入 Gardener 内置兼容层，再由兼容层转发到 MiniMax OpenAI Compatible Chat Completions API。
+  - `kimi-k2.7-code`（兼容旧值 `kimi-coding` / `kimik2.6`）：Codex CLI 会通过 Gardener 内置兼容层转发到 Kimi Coding API；Claude Code 会按 Kimi 官方方式注入 `ANTHROPIC_BASE_URL=https://api.kimi.com/coding/` 和 `ANTHROPIC_API_KEY`。
 - Token：只在选择外部模型时显示。Token 会保存到本机 `forest_data/settings.json`，不会写入 Forest 报告或前端日志。
 - 记录详细程度：
   - 简洁：默认，尽量少记录过程噪音。
@@ -288,9 +288,9 @@ Web 顶部齿轮进入设置：
 外部模型的默认 Codex provider 配置如下，可用环境变量覆盖：
 
 ```bash
-AUTO_GARDENER_MINIMAX_MODEL=MiniMax-M2.7-highspeed
+AUTO_GARDENER_MINIMAX_MODEL=MiniMax-M3
 
-AUTO_GARDENER_KIMI_MODEL=kimi-coding
+AUTO_GARDENER_KIMI_MODEL=kimi-k2.7-code
 ```
 
 默认情况下不要覆盖 `AUTO_GARDENER_MINIMAX_BASE_URL` 或 `AUTO_GARDENER_KIMI_BASE_URL`。Gardener 会自动把 Codex CLI 指向本机兼容层，由兼容层负责把 Codex Responses API 转换为上游 Chat Completions API。
@@ -424,6 +424,7 @@ AUTO_GARDENER_DINGTALK_ROBOT_SECRET='群机器人加签密钥'
 如果当前会话已绑定任务，发送普通消息会转发给该任务；如果还没有绑定任务，普通消息会被当作新任务创建。
 
 查询“状态/进度”不会中断正在运行的 Gardener 任务。
+当新任务或执行过程中的下一步缺少必要信息时，Gardener 会暂停并反问用户；用户直接在对话框或钉钉会话里补充需求后，任务会继续执行。
 
 ## 多用户多实例公网中转与自动升级
 

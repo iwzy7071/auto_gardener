@@ -238,7 +238,7 @@ func (r ShellRunner) runClaude(ctx context.Context, req RunRequest) RunResult {
 		"--output-format", "text",
 		"--permission-mode", "bypassPermissions",
 	}
-	if model := strings.TrimSpace(os.Getenv("AUTO_GARDENER_CLAUDE_MODEL")); model != "" {
+	if model := claudeModelArg(req.Model); model != "" {
 		args = append(args, "--model", model)
 	}
 	cmd := exec.CommandContext(ctx, command, args...)
@@ -342,6 +342,16 @@ func appendModelArgs(args []string, model ModelConfig) []string {
 	args = append(args, "-c", prefix+"wire_api="+tomlString(wireAPI))
 	args = append(args, "-c", prefix+"requires_openai_auth=false")
 	return args
+}
+
+func claudeModelArg(model ModelConfig) string {
+	if override := strings.TrimSpace(os.Getenv("AUTO_GARDENER_CLAUDE_MODEL")); override != "" {
+		return override
+	}
+	if strings.TrimSpace(model.ProviderID) == "gardener-kimi" {
+		return strings.TrimSpace(model.Model)
+	}
+	return ""
 }
 
 func appendModelEnv(env []string, model ModelConfig) []string {

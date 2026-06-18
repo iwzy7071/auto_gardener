@@ -158,6 +158,11 @@ func (o *Orchestrator) CreateTask(prompt, workspacePath string) (*Task, error) {
 	}
 	_ = o.store.WriteSchedule(id, initialSchedule(task))
 	o.store.AppendGardenerLog(id, "任务创建，交付目录="+absWorkspace+"，临时工作目录="+absScratch)
+	if question := clarificationQuestionForInitialPrompt(prompt); question != "" {
+		o.pauseForClarification(id, question)
+		created, _ := o.store.GetTask(id)
+		return created, nil
+	}
 	o.startForestRun(id, prompt)
 	created, _ := o.store.GetTask(id)
 	return created, nil
@@ -224,6 +229,21 @@ func (o *Orchestrator) SendMessage(taskID, content string) (*Task, error) {
 		o.store.AppendGardenerLog(taskID, "用户查询进度：已只读回复，未中断正在运行的任务。")
 		return t, nil
 	}
+	if snapshot, ok := o.store.GetTask(taskID); ok && snapshot.AwaitingUserInput && isProgressQuery(content) {
+		now := time.Now()
+		answer := "Gardener 现在正等你补充需求，还没有继续执行。请直接回答上面的问题；收到补充后我会继续处理。"
+		t, err := o.store.UpdateTask(taskID, func(t *Task) {
+			t.Messages = append(t.Messages,
+				Message{ID: newID("msg"), Role: RoleUser, Content: content, CreatedAt: now},
+				Message{ID: newID("msg"), Role: RoleGardener, Content: answer, CreatedAt: now},
+			)
+		})
+		if err != nil {
+			return nil, err
+		}
+		o.store.AppendGardenerLog(taskID, "用户查询进度：当前正在等待用户补充需求，未启动新任务。")
+		return t, nil
+	}
 	return o.sendMessageWithInstruction(taskID, content, content)
 }
 
@@ -231,6 +251,9 @@ func (o *Orchestrator) ResumeTask(taskID string) (*Task, error) {
 	t, ok := o.store.GetTask(taskID)
 	if !ok {
 		return nil, ErrNotFound
+	}
+	if t.AwaitingUserInput {
+		return nil, fmt.Errorf("Gardener 正在等待你补充需求，请直接在对话框回答它的问题。")
 	}
 	visible := "请继续这个任务。"
 	return o.sendMessageWithInstruction(taskID, visible, buildContinueInstruction(t))
@@ -250,6 +273,7 @@ func (o *Orchestrator) sendMessageWithInstruction(taskID, visibleContent, instru
 		t.Status = StatusRunning
 		t.GardenerStatus = StatusRunning
 		t.StopRequested = false
+		t.AwaitingUserInput = false
 	})
 	if err != nil {
 		return nil, err
@@ -373,6 +397,7 @@ func (o *Orchestrator) StopTask(taskID string) (*Task, error) {
 		t.StopRequested = true
 		t.Status = StatusFinished
 		t.GardenerStatus = StatusFinished
+		t.AwaitingUserInput = false
 		for _, tr := range t.Trees {
 			if tr.Status == StatusRunning {
 				tr.Status = StatusFinished
@@ -460,6 +485,12 @@ func (o *Orchestrator) runForest(ctx context.Context, taskID, instruction, runID
 			}
 			return
 		}
+		if planNeedsClarification(plan) {
+			if o.isActiveRun(taskID, runID) {
+				o.pauseForClarification(taskID, clarificationMessage(plan))
+			}
+			return
+		}
 		if strings.TrimSpace(plan.MessageToUser) != "" {
 			_, _ = o.store.UpdateTask(taskID, func(t *Task) {
 				t.Messages = append(t.Messages, Message{ID: newID("msg"), Role: RoleGardener, Content: userFacingMessage(plan.MessageToUser), CreatedAt: time.Now()})
@@ -513,6 +544,12 @@ func (o *Orchestrator) runForest(ctx context.Context, taskID, instruction, runID
 			return
 		}
 		if decision.ForestFinished || len(decision.Trees) == 0 {
+			if planNeedsClarification(decision) {
+				if o.isActiveRun(taskID, runID) {
+					o.pauseForClarification(taskID, clarificationMessage(decision))
+				}
+				return
+			}
 			if strings.TrimSpace(decision.MessageToUser) != "" {
 				_, _ = o.store.UpdateTask(taskID, func(t *Task) {
 					t.Messages = append(t.Messages, Message{ID: newID("msg"), Role: RoleGardener, Content: codex.Truncate(userFacingMessage(decision.MessageToUser), 900), CreatedAt: time.Now()})
@@ -828,7 +865,7 @@ func (o *Orchestrator) modelConfigForTask(t *Task) codex.ModelConfig {
 		return codex.ModelConfig{
 			ProviderID:   "gardener-minimax",
 			ProviderName: "Gardener MiniMax Compatibility",
-			Model:        firstNonEmpty(os.Getenv("AUTO_GARDENER_MINIMAX_MODEL"), "MiniMax-M2.7-highspeed"),
+			Model:        firstNonEmpty(os.Getenv("AUTO_GARDENER_MINIMAX_MODEL"), "MiniMax-M3"),
 			BaseURL:      firstNonEmpty(os.Getenv("AUTO_GARDENER_MINIMAX_BASE_URL"), o.compatProviderBaseURL("minimax")),
 			EnvKey:       "GARDENER_MINIMAX_API_KEY",
 			Token:        settings.MiniMaxToken,
@@ -838,7 +875,7 @@ func (o *Orchestrator) modelConfigForTask(t *Task) codex.ModelConfig {
 		return codex.ModelConfig{
 			ProviderID:   "gardener-kimi",
 			ProviderName: "Gardener Kimi Compatibility",
-			Model:        firstNonEmpty(os.Getenv("AUTO_GARDENER_KIMI_MODEL"), "kimi-coding"),
+			Model:        firstNonEmpty(os.Getenv("AUTO_GARDENER_KIMI_MODEL"), string(ModelModeKimi)),
 			BaseURL:      firstNonEmpty(os.Getenv("AUTO_GARDENER_KIMI_BASE_URL"), o.compatProviderBaseURL("kimi")),
 			EnvKey:       "GARDENER_KIMI_API_KEY",
 			Token:        settings.KimiToken,
@@ -875,6 +912,22 @@ func (o *Orchestrator) finishTask(taskID, message string) {
 	_, _ = o.store.UpdateTask(taskID, func(t *Task) {
 		t.Status = StatusFinished
 		t.GardenerStatus = StatusFinished
+		t.AwaitingUserInput = false
+	})
+}
+
+func (o *Orchestrator) pauseForClarification(taskID, question string) {
+	question = strings.TrimSpace(question)
+	if question == "" {
+		question = defaultClarificationQuestion()
+	}
+	o.store.AppendGardenerLog(taskID, "需求不明确，Gardener 已暂停并向用户反问。")
+	_, _ = o.store.UpdateTask(taskID, func(t *Task) {
+		t.Status = StatusFinished
+		t.GardenerStatus = StatusFinished
+		t.AwaitingUserInput = true
+		t.StopRequested = false
+		t.Messages = append(t.Messages, Message{ID: newID("msg"), Role: RoleGardener, Content: userFacingMessage(question), CreatedAt: time.Now()})
 	})
 }
 
@@ -1143,6 +1196,10 @@ func buildGardenerPlanPrompt(t *Task, instruction string) string {
 - 每个阶段的普通子任务完成后，系统会自动派验证子任务。
 - 子任务可以实际修改文件、运行命令。
 - 底层 CLI 被允许自主执行所有命令。
+- 如果用户目标缺少必要信息，导致无法判断要做什么、改哪里、交付什么或验收标准是什么，必须先反问用户，不要派子任务硬做。
+- 反问时设置 needs_clarification=true、clarification_question 写给用户的问题、forest_finished=true、trees=[]。
+- 反问最多问 3 个最关键问题，尽量给出用户可直接回答的选项；不要要求用户理解内部实现。
+- 如果任务虽然简短但可以通过检查当前 workspace 安全推断下一步，则可以继续规划；只有真正不明确或多种方向风险很高时才反问。
 - message_to_user 是你作为 Gardener 对用户说的话，必须自然、克制、面向用户，不要出现工程状态口吻。
 
 任务 ID: %s
@@ -1161,6 +1218,8 @@ log.md: %s
 {
   "message_to_user": "Gardener 给用户的简短说明",
   "forest_finished": false,
+  "needs_clarification": false,
+  "clarification_question": "",
   "trees": [
     {
       "name": "研究 / 实现 / 写作 / 修复 / 整合 等专业子任务名称",
@@ -1180,6 +1239,7 @@ func buildTreePrompt(task *Task, tr *Tree) string {
 - 你必须以 goal 模式执行：开局创建/激活一个只属于本子任务的 goal，围绕该 goal 工作，并在最终报告中明确 goal status=complete/partial/blocked。
 - 如果当前 Codex/Claude CLI 提供原生 goal 工具或 goal 模式，请优先使用原生能力记录目标、进展和完成状态；如果没有原生工具，则严格按本提示中的 Goal 协议执行。
 - 如果任务过大、上下文不足、依赖缺失或无法安全完成，不要沉默停止；请标记 partial/blocked，并给出下一步建议。
+- 如果执行中发现必须由用户补充需求、确认取舍或提供缺失信息才能继续，请标记 blocked，并在报告中写出“需要用户补充的问题”；不要自己猜测高风险方向。
 - 你是子任务，不是小队、团队或执行小队；报告中也不要使用“小队”称呼。
 - 你只负责自己的子任务，不要越界处理其他子任务的职责。
 - 你的当前工作目录是 scratchPath；这里仅用于临时搜索、下载缓存、草稿、脚本和中间文件。
@@ -1208,6 +1268,7 @@ Goal 记录文件: %s
 - 修改/检查过的文件
 - 运行过的验证命令及结果
 - 风险和下一步建议
+- 如需用户补充：需要用户补充的问题
 
 Gardener 给你的完整指令：
 %s
@@ -1258,6 +1319,8 @@ func buildGardenerDecisionPrompt(t *Task, forest int) string {
 重要规则：
 - 如果验证子任务发现冲突、测试失败、明显缺口，你应该派新的修复子任务，并明确范围。
 - 如果任务已经足够完成，forest_finished=true 且 trees=[]。
+- 如果任何子任务/验证报告标记 blocked/partial 且原因是需要用户补充信息，请优先向用户反问，而不是继续派子任务猜测。
+- 如果验证后发现继续工作前必须让用户补充需求、确认取舍、提供缺失信息或选择方向，请设置 needs_clarification=true、clarification_question 写给用户的问题、forest_finished=true、trees=[]，不要继续派子任务猜测。
 - 状态字段只有 Running 和 Finished；失败/停止/风险只写文本。
 - 请仅输出 JSON 对象，不要 Markdown，不要代码块。
 
@@ -1265,6 +1328,8 @@ JSON 格式：
 {
   "message_to_user": "Gardener 给用户的简短汇报",
   "forest_finished": true,
+  "needs_clarification": false,
+  "clarification_question": "",
   "trees": [
     {"name":"修复 / 研究 / 实现 / 写作 等专业子任务名称","objective":"目标","prompt":"完整执行指令，且不得使用小队称呼或花园隐喻","scope":["负责范围"]}
   ]
@@ -1316,6 +1381,16 @@ func parsePlan(s string) (GardenerPlan, error) {
 }
 
 func normalizePlan(p GardenerPlan, t *Task, instruction string) GardenerPlan {
+	p.MessageToUser = strings.TrimSpace(p.MessageToUser)
+	p.ClarificationQuestion = strings.TrimSpace(p.ClarificationQuestion)
+	if p.NeedsClarification {
+		p.ForestFinished = true
+		p.Trees = nil
+		if p.ClarificationQuestion == "" {
+			p.ClarificationQuestion = defaultClarificationQuestion()
+		}
+		return p
+	}
 	for i := range p.Trees {
 		if strings.TrimSpace(p.Trees[i].Name) == "" {
 			p.Trees[i].Name = fmt.Sprintf("Tree %d", i+1)
@@ -1331,6 +1406,56 @@ func normalizePlan(p GardenerPlan, t *Task, instruction string) GardenerPlan {
 		}
 	}
 	return p
+}
+
+func planNeedsClarification(p GardenerPlan) bool {
+	return p.NeedsClarification || (strings.TrimSpace(p.ClarificationQuestion) != "" && len(p.Trees) == 0)
+}
+
+func clarificationMessage(p GardenerPlan) string {
+	if strings.TrimSpace(p.ClarificationQuestion) != "" {
+		return p.ClarificationQuestion
+	}
+	if strings.TrimSpace(p.MessageToUser) != "" {
+		return p.MessageToUser
+	}
+	return defaultClarificationQuestion()
+}
+
+func defaultClarificationQuestion() string {
+	return "我还需要一点信息才能开始，避免做偏：请补充你希望处理的对象、期望结果，以及是否有必须保留或不能修改的范围。"
+}
+
+func clarificationQuestionForInitialPrompt(prompt string) string {
+	text := strings.TrimSpace(prompt)
+	if text == "" {
+		return ""
+	}
+	runes := []rune(text)
+	lower := strings.ToLower(text)
+	if len(runes) > 28 && len(strings.Fields(lower)) > 6 {
+		return ""
+	}
+	compact := strings.ReplaceAll(lower, " ", "")
+	vaguePhrases := []string{
+		"帮我看看", "看一下", "处理一下", "改一下", "弄一下", "做一下", "优化一下", "完善一下", "修复bug", "修bug", "解决问题",
+		"fix bug", "fix it", "improve it", "optimize it", "make it better", "do this", "help me",
+	}
+	for _, phrase := range vaguePhrases {
+		needle := strings.ToLower(phrase)
+		compactNeedle := strings.ReplaceAll(needle, " ", "")
+		matches := strings.Contains(compact, compactNeedle) || strings.Contains(lower, needle)
+		if !matches {
+			continue
+		}
+		// 只对“明显没说清”的极短入口提示做同步拦截；稍长的需求交给
+		// Gardener planner 结合工作区上下文判断，避免把“优化一下首页移动端”
+		// 这类可执行目标误判为必须反问。
+		if compact == compactNeedle || len(runes) <= len([]rune(phrase))+4 || (strings.Contains(needle, " ") && len(strings.Fields(lower)) <= 3) {
+			return "我还不确定你具体想让我做什么。请补充 1）要处理的页面、文件、功能或问题现象；2）你期望的结果或验收标准；3）是否有不能修改的范围。"
+		}
+	}
+	return ""
 }
 
 const (

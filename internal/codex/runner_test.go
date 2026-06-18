@@ -42,3 +42,19 @@ func TestRedactSensitiveTextRedactsModelToken(t *testing.T) {
 		t.Fatalf("redaction marker missing: %q", got)
 	}
 }
+
+func TestClaudeModelArgUsesKimiModel(t *testing.T) {
+	t.Setenv("AUTO_GARDENER_CLAUDE_MODEL", "")
+	got := claudeModelArg(ModelConfig{ProviderID: "gardener-kimi", Model: "kimi-k2.7-code"})
+	if got != "kimi-k2.7-code" {
+		t.Fatalf("claudeModelArg = %q, want kimi-k2.7-code", got)
+	}
+}
+
+func TestClaudeModelArgEnvOverrideWins(t *testing.T) {
+	t.Setenv("AUTO_GARDENER_CLAUDE_MODEL", "custom-claude-model")
+	got := claudeModelArg(ModelConfig{ProviderID: "gardener-kimi", Model: "kimi-k2.7-code"})
+	if got != "custom-claude-model" {
+		t.Fatalf("claudeModelArg override = %q, want custom-claude-model", got)
+	}
+}

@@ -348,8 +348,8 @@ go build -o auto_gardener ./cmd/server
 - CLI 默认模型使用用户本机所选底层 CLI 的原生配置，不注入外部 provider。
 - MiniMax / Kimi 对普通用户应尽量无感：用户只选择模型并填写 token，不需要手动编辑 `~/.codex/config.toml`。
 - MiniMax / Kimi 通过 Gardener 内置兼容层接入。Codex CLI 仍然面向本机 Responses API endpoint；兼容层负责转发到上游 OpenAI Compatible Chat Completions API。
-- MiniMax 默认上游为 `https://api.minimaxi.com/v1`，默认模型为 `MiniMax-M2.7-highspeed`。
-- Kimi 默认上游为 `https://api.kimi.com/coding/v1`，默认模型为 `kimi-coding`，可通过 `AUTO_GARDENER_KIMI_MODEL` 覆盖。
+- MiniMax 默认上游为 `https://api.minimaxi.com/v1`，默认模型为 `MiniMax-M3`。
+- Kimi 默认上游为 `https://api.kimi.com/coding/v1`，默认模型为 `kimi-k2.7-code`，可通过 `AUTO_GARDENER_KIMI_MODEL` 覆盖。
 - 当底层 CLI 为 Claude Code 且模型选择 Kimi 时，Gardener 按 Kimi 官方 Claude Code 接入方式注入 `ANTHROPIC_BASE_URL=https://api.kimi.com/coding/` 和 `ANTHROPIC_API_KEY`。
 - token 只保存在本地 `forest_data/settings.json`，不得写入日志、报告或需求文档。
 

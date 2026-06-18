@@ -74,9 +74,14 @@ func normalizeLogLevel(level LogLevel) LogLevel {
 }
 
 func normalizeModelMode(mode ModelMode) ModelMode {
-	switch mode {
-	case ModelModeDefault, ModelModeMiniMax, ModelModeKimi:
-		return mode
+	value := strings.TrimSpace(string(mode))
+	switch strings.ToLower(value) {
+	case "default", "":
+		return ModelModeDefault
+	case "minimaxm2.7", "minimax-m2.7", "minimaxm3", "minimax-m3", strings.ToLower(string(ModelModeMiniMax)):
+		return ModelModeMiniMax
+	case "kimi-k2.7", "kimi-k2.7-code", "kimik2.7", "kimik2.7-code", "kimik2.6", "kimi-k2.6", "kimi-coding":
+		return ModelModeKimi
 	default:
 		return ModelModeDefault
 	}

@@ -21,8 +21,8 @@ type ModelMode string
 
 const (
 	ModelModeDefault ModelMode = "default"
-	ModelModeMiniMax ModelMode = "minimaxm2.7"
-	ModelModeKimi    ModelMode = "kimik2.6"
+	ModelModeMiniMax ModelMode = "MiniMax-M3"
+	ModelModeKimi    ModelMode = "kimi-k2.7-code"
 )
 
 type CLIEngine string
@@ -134,6 +134,7 @@ type Task struct {
 	MaxTreesPerForest  int          `json:"maxTreesPerForest"`
 	MaxConcurrentTrees int          `json:"maxConcurrentTrees"`
 	StopRequested      bool         `json:"stopRequested"`
+	AwaitingUserInput  bool         `json:"awaitingUserInput,omitempty"`
 	SchedulePath       string       `json:"schedulePath"`
 	LogPath            string       `json:"logPath"`
 	Trees              []*Tree      `json:"trees"`
@@ -192,7 +193,9 @@ type TreePlan struct {
 }
 
 type GardenerPlan struct {
-	MessageToUser  string     `json:"message_to_user"`
-	ForestFinished bool       `json:"forest_finished"`
-	Trees          []TreePlan `json:"trees"`
+	MessageToUser         string     `json:"message_to_user"`
+	ForestFinished        bool       `json:"forest_finished"`
+	NeedsClarification    bool       `json:"needs_clarification,omitempty"`
+	ClarificationQuestion string     `json:"clarification_question,omitempty"`
+	Trees                 []TreePlan `json:"trees"`
 }

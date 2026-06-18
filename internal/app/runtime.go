@@ -20,8 +20,8 @@ func buildTaskRuntime(t *Task, now time.Time) *TaskRuntime {
 	rt := &TaskRuntime{
 		Phase:          taskPhase(t),
 		Severity:       runtimeSeverityOK,
-		CanAskProgress: t.Status == StatusRunning,
-		CanResume:      t.Status == StatusFinished,
+		CanAskProgress: t.Status == StatusRunning || t.AwaitingUserInput,
+		CanResume:      t.Status == StatusFinished && !t.AwaitingUserInput,
 	}
 	if !t.CreatedAt.IsZero() {
 		rt.DurationSeconds = int64(now.Sub(t.CreatedAt).Seconds())
@@ -56,6 +56,9 @@ func buildTaskRuntime(t *Task, now time.Time) *TaskRuntime {
 func taskPhase(t *Task) string {
 	if t == nil {
 		return "unknown"
+	}
+	if t.AwaitingUserInput {
+		return "awaiting_user"
 	}
 	if t.Status == StatusFinished {
 		if t.StopRequested {
@@ -122,6 +125,9 @@ func (tr *Tree) UpdatedAtPtr() *time.Time {
 func runtimeCue(t *Task, rt *TaskRuntime) (string, string) {
 	if t == nil || rt == nil {
 		return "", runtimeSeverityOK
+	}
+	if t.AwaitingUserInput {
+		return "Gardener 需要你补充需求后再继续。请直接在对话框回答它的问题。", runtimeSeverityInfo
 	}
 	if t.Status == StatusFinished {
 		if t.StopRequested {
