@@ -18,6 +18,7 @@ REMOTE_START = int(os.environ.get('GARDENER_RELAY_REMOTE_START', '18081'))
 REMOTE_END = int(os.environ.get('GARDENER_RELAY_REMOTE_END', '18100'))
 PROVISION_RETENTION_SECONDS = int(os.environ.get('GARDENER_RELAY_PROVISION_RETENTION_SECONDS', '86400'))
 RELAY_PUBLIC_BASE_URL = os.environ.get('GARDENER_RELAY_PUBLIC_BASE_URL', f'http://{SERVER_ADDR}')
+REQUIRE_BASIC_AUTH_DEFAULT = True
 PACKAGE_URL = os.environ.get('GARDENER_RELAY_WINDOWS_PACKAGE_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/Gardener-Windows.zip')
 PACKAGE_SHA256_URL = os.environ.get('GARDENER_RELAY_WINDOWS_PACKAGE_SHA256_URL', f'{PACKAGE_URL}.sha256')
 INSTALL_SCRIPT_URL = os.environ.get('GARDENER_RELAY_WINDOWS_INSTALL_SCRIPT_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/install-gardener.ps1')
@@ -40,6 +41,18 @@ def require_relay_configured():
         raise SystemExit('error: relay public base URL is not configured. Set GARDENER_RELAY_PUBLIC_BASE_URL from config/gardener-relay.env.local')
 
 COMMAND_TIMEOUT_SECONDS = 30
+
+
+def env_bool(name, default):
+    raw = os.environ.get(name)
+    if raw is None or raw.strip() == '':
+        return default
+    normalized = raw.strip().lower()
+    if normalized in ('1', 'true', 'yes', 'y', 'on'):
+        return True
+    if normalized in ('0', 'false', 'no', 'n', 'off'):
+        return False
+    raise SystemExit(f'error: {name} must be one of 1/0, true/false, yes/no, on/off')
 
 
 def run(cmd, check=True, timeout=COMMAND_TIMEOUT_SECONDS):
@@ -190,7 +203,16 @@ def htpasswd_hash(password):
     return hashed
 
 
-def nginx_conf(user, public_port, remote_port):
+def nginx_auth_block(user, enabled=True):
+    if not enabled:
+        return '    auth_basic off;\n'
+    return f'''    auth_basic "Gardener";
+    auth_basic_user_file /etc/gardener-relay/users/{user}/htpasswd;
+'''
+
+
+def nginx_conf(user, public_port, remote_port, require_basic_auth=True):
+    auth_block = nginx_auth_block(user, require_basic_auth).rstrip()
     return f'''server {{
     listen {public_port};
     server_name _;
@@ -204,8 +226,7 @@ def nginx_conf(user, public_port, remote_port):
     add_header Referrer-Policy "no-referrer" always;
     add_header X-Frame-Options "DENY" always;
 
-    auth_basic "Gardener";
-    auth_basic_user_file /etc/gardener-relay/users/{user}/htpasswd;
+{auth_block}
 
     location / {{
         proxy_pass http://127.0.0.1:{remote_port};
@@ -381,6 +402,7 @@ def redact_add_result(result):
 def add_user(args):
     require_relay_configured()
     user = sanitize_user(args.user)
+    require_basic_auth = not args.no_basic_auth and env_bool('GARDENER_RELAY_REQUIRE_BASIC_AUTH', REQUIRE_BASIC_AUTH_DEFAULT)
     data = load_state()
     if any(i['user'] == user for i in data['instances']):
         raise SystemExit(f'error: user {user} already exists')
@@ -406,7 +428,7 @@ def add_user(args):
     (user_dir / 'frpc.toml').write_text(frpc_conf(user, remote))
     os.chmod(user_dir / 'frpc.toml', 0o600)
     conf_path = NGINX_DIR / f'gardener-user-{user}.conf'
-    conf_path.write_text(nginx_conf(user, public, remote))
+    conf_path.write_text(nginx_conf(user, public, remote, require_basic_auth=require_basic_auth))
     instance = {
         'user': user,
         'publicPort': public,
@@ -414,6 +436,7 @@ def add_user(args):
         'proxyName': f'gardener-{relay_id_for_user(user)}',
         'url': f'http://{SERVER_ADDR}:{public}',
         'basicAuthUser': user,
+        'basicAuthEnabled': require_basic_auth,
         'createdAt': time.strftime('%Y-%m-%dT%H:%M:%S%z'),
         'nginxConf': str(conf_path),
         'frpcConfig': str(user_dir / 'frpc.toml'),
@@ -533,6 +556,7 @@ def main():
     a.add_argument('--password-file', help='read web login password from a local file instead of the command line')
     a.add_argument('--setup-key', help='optional preselected secret setup key, default: random sk_*')
     a.add_argument('--setup-key-file', help='read optional preselected setup key from a local file')
+    a.add_argument('--no-basic-auth', action='store_true', help='do not require nginx Basic Auth on the public web port')
     a.add_argument('--show-secrets', action='store_true', help='print generated password, setup key and install commands')
     a.set_defaults(func=add_user)
     r = sub.add_parser('remove')

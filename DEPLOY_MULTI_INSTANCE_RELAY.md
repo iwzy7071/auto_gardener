@@ -241,6 +241,16 @@ gardener
 - 未带 Basic Auth 访问中转入口：`401`
 - 带 Basic Auth 访问中转入口：成功穿透到本机测试服务，返回 `GARDENER_RELAY_E2E_OK`
 
+如果某个可信/私有部署需要直接用公网 URL 打开，不希望浏览器先弹 Basic Auth，可以在新增用户时显式关闭该用户公网端口上的 nginx Basic Auth：
+
+```bash
+ssh <relay-host> 'GARDENER_RELAY_REQUIRE_BASIC_AUTH=0 gardener-relay add alice'
+# 或仅对本次 add 使用命令行开关：
+ssh <relay-host> 'gardener-relay add alice --no-basic-auth'
+```
+
+关闭后，`http://YOUR_VPS_IP:PORT/` 将直接暴露 Gardener Web/API。只有在你确定该公网入口可接受匿名访问风险时才这样做；否则应保留默认 Basic Auth。
+
 ## 用户分配脚本
 
 VPS 上已安装：
@@ -359,7 +369,7 @@ ssh <relay-host> 'gardener-relay show alice --with-provision'
 
 - `setupKey` 等同于客户端配置密钥，应只发给对应用户。
 - 当前没有 HTTPS，SetupKey 和网页登录密码通过 HTTP 下载；在没有域名/证书前，这只能防止随机访问，不能防止链路监听或中间人攻击。
-- 每个用户拥有独立公网端口、独立 Basic Auth、独立 frp remotePort/proxyName，避免多个用户冲突。
+- 每个用户拥有独立公网端口、独立 frp remotePort/proxyName；默认还拥有独立 Basic Auth，避免多个用户冲突并减少匿名访问风险。
 - 云服务器安全组需要放行该用户分配到的公网端口，例如 `28082/tcp`；也可以一次性放行规划范围 `28081-28100/tcp`。
 
 ## 2026-06-07 当前已分配用户
