@@ -1,4 +1,4 @@
-const state = { powerStatus: null, tasks: [], activeTaskId: null, eventSource: null, recoveryPoller: null, activeRefreshPoller: null, selectedForests: {}, selectedFileTree: {}, selectedFilePath: {}, selectedFileManual: {}, fileListFingerprint: {}, lastFileRefreshAt: {}, treeStatusExpanded: {}, usage: {}, usageFetchedAt: {}, usagePending: {}, renderCache: {}, pendingTaskRender: null, pendingTaskRenderFrame: 0, lastTaskListSig: '', lastHomeSig: '', activeReportText: '', fileViewerToken: 0, previewToken: 0, overviewCollapsed: loadOverviewCollapsed(), chatCollapsed: loadChatCollapsed(), editingTitle: false, settings: loadSettings() };
+const state = { powerStatus: null, tasks: [], activeTaskId: null, eventSource: null, recoveryPoller: null, activeRefreshPoller: null, selectedForests: {}, selectedFileTree: {}, selectedFilePath: {}, selectedFileManual: {}, fileListFingerprint: {}, lastFileRefreshAt: {}, treeStatusExpanded: {}, usage: {}, usageFetchedAt: {}, usagePending: {}, renderCache: {}, pendingTaskRender: null, pendingTaskRenderFrame: 0, lastTaskListSig: '', lastHomeSig: '', activeReportText: '', fileViewerToken: 0, previewToken: 0, filePreviewRendered: null, overviewCollapsed: loadOverviewCollapsed(), chatCollapsed: loadChatCollapsed(), editingTitle: false, settings: loadSettings() };
 const $ = (id) => document.getElementById(id);
 const MAX_CSV_PREVIEW_ROWS = 500;
 
@@ -1158,6 +1158,7 @@ function renderedFileErrorMessage(err) {
 function resetFileViewerForTask(taskId) {
   state.fileViewerToken++;
   state.previewToken++;
+  state.filePreviewRendered = null;
   const fileSelect = $('fileSelect');
   const preview = $('filePreview');
   if (fileSelect) {
@@ -1172,6 +1173,36 @@ function resetFileViewerForTask(taskId) {
 
 function isActiveFileRender(taskId, token) {
   return state.activeTaskId === taskId && (!token || token === state.fileViewerToken);
+}
+
+function setFilePreviewHTML(key, className, html) {
+  const preview = $('filePreview');
+  if (!preview) return false;
+  const normalized = String(html ?? '');
+  if (state.filePreviewRendered && state.filePreviewRendered.key === key && state.filePreviewRendered.className === className && state.filePreviewRendered.html === normalized) {
+    return false;
+  }
+  preview.className = className;
+  preview.innerHTML = normalized;
+  state.filePreviewRendered = { key, className, html: normalized };
+  return true;
+}
+
+function setFilePreviewText(key, className, text) {
+  const preview = $('filePreview');
+  if (!preview) return false;
+  const normalized = String(text ?? '');
+  if (state.filePreviewRendered && state.filePreviewRendered.key === key && state.filePreviewRendered.className === className && state.filePreviewRendered.text === normalized) {
+    return false;
+  }
+  preview.className = className;
+  preview.textContent = normalized;
+  state.filePreviewRendered = { key, className, text: normalized };
+  return true;
+}
+
+function filePreviewTargetKey(kind, taskId, path = '') {
+  return `${kind}:${taskId || ''}:${path || ''}`;
 }
 
 const MAX_FILE_FINGERPRINT_PATH_CHARS = 400;
@@ -1205,26 +1236,27 @@ async function previewLatestReport(task, token) {
   const fileSelect = $('fileSelect');
   const tr = latestFruitReport(task);
   if (!tr) {
-    if (preview && isActiveFileRender(task.id, token)) preview.textContent = task.status === 'Running' ? t('noOutputYet') : t('noFiles');
+    if (preview && isActiveFileRender(task.id, token)) setFilePreviewText(filePreviewTargetKey('report-empty', task.id, `${task.status || ''}:${state.settings.language || ''}`), 'file-preview plain-preview', task.status === 'Running' ? t('noOutputYet') : t('noFiles'));
     return;
   }
+  const targetKey = filePreviewTargetKey('report', task.id, tr.id);
   if (fileSelect && isActiveFileRender(task.id, token)) {
     fileSelect.innerHTML = `<option value="__report__">${t('result')}</option>`;
     fileSelect.disabled = true;
   }
   if (preview && isActiveFileRender(task.id, token)) {
-    preview.className = 'file-preview markdown-preview';
-    preview.textContent = t('loadingFiles');
+    const current = state.filePreviewRendered;
+    if (!current || current.key !== targetKey) {
+      setFilePreviewText(filePreviewTargetKey('report-loading', task.id, tr.id), 'file-preview markdown-preview', t('loadingFiles'));
+    }
   }
   try {
     const text = await fetchText(taskAPIPath(task.id, `/trees/${tr.id}/fruit.md`));
     if (!isActiveFileRender(task.id, token)) return;
-    preview.className = 'file-preview markdown-preview';
-    preview.innerHTML = renderMarkdown(text || t('emptyResult'));
+    setFilePreviewHTML(targetKey, 'file-preview markdown-preview', renderMarkdown(text || t('emptyResult')));
   } catch (err) {
     if (!isActiveFileRender(task.id, token)) return;
-    preview.className = 'file-preview plain-preview';
-    preview.textContent = `${t('openFailed')}${err.message}`;
+    setFilePreviewText(filePreviewTargetKey('report-error', task.id, tr.id), 'file-preview plain-preview', `${t('openFailed')}${err.message}`);
   }
 }
 
@@ -1262,8 +1294,9 @@ async function renderFileViewer(task) {
   if (list) list.innerHTML = '';
   fileSelect.innerHTML = `<option value="">${t('loadingFiles')}</option>`;
   fileSelect.disabled = true;
-  preview.className = 'file-preview plain-preview';
-  preview.textContent = task.status === 'Running' ? t('noOutputYet') : t('selectFile');
+  if (!state.filePreviewRendered || !String(state.filePreviewRendered.key || '').startsWith(`file:${task.id}:`) && !String(state.filePreviewRendered.key || '').startsWith(`report:${task.id}:`)) {
+    setFilePreviewText(filePreviewTargetKey('placeholder', task.id, `${task.status || ''}:${state.settings.language || ''}`), 'file-preview plain-preview', task.status === 'Running' ? t('noOutputYet') : t('selectFile'));
+  }
   try {
     const params = new URLSearchParams();
     if (filter.value) params.set('treeId', filter.value);
@@ -1312,7 +1345,7 @@ async function renderFileViewer(task) {
     const message = renderedFileErrorMessage(err);
     fileSelect.innerHTML = `<option value="">${t('openFailed')}${escapeHTML(message)}</option>`;
     fileSelect.disabled = true;
-    preview.textContent = `${t('openFailed')}${message}`;
+    setFilePreviewText(filePreviewTargetKey('file-list-error', task.id, state.settings.language || ''), 'file-preview plain-preview', `${t('openFailed')}${message}`);
   }
 }
 
@@ -1320,14 +1353,15 @@ async function previewFile(taskId, path, renderToken = 0) {
   const preview = $('filePreview');
   const previewToken = ++state.previewToken;
   if (!preview || state.activeTaskId !== taskId) return;
-  preview.className = 'file-preview plain-preview';
-  preview.textContent = t('loadingFiles');
+  const targetKey = filePreviewTargetKey('file', taskId, path);
+  if (!state.filePreviewRendered || state.filePreviewRendered.key !== targetKey) {
+    setFilePreviewText(filePreviewTargetKey('file-loading', taskId, path), 'file-preview plain-preview', t('loadingFiles'));
+  }
   try {
     if (isBinaryPreviewPath(path)) {
       const href = `${taskAPIPath(taskId, '/files')}?path=${encodeURIComponent(path)}&download=1`;
       if (state.activeTaskId !== taskId || previewToken !== state.previewToken || (renderToken && renderToken !== state.fileViewerToken)) return;
-      preview.className = 'file-preview plain-preview';
-      preview.innerHTML = `<div class="file-empty">${escapeHTML(t('binaryFile'))}<br><br><a class="primary small" href="${escapeHTML(href)}" target="_blank" rel="noopener">${escapeHTML(t('downloadFile'))}</a></div>`;
+      setFilePreviewHTML(targetKey, 'file-preview plain-preview', `<div class="file-empty">${escapeHTML(t('binaryFile'))}<br><br><a class="primary small" href="${escapeHTML(href)}" target="_blank" rel="noopener">${escapeHTML(t('downloadFile'))}</a></div>`);
       return;
     }
     const rawText = await fetchText(`${taskAPIPath(taskId, '/files')}?path=${encodeURIComponent(path)}`);
@@ -1335,28 +1369,21 @@ async function previewFile(taskId, path, renderToken = 0) {
     const withNotice = html => notice ? `<div class="preview-note">${escapeHTML(notice)}</div>${html}` : html;
     if (state.activeTaskId !== taskId || previewToken !== state.previewToken || (renderToken && renderToken !== state.fileViewerToken)) return;
     if (isMarkdownPath(path)) {
-      preview.className = 'file-preview markdown-preview';
-      preview.innerHTML = withNotice(renderMarkdown(text));
+      setFilePreviewHTML(targetKey, 'file-preview markdown-preview', withNotice(renderMarkdown(text)));
     } else if (isCSVPath(path)) {
-      preview.className = 'file-preview csv-preview';
-      preview.innerHTML = withNotice(renderCSV(text));
+      setFilePreviewHTML(targetKey, 'file-preview csv-preview', withNotice(renderCSV(text)));
     } else if (isJSONPath(path)) {
-      preview.className = 'file-preview code-preview json-preview';
-      preview.innerHTML = withNotice(renderJSON(text));
+      setFilePreviewHTML(targetKey, 'file-preview code-preview json-preview', withNotice(renderJSON(text)));
     } else if (isHTMLPath(path)) {
-      preview.className = 'file-preview code-preview html-preview';
-      preview.innerHTML = withNotice(renderCode(text, 'html'));
+      setFilePreviewHTML(targetKey, 'file-preview code-preview html-preview', withNotice(renderCode(text, 'html')));
     } else if (isPythonPath(path)) {
-      preview.className = 'file-preview code-preview python-preview';
-      preview.innerHTML = withNotice(renderCode(text, 'python'));
+      setFilePreviewHTML(targetKey, 'file-preview code-preview python-preview', withNotice(renderCode(text, 'python')));
     } else {
-      preview.className = 'file-preview plain-preview';
-      preview.innerHTML = withNotice(`<pre>${escapeHTML(text)}</pre>`);
+      setFilePreviewHTML(targetKey, 'file-preview plain-preview', withNotice(`<pre>${escapeHTML(text)}</pre>`));
     }
   } catch (err) {
     if (state.activeTaskId !== taskId || previewToken !== state.previewToken || (renderToken && renderToken !== state.fileViewerToken)) return;
-    preview.className = 'file-preview plain-preview';
-    preview.textContent = `${t('fileTooLarge')}：${renderedFileErrorMessage(err)}`;
+    setFilePreviewText(filePreviewTargetKey('file-error', taskId, path), 'file-preview plain-preview', `${t('fileTooLarge')}：${renderedFileErrorMessage(err)}`);
   }
 }
 
