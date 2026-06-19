@@ -69,7 +69,7 @@ function Protect-GardenerSecretFile([string]$Path) {
     $acl.SetAccessRule($rule)
     Set-Acl -Path $Path -AclObject $acl
   } catch {
-    Write-Host "Warning: could not restrict permissions on $Path: $_" -ForegroundColor Yellow
+    Write-Host "Warning: could not restrict permissions on ${Path}: $_" -ForegroundColor Yellow
   }
 }
 
