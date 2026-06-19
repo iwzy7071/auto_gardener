@@ -840,7 +840,7 @@ func (s *Server) listWorkspaceFiles(w http.ResponseWriter, r *http.Request, task
 		}
 		name := d.Name()
 		if d.IsDir() {
-			if name == ".git" || name == "node_modules" || name == ".next" || name == "dist" || name == "build" || name == "vendor" {
+			if isNoiseWorkspaceDir(name) {
 				return filepath.SkipDir
 			}
 			if path != root && s.isOtherTaskWorkspaceRoot(task, root, path) {
@@ -1055,7 +1055,17 @@ func isHiddenOrNoiseFile(rel string) bool {
 	if lower == "package-lock.json" || lower == "pnpm-lock.yaml" || lower == "yarn.lock" {
 		return true
 	}
-	return strings.HasSuffix(lower, ".tmp") || strings.HasSuffix(lower, ".temp") || strings.HasSuffix(lower, ".part") || strings.HasSuffix(lower, ".crdownload") || strings.HasSuffix(lower, ".log") || strings.HasSuffix(lower, ".bak")
+	return strings.HasSuffix(lower, ".tmp") || strings.HasSuffix(lower, ".temp") || strings.HasSuffix(lower, ".part") || strings.HasSuffix(lower, ".crdownload") || strings.HasSuffix(lower, ".log") || strings.HasSuffix(lower, ".bak") || strings.HasSuffix(lower, ".pyc") || strings.HasSuffix(lower, ".pyo")
+}
+
+func isNoiseWorkspaceDir(name string) bool {
+	lower := strings.ToLower(strings.TrimSpace(name))
+	switch lower {
+	case ".git", ".hg", ".svn", ".next", ".nuxt", ".cache", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".tox", ".venv", "venv", "env", "__pycache__", "node_modules", "dist", "build", "vendor":
+		return true
+	default:
+		return false
+	}
 }
 
 func isSensitiveWorkspaceFile(rel string) bool {
