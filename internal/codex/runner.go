@@ -80,6 +80,7 @@ func NewRunnerFromEnv() Runner {
 
 func (r ShellRunner) Run(ctx context.Context, req RunRequest) RunResult {
 	req.Prompt = withGoalEnvelope(req.Prompt, req.Goal)
+	req.Prompt = withProviderExecutionGuard(req.Prompt, req.Model)
 	if isClaudeCLI(req.CLI) {
 		return r.runClaude(ctx, req)
 	}
@@ -95,6 +96,20 @@ func isClaudeCLI(cli string) bool {
 	default:
 		return false
 	}
+}
+
+func withProviderExecutionGuard(prompt string, model ModelConfig) string {
+	provider := strings.TrimSpace(model.ProviderID)
+	if provider != "gardener-minimax" && provider != "gardener-kimi" {
+		return prompt
+	}
+	return `# Provider execution guard
+
+You are running inside the real Claude Code CLI through a MiniMax/Kimi compatible provider. When you need to read, write, edit, or run commands, you must trigger the CLI's actual tool execution mechanism. Never print raw tool-call markup such as <tool_call>, <invoke>, tool_use JSON/XML, or provider-tagged tool syntax in your answer. Raw tool-call markup is not executed by Gardener and will be treated as a failed run.
+
+If the CLI refuses to execute a needed tool, stop and report Goal status: blocked with the exact reason; do not emit unexecuted tool syntax.
+
+` + prompt
 }
 
 func withGoalEnvelope(prompt string, goal GoalSpec) string {
@@ -233,18 +248,26 @@ func (r ShellRunner) runClaude(ctx context.Context, req RunRequest) RunResult {
 	if err != nil {
 		return RunResult{Err: err}
 	}
-	args := []string{
+	args := []string{}
+	if settingsPath := claudeSettingsPath(req.Model); settingsPath != "" {
+		args = append(args, "--settings", settingsPath)
+	}
+	args = append(args,
+		"--bare",
 		"-p",
 		"--output-format", "text",
 		"--permission-mode", "bypassPermissions",
-	}
+	)
 	if model := claudeModelArg(req.Model); model != "" {
 		args = append(args, "--model", model)
 	}
+	// Claude Code's non-interactive print mode expects the prompt as a
+	// positional argument. Supplying it on stdin can leave compatible providers
+	// such as Kimi waiting without issuing the intended request.
+	args = append(args, req.Prompt)
 	cmd := exec.CommandContext(ctx, command, args...)
 	cmd.Dir = req.WorkDir
 	cmd.Env = appendClaudeEnv(env, req.Model)
-	cmd.Stdin = strings.NewReader(req.Prompt)
 	setProcessGroup(cmd)
 	cmd.Cancel = func() error { return killProcess(cmd) }
 	cmd.WaitDelay = 5 * time.Second
@@ -302,7 +325,20 @@ func (r ShellRunner) runClaude(ctx context.Context, req RunRequest) RunResult {
 		_ = os.MkdirAll(filepath.Dir(req.OutputFile), 0755)
 		_ = os.WriteFile(req.OutputFile, []byte(output), 0644)
 	}
+	if err == nil && leakedProviderToolCall(output, req.Model) {
+		err = fmt.Errorf("provider emitted raw tool-call markup instead of executing tools")
+	}
 	return RunResult{Output: output, Err: err}
+}
+
+func leakedProviderToolCall(output string, model ModelConfig) bool {
+	provider := strings.TrimSpace(model.ProviderID)
+	if provider != "gardener-minimax" && provider != "gardener-kimi" {
+		return false
+	}
+	return strings.Contains(output, "]<]minimax[>[<tool_call>") ||
+		strings.Contains(output, "]<]kimi[>[<tool_call>") ||
+		(strings.Contains(output, "<tool_call>") && strings.Contains(output, "<invoke name="))
 }
 
 func redactSensitiveText(text string, model ModelConfig) string {
@@ -348,10 +384,44 @@ func claudeModelArg(model ModelConfig) string {
 	if override := strings.TrimSpace(os.Getenv("AUTO_GARDENER_CLAUDE_MODEL")); override != "" {
 		return override
 	}
-	if strings.TrimSpace(model.ProviderID) == "gardener-kimi" {
+	switch strings.TrimSpace(model.ProviderID) {
+	case "gardener-kimi", "gardener-minimax":
 		return strings.TrimSpace(model.Model)
+	default:
+		return ""
+	}
+}
+
+func claudeSettingsPath(model ModelConfig) string {
+	if override := strings.TrimSpace(os.Getenv("AUTO_GARDENER_CLAUDE_SETTINGS")); override != "" {
+		if fileExists(override) {
+			return override
+		}
+		return ""
+	}
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return ""
+	}
+	var name string
+	switch strings.TrimSpace(model.ProviderID) {
+	case "gardener-kimi":
+		name = firstNonEmpty(os.Getenv("AUTO_GARDENER_KIMI_CLAUDE_SETTINGS_NAME"), "kimi-k2.7.settings.json")
+	case "gardener-minimax":
+		name = firstNonEmpty(os.Getenv("AUTO_GARDENER_MINIMAX_CLAUDE_SETTINGS_NAME"), "minimax-m3.settings.json")
+	default:
+		return ""
+	}
+	path := filepath.Join(home, ".claude", "providers", name)
+	if fileExists(path) {
+		return path
 	}
 	return ""
+}
+
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
 }
 
 func appendModelEnv(env []string, model ModelConfig) []string {
@@ -379,12 +449,52 @@ func appendModelEnv(env []string, model ModelConfig) []string {
 
 func appendClaudeEnv(env []string, model ModelConfig) []string {
 	token := strings.TrimSpace(model.Token)
-	if strings.TrimSpace(model.ProviderID) == "gardener-kimi" && token != "" {
-		env = upsertEnv(env, "ANTHROPIC_BASE_URL", firstNonEmpty(os.Getenv("AUTO_GARDENER_KIMI_CLAUDE_BASE_URL"), "https://api.kimi.com/coding/"))
-		env = upsertEnv(env, "ANTHROPIC_API_KEY", token)
+	usesSettingsFile := claudeSettingsPath(model) != ""
+	switch strings.TrimSpace(model.ProviderID) {
+	case "gardener-kimi":
+		if token == "" && !usesSettingsFile {
+			return env
+		}
+		modelName := firstNonEmpty(os.Getenv("AUTO_GARDENER_KIMI_CLAUDE_MODEL"), strings.TrimSpace(model.Model), "kimi-k2.7-code")
+		// Kimi Coding is exposed for coding agents through its Claude-compatible
+		// endpoint. Keep ANTHROPIC_API_KEY populated as a harmless compatibility
+		// fallback for older Claude Code builds.
+		if !usesSettingsFile {
+			env = upsertEnv(env, "ANTHROPIC_BASE_URL", firstNonEmpty(os.Getenv("AUTO_GARDENER_KIMI_CLAUDE_BASE_URL"), "https://api.kimi.com/coding/"))
+			env = upsertEnv(env, "ANTHROPIC_AUTH_TOKEN", token)
+			env = upsertEnv(env, "ANTHROPIC_API_KEY", token)
+		}
+		applyClaudeModelEnv(&env, modelName)
 		env = upsertEnv(env, "ENABLE_TOOL_SEARCH", firstNonEmpty(os.Getenv("AUTO_GARDENER_KIMI_ENABLE_TOOL_SEARCH"), "false"))
+		env = upsertEnv(env, "CLAUDE_CODE_AUTO_COMPACT_WINDOW", firstNonEmpty(os.Getenv("AUTO_GARDENER_KIMI_AUTO_COMPACT_WINDOW"), "262144"))
+		env = upsertEnv(env, "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", firstNonEmpty(os.Getenv("AUTO_GARDENER_KIMI_DISABLE_NONESSENTIAL_TRAFFIC"), "1"))
+		env = upsertEnv(env, "API_TIMEOUT_MS", firstNonEmpty(os.Getenv("AUTO_GARDENER_KIMI_CLAUDE_API_TIMEOUT_MS"), "300000"))
+	case "gardener-minimax":
+		if token == "" && !usesSettingsFile {
+			return env
+		}
+		modelName := firstNonEmpty(os.Getenv("AUTO_GARDENER_MINIMAX_CLAUDE_MODEL"), strings.TrimSpace(model.Model), "MiniMax-M3")
+		// MiniMax also exposes an Anthropic-compatible endpoint. This lets the app
+		// keep MiniMax as the model supplier while using Claude Code as the CLI when
+		// Codex-compatible planning emits invalid JSON or stalls.
+		if !usesSettingsFile {
+			env = upsertEnv(env, "ANTHROPIC_BASE_URL", firstNonEmpty(os.Getenv("AUTO_GARDENER_MINIMAX_CLAUDE_BASE_URL"), "https://api.minimaxi.com/anthropic/"))
+			env = upsertEnv(env, "ANTHROPIC_AUTH_TOKEN", token)
+			env = upsertEnv(env, "ANTHROPIC_API_KEY", token)
+		}
+		applyClaudeModelEnv(&env, modelName)
+		env = upsertEnv(env, "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", firstNonEmpty(os.Getenv("AUTO_GARDENER_MINIMAX_DISABLE_NONESSENTIAL_TRAFFIC"), "1"))
+		env = upsertEnv(env, "API_TIMEOUT_MS", firstNonEmpty(os.Getenv("AUTO_GARDENER_MINIMAX_CLAUDE_API_TIMEOUT_MS"), "300000"))
 	}
 	return env
+}
+
+func applyClaudeModelEnv(env *[]string, modelName string) {
+	*env = upsertEnv(*env, "ANTHROPIC_MODEL", modelName)
+	*env = upsertEnv(*env, "ANTHROPIC_DEFAULT_OPUS_MODEL", modelName)
+	*env = upsertEnv(*env, "ANTHROPIC_DEFAULT_SONNET_MODEL", modelName)
+	*env = upsertEnv(*env, "ANTHROPIC_DEFAULT_HAIKU_MODEL", modelName)
+	*env = upsertEnv(*env, "CLAUDE_CODE_SUBAGENT_MODEL", modelName)
 }
 
 func upsertEnv(env []string, key, value string) []string {

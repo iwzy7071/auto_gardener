@@ -21,12 +21,12 @@ func TestNormalizeCLIEngineAliases(t *testing.T) {
 	}
 }
 
-func TestCompatibleCLIEngineForKimi(t *testing.T) {
+func TestCompatibleCLIEngineForBundledProviders(t *testing.T) {
 	if got := compatibleCLIEngine(CLIEngineCodex, ModelModeKimi); got != CLIEngineClaude {
 		t.Fatalf("Kimi should use Claude-compatible path, got %q", got)
 	}
-	if got := compatibleCLIEngine(CLIEngineCodex, ModelModeMiniMax); got != CLIEngineCodex {
-		t.Fatalf("MiniMax should keep Codex path, got %q", got)
+	if got := compatibleCLIEngine(CLIEngineCodex, ModelModeMiniMax); got != CLIEngineClaude {
+		t.Fatalf("MiniMax should use Claude-compatible path, got %q", got)
 	}
 	if got := compatibleCLIEngine(CLIEngineClaude, ModelModeDefault); got != CLIEngineClaude {
 		t.Fatalf("Claude default should stay Claude, got %q", got)

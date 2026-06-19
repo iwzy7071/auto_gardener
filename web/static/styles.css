@@ -1640,6 +1640,25 @@ label{display:block;margin:11px 0 6px;color:var(--muted);font-size:12px}textarea
 
 /* Detail UX refinement: collapsible chat, readable collapsed overview, beginner-friendly progress. */
 .chat-toggle-btn{white-space:nowrap}
+.jump-to-latest{
+  position:absolute;
+  left:50%;
+  bottom:84px;
+  z-index:6;
+  transform:translateX(-50%);
+  padding:8px 13px;
+  border-radius:999px;
+  background:rgba(47,111,68,.94);
+  color:#fffdf7;
+  box-shadow:0 10px 24px rgba(47,111,68,.22);
+  cursor:pointer;
+  font-size:12px;
+  font-weight:800;
+}
+.jump-to-latest:after{content:" ↓";font-weight:900}
+.jump-to-latest:hover{transform:translateX(-50%) translateY(-1px);box-shadow:0 14px 28px rgba(47,111,68,.26)}
+.jump-to-latest:focus-visible{outline:3px solid rgba(76,148,97,.26);outline-offset:3px}
+.chat-bottom-sentinel{height:1px;flex:0 0 1px}
 .app-shell.focused .forest-detail-layout.chat-collapsed,
 .forest-detail-layout.chat-collapsed{
   grid-template-columns:minmax(0,1fr)!important;
@@ -1797,3 +1816,370 @@ label{display:block;margin:11px 0 6px;color:var(--muted);font-size:12px}textarea
   .tree-status-panel.compact.novice .tree-status-main{grid-template-columns:1fr}
   .tree-status-panel.compact.novice .tree-status-toggle{justify-self:start}
 }
+
+/* Home task search: lightweight local filtering for existing tasks. */
+.home-task-search{
+  margin:-4px 0 12px;
+}
+.home-task-search-input{
+  width:100%;
+  min-height:42px;
+  border:1px solid rgba(52,68,45,.11);
+  border-radius:16px;
+  padding:10px 13px 10px 38px;
+  outline:none;
+  background:
+    linear-gradient(transparent,transparent),
+    rgba(255,255,252,.76);
+  color:var(--ink);
+  font-size:14px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.82);
+}
+.home-task-search{position:relative}
+.home-task-search:before{
+  content:"⌕";
+  position:absolute;
+  left:14px;
+  top:50%;
+  transform:translateY(-50%);
+  z-index:1;
+  color:#8a9484;
+  font-size:15px;
+  pointer-events:none;
+}
+.home-task-search-input::placeholder{color:rgba(73,82,69,.55)}
+.home-task-search-input:focus{
+  border-color:rgba(76,148,97,.32);
+  box-shadow:0 0 0 4px rgba(76,148,97,.10),inset 0 1px 0 rgba(255,255,255,.9);
+  background:#fffef8;
+}
+.app-shell:not(.focused) .home-task-search{margin:-2px 0 14px}
+.app-shell:not(.focused) .home-forest-list{max-height:calc(100vh - 234px)!important}
+@media(max-width:980px){.app-shell:not(.focused) .home-forest-list{max-height:none!important}}
+@media(max-width:640px){.home-task-search-input{min-height:44px;border-radius:16px}}
+
+/* Simplified overview: avoid overlap and hide low-value runtime counters. */
+.right-pane{
+  grid-template-rows:auto minmax(360px,1fr)!important;
+  align-items:start;
+}
+.forest-summary{
+  overflow:visible;
+}
+.app-shell.focused .forest-summary,
+.forest-summary{
+  grid-template-rows:auto auto auto minmax(0,1fr)!important;
+}
+.overview-mini-panel{
+  grid-template-columns:auto repeat(2,minmax(0,1fr))!important;
+}
+.task-dashboard-panel{
+  gap:8px;
+}
+.dashboard-readable,
+.dashboard-status-card,
+.dashboard-mini-metrics,
+#treeStatusPanel{
+  display:none!important;
+}
+.dashboard-cue p{
+  overflow-wrap:anywhere;
+}
+.file-zone{
+  min-height:0;
+}
+@media(max-width:1180px){
+  .right-pane{grid-template-rows:auto auto!important}
+  .forest-summary{min-height:0!important}
+}
+@media(max-width:820px){
+  .overview-mini-panel{grid-template-columns:1fr!important}
+}
+
+/* Home-only delete action and polished empty file state. */
+.summary-actions #deleteTaskBtn{
+  display:none!important;
+}
+.home-forest-item{
+  grid-template-columns:minmax(0,1fr)!important;
+  gap:6px!important;
+  padding:13px 14px 12px!important;
+}
+.home-forest-title,
+.home-forest-meta,
+.home-forest-actions{
+  grid-column:1!important;
+}
+.home-forest-actions{
+  display:flex;
+  justify-content:flex-start;
+  padding-top:4px;
+}
+.home-forest-delete{
+  grid-column:1!important;
+  grid-row:auto!important;
+  justify-self:start!important;
+  align-self:center!important;
+  width:auto!important;
+  height:auto!important;
+  min-height:28px!important;
+  padding:5px 11px!important;
+  border-radius:999px!important;
+  border:1px solid rgba(143,77,64,.14)!important;
+  background:rgba(248,238,233,.92)!important;
+  color:#8f4d40!important;
+  font-size:12px!important;
+  line-height:1.2!important;
+  font-weight:760!important;
+  opacity:.82!important;
+}
+.home-forest-item:hover .home-forest-delete,
+.home-forest-delete:focus-visible,
+.home-forest-delete:hover{
+  opacity:1!important;
+  background:#f4ddd8!important;
+  transform:none!important;
+}
+.file-preview.file-preview-empty{
+  display:grid!important;
+  place-items:center!important;
+  min-height:220px;
+  padding:22px!important;
+  border:1px dashed rgba(76,148,97,.22)!important;
+  background:
+    radial-gradient(circle at 50% 20%,rgba(224,239,208,.85),rgba(255,253,247,.72) 42%,rgba(255,253,247,.92) 100%)!important;
+  color:var(--ink)!important;
+  font:inherit!important;
+  white-space:normal!important;
+}
+.file-empty-card{
+  display:grid;
+  justify-items:center;
+  gap:8px;
+  max-width:360px;
+  text-align:center;
+}
+.file-empty-icon{
+  width:46px;
+  height:46px;
+  display:grid;
+  place-items:center;
+  border-radius:18px;
+  background:rgba(76,148,97,.12);
+  color:#4c9461;
+  font-size:24px;
+  font-weight:800;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.8);
+}
+.file-empty-card strong{
+  font-size:15px;
+  letter-spacing:-.01em;
+  color:#34402f;
+}
+.file-empty-card p{
+  margin:0;
+  color:var(--muted);
+  font-size:13px;
+  line-height:1.55;
+}
+@media(max-width:760px){
+  .home-forest-actions{padding-top:6px}
+  .home-forest-delete{min-height:32px!important;padding:7px 12px!important}
+}
+
+/* Final homepage task-card polish: keep names visible and make delete unobtrusive. */
+.app-shell:not(.focused) .home-forest-item{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
+  grid-template-areas:"title action" "meta action"!important;
+  gap:4px 12px!important;
+  min-height:72px!important;
+  padding:14px 14px!important;
+  align-items:center!important;
+  border-radius:20px!important;
+  background:rgba(255,254,249,.92)!important;
+  border:1px solid rgba(52,68,45,.10)!important;
+  box-shadow:0 10px 24px rgba(58,65,51,.055)!important;
+}
+.app-shell:not(.focused) .home-forest-item:hover{
+  background:#fffef8!important;
+  border-color:rgba(76,148,97,.18)!important;
+  box-shadow:0 14px 30px rgba(58,65,51,.08)!important;
+}
+.app-shell:not(.focused) .home-forest-title{
+  display:block!important;
+  grid-area:title!important;
+  min-width:0!important;
+  max-width:100%!important;
+  color:#222a20!important;
+  font-size:14px!important;
+  line-height:1.42!important;
+  font-weight:800!important;
+  opacity:1!important;
+  visibility:visible!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+  padding:0!important;
+}
+.app-shell:not(.focused) .home-forest-meta{
+  grid-area:meta!important;
+  min-width:0!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:6px!important;
+  padding:0!important;
+  color:#7a8374!important;
+  font-size:12px!important;
+  line-height:1.35!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.app-shell:not(.focused) .home-forest-actions{
+  grid-area:action!important;
+  align-self:center!important;
+  justify-self:end!important;
+  display:flex!important;
+  padding:0!important;
+}
+.app-shell:not(.focused) .home-forest-delete{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  width:auto!important;
+  min-width:52px!important;
+  height:32px!important;
+  min-height:32px!important;
+  padding:0 12px!important;
+  overflow:visible!important;
+  border-radius:999px!important;
+  border:1px solid rgba(143,77,64,.16)!important;
+  background:rgba(248,238,233,.78)!important;
+  color:#8f4d40!important;
+  font-size:12px!important;
+  line-height:1!important;
+  font-weight:800!important;
+  opacity:.78!important;
+  text-indent:0!important;
+  white-space:nowrap!important;
+  box-shadow:none!important;
+}
+.app-shell:not(.focused) .home-forest-delete:hover,
+.app-shell:not(.focused) .home-forest-delete:focus-visible{
+  opacity:1!important;
+  background:#f4ddd8!important;
+  border-color:rgba(143,77,64,.22)!important;
+  transform:none!important;
+}
+@media(max-width:640px){
+  .app-shell:not(.focused) .home-forest-item{
+    grid-template-columns:1fr!important;
+    grid-template-areas:"title" "meta" "action"!important;
+  }
+  .app-shell:not(.focused) .home-forest-actions{
+    justify-self:start!important;
+    padding-top:6px!important;
+  }
+}
+
+/* Custom delete confirmation dialog: replaces the native browser confirm. */
+.delete-confirm-overlay{
+  z-index:60;
+  background:rgba(31,36,30,.30)!important;
+}
+.delete-confirm-modal{
+  width:min(430px,calc(100vw - 34px));
+  display:grid;
+  grid-template-columns:54px minmax(0,1fr);
+  gap:14px 14px;
+  padding:18px;
+  border-radius:28px;
+  background:linear-gradient(180deg,rgba(255,253,247,.98),rgba(255,250,242,.96));
+  border:1px solid rgba(143,77,64,.14);
+  box-shadow:0 30px 90px rgba(31,36,30,.24),inset 0 1px 0 rgba(255,255,255,.86);
+}
+.delete-confirm-icon{
+  width:54px;
+  height:54px;
+  display:grid;
+  place-items:center;
+  border-radius:20px;
+  background:linear-gradient(180deg,#fff0eb,#f5ddd6);
+  color:#9c4c3e;
+  font-size:24px;
+  font-weight:900;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.8);
+}
+.delete-confirm-copy{
+  min-width:0;
+}
+.delete-confirm-copy h3{
+  margin:2px 0 5px;
+  color:#252c23;
+  font-size:18px;
+  line-height:1.25;
+  letter-spacing:-.03em;
+}
+.delete-confirm-description,
+.delete-confirm-note{
+  margin:0;
+  color:var(--muted);
+  font-size:13px;
+  line-height:1.55;
+}
+.delete-confirm-task-name{
+  margin:10px 0 8px;
+  padding:10px 11px;
+  border-radius:16px;
+  background:rgba(255,255,255,.78);
+  border:1px solid rgba(52,68,45,.10);
+  color:#34402f;
+  font-size:13px;
+  font-weight:780;
+  line-height:1.35;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.delete-confirm-actions{
+  grid-column:1 / -1;
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  padding-top:4px;
+}
+.delete-confirm-actions .soft-btn,
+.delete-confirm-actions .danger-btn{
+  min-height:38px;
+  padding:0 16px;
+  border-radius:999px;
+  font-weight:820;
+}
+.delete-confirm-actions .danger-btn{
+  background:#c95b4e;
+  color:#fff;
+  box-shadow:0 10px 20px rgba(201,91,78,.18);
+}
+.delete-confirm-actions .danger-btn:hover{
+  background:#b84f43;
+  transform:translateY(-1px);
+}
+@media(max-width:520px){
+  .delete-confirm-modal{
+    grid-template-columns:1fr;
+    justify-items:start;
+  }
+  .delete-confirm-actions{
+    width:100%;
+    justify-content:stretch;
+  }
+  .delete-confirm-actions .soft-btn,
+  .delete-confirm-actions .danger-btn{
+    flex:1;
+  }
+}
+
+/* Token usage is intentionally hidden; users only need task progress and files. */
+#usagePanel{display:none!important}
+.overview-mini-panel{grid-template-columns:auto minmax(0,1fr)!important}

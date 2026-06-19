@@ -28,6 +28,7 @@ deploy/private/
 # Bundled third-party tunnel binaries (provide locally when packaging)
 packaging/windows/frpc.exe
 packaging/macos/frpc-darwin-*
+packaging/linux/frpc-linux-*
 
 # Runtime data
 /data/

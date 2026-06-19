@@ -15,7 +15,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -31,26 +30,12 @@ type Server struct {
 	orchestrator *Orchestrator
 	staticDir    string
 	events       *EventHub
-
-	dingTalkMu           sync.Mutex
-	dingTalkSessions     map[string]string
-	dingTalkSessionOrder []string
-	httpClient           *http.Client
 }
 
 const maxAPITaskIDLength = 80
 
 func NewServer(store *Store, orchestrator *Orchestrator, staticDir string, events *EventHub) *Server {
-	return &Server{store: store, orchestrator: orchestrator, staticDir: staticDir, events: events, dingTalkSessions: make(map[string]string), httpClient: newDingTalkHTTPClient()}
-}
-
-func newDingTalkHTTPClient() *http.Client {
-	return &http.Client{
-		Timeout: 10 * time.Second,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
+	return &Server{store: store, orchestrator: orchestrator, staticDir: staticDir, events: events}
 }
 
 func (s *Server) Routes() http.Handler {
@@ -60,7 +45,6 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/api/settings", s.handleSettings)
 	mux.HandleFunc("/api/usage", s.handleUsage)
 	mux.HandleFunc("/api/fs/dirs", s.handleDirectoryBrowse)
-	mux.HandleFunc("/api/dingtalk/robot", s.handleDingTalkRobot)
 	mux.HandleFunc("/api/tasks/", s.handleTaskSubroutes)
 	mux.HandleFunc("/", s.serveStaticApp)
 	return securityHeaders(logRequests(rejectCrossOriginAPIWrites(mux)))
@@ -78,7 +62,7 @@ func securityHeaders(next http.Handler) http.Handler {
 
 func rejectCrossOriginAPIWrites(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if isUnsafeMethod(r.Method) && strings.HasPrefix(r.URL.Path, "/api/") && r.URL.Path != "/api/dingtalk/robot" {
+		if isUnsafeMethod(r.Method) && strings.HasPrefix(r.URL.Path, "/api/") {
 			if !requestHasSameOrigin(r) {
 				writeError(w, http.StatusForbidden, "跨站请求已被拒绝")
 				return
@@ -559,6 +543,8 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 
 func publicSettings(settings AppSettings) AppSettings {
 	settings = normalizeSettings(settings)
+	settings.MiniMaxTokenConfigured = strings.TrimSpace(settings.MiniMaxToken) != ""
+	settings.KimiTokenConfigured = strings.TrimSpace(settings.KimiToken) != ""
 	settings.MiniMaxToken = ""
 	settings.KimiToken = ""
 	return settings
@@ -984,6 +970,13 @@ func (s *Server) isInsideOtherTaskWorkspace(current *Task, currentRoot, candidat
 		}
 		otherRoot, err := filepath.Abs(filepath.Clean(other.WorkspacePath))
 		if err != nil || otherRoot == currentRootAbs {
+			continue
+		}
+		// If another task was created with a broad parent directory such as
+		// ~/Desktop, it must not prevent this task from previewing files inside
+		// its own narrower workspace under that parent. Still block the inverse
+		// case where the candidate enters another task's nested workspace.
+		if strings.HasPrefix(currentRootAbs, otherRoot+string(filepath.Separator)) {
 			continue
 		}
 		if candidateAbs == otherRoot || strings.HasPrefix(candidateAbs, otherRoot+string(filepath.Separator)) {

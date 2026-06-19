@@ -12,36 +12,10 @@
 
 之前的单实例配置只适合“一台本地电脑对应一个公网域名”。多实例共用时，需要增加实例路由、认证和自动化安装/升级。
 
-## 是否还需要钉钉
-
-不一定。
-
-### 只用网页 URL 就足够的场景
-
-- 用户能打开浏览器。
-- 用户需要查看文件、报告、任务状态。
-- 用户不强依赖消息通知。
-- 你希望减少配置复杂度。
-
-推荐直接使用：
-
-```text
-https://alice.gardener.example.com
-https://bob.gardener.example.com
-```
-
-### 仍建议保留钉钉的场景
-
-- 用户习惯手机端发一句话创建/继续/停止任务。
-- 希望任务完成/暂停时主动通知。
-- 希望无需打开网页即可远程发指令。
-
-钉钉可以作为“移动端命令入口/通知通道”，网页作为“完整控制台”。两者不是二选一。
-
 ## 推荐架构
 
 ```text
-用户浏览器 / 钉钉
+用户浏览器
         ↓ HTTPS
 公网 VPS：Caddy/Nginx + frps + 升级包下载
         ↓ frp HTTP 隧道
@@ -123,9 +97,8 @@ Gardener 可以调用 Codex/Claude 修改本地文件，公网访问必须谨慎
 2. 只通过 frp 暴露到指定域名。
 3. frps 配置强随机 token。
 4. 公网域名使用 HTTPS。
-5. 钉钉回调必须配置 `AUTO_GARDENER_DINGTALK_INCOMING_SECRET`。
-6. 不要让陌生人访问用户的 Gardener 域名。
-7. 后续建议增加 Web 登录/访问 Token 作为第二层保护。
+5. 不要让陌生人访问用户的 Gardener 域名。
+6. 后续建议增加 Web 登录/访问 Token 作为第二层保护。
 
 ## Windows 自动安装
 
@@ -457,6 +430,8 @@ curl -fsSL http://YOUR_RELAY_SERVER/downloads/install-gardener-macos.sh -o insta
 - `USER`
 - `AUTO_GARDENER_CODEX_CMD=/opt/homebrew/bin/codex`
 - `AUTO_GARDENER_CLAUDE_CMD=/opt/homebrew/bin/claude`
+
+nginx/relay 安装可选预置 MiniMax/Kimi SK：在中转服务器的本地 env（例如 `config/gardener-relay.env.local`，不要提交）中设置 `GARDENER_RELAY_MINIMAX_TOKEN_FILE` 和/或 `GARDENER_RELAY_KIMI_TOKEN_FILE`，或直接设置 `GARDENER_RELAY_MINIMAX_TOKEN` / `GARDENER_RELAY_KIMI_TOKEN`。`gardener-relay add` 生成的一次性 provision 会包含这些 provider key，Windows/macOS 安装脚本会写入用户本机 `forest_data/settings.json`（owner-only 权限），因此新装 Gardener 切到 MiniMax-M3 / Kimi K2.7 时不需要再手动填写 SK。
 
 安装脚本修复：`install-gardener-macos.sh` 现在会在安装时捕获交互 shell 中的 PATH、`codex` 路径和 `claude` 路径，并写入：
 

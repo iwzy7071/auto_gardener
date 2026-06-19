@@ -77,6 +77,24 @@ func TestGardenerPlanCanAskClarificationDuringExecution(t *testing.T) {
 	}
 }
 
+type recordingClarificationRunner struct {
+	prompts chan string
+}
+
+func (r recordingClarificationRunner) Run(ctx context.Context, req codex.RunRequest) codex.RunResult {
+	if strings.Contains(req.Prompt, "Git 统一初始化") {
+		return codex.RunResult{Output: "git init skipped"}
+	}
+	if req.Role == "gardener" {
+		select {
+		case r.prompts <- req.Prompt:
+		default:
+		}
+		return codex.RunResult{Output: `{"message_to_user":"","forest_finished":true,"needs_clarification":false,"clarification_question":"","trees":[]}`}
+	}
+	return codex.RunResult{Output: "# report\n\nGoal status: complete\n"}
+}
+
 func TestReplyToClarificationClearsAwaitingAndContinues(t *testing.T) {
 	events := NewEventHub()
 	store, err := NewStore(t.TempDir(), events)
@@ -108,6 +126,53 @@ func TestReplyToClarificationClearsAwaitingAndContinues(t *testing.T) {
 	}
 	if got.Runtime == nil || !got.Runtime.CanResume {
 		t.Fatalf("finished continued task should allow resume: %+v", got.Runtime)
+	}
+}
+
+func TestClarificationReplyKeepsQuestionContextForPlanner(t *testing.T) {
+	events := NewEventHub()
+	store, err := NewStore(t.TempDir(), events)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prompts := make(chan string, 2)
+	orch := NewOrchestrator(store, recordingClarificationRunner{prompts: prompts}, store.DataDir(), "")
+	workspace := t.TempDir()
+	t.Setenv("AUTO_GARDENER_ALLOWED_WORKSPACE_ROOTS", workspace)
+
+	task, err := orch.CreateTask("处理一下", workspace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !task.AwaitingUserInput {
+		t.Fatalf("expected initial clarification pause: %+v", task)
+	}
+	if _, err := orch.SendMessage(task.ID, "现在进度如何？"); err != nil {
+		t.Fatal(err)
+	}
+	answer := "请修改首页的搜索框交互，验收标准是可以按标题和模型过滤已有任务。"
+	if _, err := orch.SendMessage(task.ID, answer); err != nil {
+		t.Fatal(err)
+	}
+	var prompt string
+	select {
+	case prompt = <-prompts:
+	case <-time.After(2 * time.Second):
+		t.Fatal("planner did not run after clarification reply")
+	}
+	for _, want := range []string{"用户正在回答 Gardener 上一次的澄清问题", "原始任务: 处理一下", "上一次澄清问题:", "要处理的页面", answer} {
+		if !strings.Contains(prompt, want) {
+			t.Fatalf("planner prompt missing %q:\n%s", want, prompt)
+		}
+	}
+	if strings.Contains(prompt, "正等你补充需求") {
+		t.Fatalf("planner prompt used progress status as clarification question:\n%s", prompt)
+	}
+	got := waitForTask(t, store, task.ID, func(t *Task) bool {
+		return t.Status == StatusFinished && !t.AwaitingUserInput
+	})
+	if got.AwaitingUserInput {
+		t.Fatalf("clarification reply should clear awaiting flag: %+v", got)
 	}
 }
 

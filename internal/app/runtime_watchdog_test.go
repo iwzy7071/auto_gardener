@@ -39,8 +39,8 @@ func TestBuildTaskRuntimeDetectsStaleRunningTask(t *testing.T) {
 	}
 }
 
-func TestWatchdogAddsUserCueOncePerIdlePeriod(t *testing.T) {
-	t.Setenv("AUTO_GARDENER_WATCHDOG_STALE_SECONDS", "1")
+func TestWatchdogStartsSilentGardenerReviewInsteadOfUserCue(t *testing.T) {
+	t.Setenv("AUTO_GARDENER_WATCHDOG_STALE_SECONDS", "60")
 	events := NewEventHub()
 	store, err := NewStore(t.TempDir(), events)
 	if err != nil {
@@ -49,6 +49,7 @@ func TestWatchdogAddsUserCueOncePerIdlePeriod(t *testing.T) {
 	orch := NewOrchestrator(store, codex.MockRunner{}, store.DataDir(), "")
 	now := time.Now()
 	old := now.Add(-2 * time.Minute)
+	logDir := t.TempDir()
 	task := &Task{
 		ID:             "forest_watchdog",
 		Title:          "watchdog",
@@ -60,27 +61,96 @@ func TestWatchdogAddsUserCueOncePerIdlePeriod(t *testing.T) {
 		CreatedAt:      old,
 		UpdatedAt:      old,
 		LastProgressAt: &old,
-		LogPath:        t.TempDir() + "/log.md",
-		SchedulePath:   t.TempDir() + "/schedule.md",
+		LogPath:        logDir + "/log.md",
+		SchedulePath:   logDir + "/schedule.md",
 		Trees:          []*Tree{{ID: "tree", TaskID: "forest_watchdog", Status: StatusRunning, UpdatedAt: old}},
 	}
 	if err := store.AddTask(task); err != nil {
 		t.Fatal(err)
 	}
 	orch.RunWatchdogOnce(now)
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		got, ok := store.GetTask(task.ID)
+		if ok && got.Status == StatusFinished {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 	orch.RunWatchdogOnce(now.Add(10 * time.Second))
 	got, ok := store.GetTask(task.ID)
 	if !ok {
 		t.Fatal("task missing")
 	}
-	count := 0
+	if got.LastWatchdogAt == nil {
+		t.Fatalf("LastWatchdogAt was not set")
+	}
 	for _, msg := range got.Messages {
 		if msg.Role == RoleSystem && strings.Contains(msg.Content, "任务状态提示") {
+			t.Fatalf("watchdog should not append user-facing stale cue; messages=%+v", got.Messages)
+		}
+	}
+	count := 0
+	for _, line := range got.GardenerProgress {
+		if strings.Contains(line, "后台自查") {
 			count++
 		}
 	}
 	if count != 1 {
-		t.Fatalf("watchdog cue count = %d, want 1; messages=%+v", count, got.Messages)
+		t.Fatalf("watchdog self-review log count = %d, want 1; progress=%+v", count, got.GardenerProgress)
+	}
+}
+
+func TestWatchdogDoesNotCancelActiveCLIProcess(t *testing.T) {
+	t.Setenv("AUTO_GARDENER_WATCHDOG_STALE_SECONDS", "60")
+	events := NewEventHub()
+	store, err := NewStore(t.TempDir(), events)
+	if err != nil {
+		t.Fatal(err)
+	}
+	orch := NewOrchestrator(store, codex.MockRunner{}, store.DataDir(), "")
+	now := time.Now()
+	old := now.Add(-2 * time.Minute)
+	logDir := t.TempDir()
+	task := &Task{
+		ID:             "forest_watchdog_active_process",
+		Title:          "watchdog active process",
+		Prompt:         "watchdog active process",
+		WorkspacePath:  t.TempDir(),
+		ScratchPath:    t.TempDir(),
+		Status:         StatusRunning,
+		GardenerStatus: StatusRunning,
+		CreatedAt:      old,
+		UpdatedAt:      old,
+		LastProgressAt: &old,
+		LogPath:        logDir + "/log.md",
+		SchedulePath:   logDir + "/schedule.md",
+		Trees:          []*Tree{{ID: "tree", TaskID: "forest_watchdog_active_process", Status: StatusRunning, UpdatedAt: old}},
+	}
+	if err := store.AddTask(task); err != nil {
+		t.Fatal(err)
+	}
+	cancelled := false
+	orch.registerCancel(task.ID+":tree", func() { cancelled = true })
+	defer orch.unregisterCancel(task.ID + ":tree")
+
+	orch.RunWatchdogOnce(now)
+	if cancelled {
+		t.Fatal("watchdog canceled an active CLI process")
+	}
+	got, ok := store.GetTask(task.ID)
+	if !ok {
+		t.Fatal("task missing")
+	}
+	if got.Status != StatusRunning {
+		t.Fatalf("watchdog should leave task running while process is active, got %s", got.Status)
+	}
+	if got.LastWatchdogAt == nil {
+		t.Fatal("LastWatchdogAt was not set")
+	}
+	joined := strings.Join(got.GardenerProgress, "\n")
+	if !strings.Contains(joined, "为避免主动中断") {
+		t.Fatalf("expected non-interruption watchdog log, got progress=%+v", got.GardenerProgress)
 	}
 }
 

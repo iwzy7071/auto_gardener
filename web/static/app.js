@@ -1,13 +1,15 @@
-const state = { powerStatus: null, tasks: [], activeTaskId: null, eventSource: null, recoveryPoller: null, activeRefreshPoller: null, selectedForests: {}, selectedFileTree: {}, selectedFilePath: {}, selectedFileManual: {}, fileListFingerprint: {}, lastFileRefreshAt: {}, treeStatusExpanded: {}, usage: {}, usageFetchedAt: {}, usagePending: {}, renderCache: {}, pendingTaskRender: null, pendingTaskRenderFrame: 0, lastTaskListSig: '', lastHomeSig: '', activeReportText: '', fileViewerToken: 0, previewToken: 0, overviewCollapsed: loadOverviewCollapsed(), chatCollapsed: loadChatCollapsed(), editingTitle: false, settings: loadSettings() };
+const state = { powerStatus: null, tasks: [], activeTaskId: null, homeTaskSearch: '', eventSource: null, recoveryPoller: null, activeRefreshPoller: null, selectedForests: {}, selectedFileTree: {}, selectedFilePath: {}, selectedFileManual: {}, fileListFingerprint: {}, lastFileRefreshAt: {}, treeStatusExpanded: {}, usage: {}, usageFetchedAt: {}, usagePending: {}, renderCache: {}, pendingTaskRender: null, pendingTaskRenderFrame: 0, lastTaskListSig: '', lastHomeSig: '', activeReportText: '', fileViewerToken: 0, previewToken: 0, overviewCollapsed: loadOverviewCollapsed(), chatCollapsed: loadChatCollapsed(), editingTitle: false, settings: loadSettings() };
 const $ = (id) => document.getElementById(id);
 const MAX_CSV_PREVIEW_ROWS = 500;
+let pendingDeleteResolve = null;
+let pendingDeleteTaskId = '';
 
 const I18N = {
   'zh-CN': {
-    newTask:'新建任务', taskLabel:'任务', homeTitle:'你想完成什么？', garden:'工作台', taskPlaceholder:'告诉 Gardener 你的目标、要求和交付物', saveLocation:'保存位置', defaultSave:'默认保存', create:'创建', tasks:'任务', refresh:'刷新', back:'返回', messagePlaceholder:'给 Gardener 发消息', send:'发送', taskPlan:'任务安排', workRecord:'工作记录', stop:'停止', workProcess:'工作过程', viewResult:'查看报告', settings:'设置', close:'关闭', defaultSaveLocation:'默认保存位置', autoSave:'留空则自动保存', saveLocationHelp:'不设置也可以正常使用。', showSaveLocation:'创建任务时显示保存位置', showPlanRecord:'在任务中显示安排和记录', language:'语言', logDetail:'记录详细程度', logQuiet:'简洁', logNormal:'标准', logDetailed:'详细', logHelp:'普通使用建议选择“简洁”。需要排查问题时再切换为“详细”。', save:'保存', copy:'复制', result:'报告', noTasks:'暂无任务', newTaskShort:'新任务', genericTask:'任务', inProgress:'进行中', done:'已完成', waitingForest:'等待阶段', noForest:'无阶段', gardenerWillContinue:'我会继续处理。', resultNotReady:'报告尚未生成。', openingResult:'正在打开报告', emptyResult:'内容为空', openFailed:'无法打开：', stopConfirm:'停止当前任务？', team:'子任务', validationTeam:'验证任务', files:'文件', recentForests:'已有任务', noRecent:'还没有任务', openForest:'打开', allFiles:'全部文件', allTreeFiles:'全部子任务', noFiles:'暂无可查看文件', loadingFiles:'正在读取文件', selectFile:'选择文件查看内容', fileTooLarge:'文件无法预览', treeStatus:'子任务状态', noTreesInForest:'当前阶段暂无子任务', browse:'选择', chooseFolder:'选择保存位置', parentFolder:'上一级', useFolder:'使用此目录', folderEmpty:'没有可选择的子目录', tokenUsage:'Token 消耗', tokenEstimate:'Token 消耗', tokenMaxEstimate:'', tokenNoData:'暂无 token 记录', delete:'删除', deleteConfirm:'删除这个任务并清除它的数据？', deleteFailed:'删除失败：', viewStatus:'查看状态', hideStatus:'收起状态', rename:'重命名', renamePrompt:'输入新的任务名称', renameFailed:'重命名失败：', model:'模型', modelDefault:'CLI 默认模型', cliEngine:'底层 CLI', cliCodex:'Codex CLI', cliClaude:'Claude Code', cliHelp:'创建任务后会固定使用所选 CLI。', modelToken:'Token', modelTokenPlaceholder:'输入当前模型的 token', gardenerProgress:'工作进展', gardenerWorking:'正在工作', gardenerProgressEmpty:'等待下一步进展', stage:'阶段', subtask:'子任务', file:'文件', resumeTask:'继续任务', resumeTaskHint:'任务已暂停。如未完成，可点击“继续任务”，Gardener 会检查当前进度后接着处理。', resumeFailed:'继续失败：', fileEncodingHint:'已自动尝试文本编码识别。', binaryFile:'文件可能不是文本，无法预览', noOutputYet:'正在等待产出文件或报告。', noOutputStale:'长时间没有新输出，底层 CLI 可能仍在处理。你可以直接询问进度，不会中断任务。', statusQuerySafe:'查看进度不会中断任务。', noOutputMinutes:'%dm 无新输出', collapseOverview:'收起概览', expandOverview:'展开概览', overview:'概览', recentMessagesOnly:'仅显示最近 %d 条消息。', previewTruncated:'文件较大，已仅预览前 %d 个字符。', downloadFile:'下载文件', powerWarningTitle:'远程访问提醒', powerWarningPrefix:'这台电脑的电源设置可能导致 Gardener 离线：', dashboard:'任务驾驶舱', duration:'运行时长', idle:'无输出', askProgressSafe:'询问进度不会中断任务', diagnosis:'诊断提示', collapseChat:'收起对话', expandChat:'展开对话', taskNow:'当前状态', taskNext:'是否需要操作', subtaskProgress:'子任务进度', currentStage:'当前阶段', progressDone:'已完成', progressRunning:'处理中', progressPending:'等待中', progressExplain:'蓝色表示正在处理，绿色表示已完成，紫色表示验证检查。', allSubtasksDone:'本阶段子任务都已返回，Gardener 正在整理结果。', noRunningSubtasks:'暂无正在执行的子任务', runningSubtasksNamed:'正在处理：', finishedCount:'已完成 %d / 共 %d', workingNormally:'正在正常处理，你可以等待；如果想了解进展，直接发消息询问，不会中断任务。', checkingResults:'子任务已返回，Gardener 正在检查结果并决定下一步。', planningTask:'Gardener 正在把目标拆成可执行的小任务。', finishedTaskHint:'任务已完成。如需补充或继续迭代，可以点击继续任务。', awaitingUserInput:'Gardener 正在等你补充需求。请直接在对话框回答它的问题。'
+    newTask:'新建任务', taskLabel:'任务', homeTitle:'你想完成什么？', garden:'工作台', taskPlaceholder:'告诉 Gardener 你的目标、要求和交付物', saveLocation:'保存位置', defaultSave:'默认保存', create:'创建', tasks:'任务', refresh:'刷新', back:'返回', messagePlaceholder:'给 Gardener 发消息', clarificationReplyPlaceholder:'请直接回答 Gardener 的问题', send:'发送', taskPlan:'任务安排', workRecord:'工作记录', stop:'停止', workProcess:'工作过程', viewResult:'查看报告', settings:'设置', close:'关闭', defaultSaveLocation:'默认保存位置', autoSave:'留空则自动保存', saveLocationHelp:'不设置也可以正常使用。', showSaveLocation:'创建任务时显示保存位置', showPlanRecord:'在任务中显示安排和记录', language:'语言', logDetail:'记录详细程度', logQuiet:'简洁', logNormal:'标准', logDetailed:'详细', logHelp:'普通使用建议选择“简洁”。需要排查问题时再切换为“详细”。', save:'保存', copy:'复制', result:'报告', noTasks:'暂无任务', newTaskShort:'新任务', genericTask:'任务', inProgress:'进行中', done:'已完成', waitingForest:'等待阶段', noForest:'无阶段', gardenerWillContinue:'我会继续处理。', resultNotReady:'报告尚未生成。', openingResult:'正在打开报告', emptyResult:'内容为空', openFailed:'无法打开：', stopConfirm:'停止当前任务？', team:'子任务', validationTeam:'验证任务', files:'文件', recentForests:'已有任务', taskSearchPlaceholder:'搜索任务标题、ID、状态或模型', noTaskSearchResults:'没有匹配的任务', noRecent:'还没有任务', openForest:'打开', allFiles:'全部文件', allTreeFiles:'全部子任务', noFiles:'暂无可查看文件', loadingFiles:'正在读取文件', selectFile:'选择文件查看内容', fileTooLarge:'文件无法预览', treeStatus:'子任务状态', noTreesInForest:'暂无子任务', browse:'选择', chooseFolder:'选择保存位置', parentFolder:'上一级', useFolder:'使用此目录', folderEmpty:'没有可选择的子目录', tokenUsage:'Token 消耗', tokenEstimate:'Token 消耗', tokenMaxEstimate:'', tokenNoData:'暂无 token 记录', delete:'删除', cancel:'取消', deleteConfirm:'删除这个任务并清除它的数据？', deleteConfirmTitle:'删除这个任务？', deleteConfirmDescription:'任务记录、对话和本地任务数据将被移除。', deleteConfirmNote:'此操作无法撤销。', deleteFailed:'删除失败：', viewStatus:'查看状态', hideStatus:'收起状态', rename:'重命名', renamePrompt:'输入新的任务名称', renameFailed:'重命名失败：', model:'模型', modelDefault:'CLI 默认模型', cliEngine:'底层 CLI', cliCodex:'Codex CLI', cliClaude:'Claude Code', cliHelp:'切换后会同步到已有任务；正在运行的底层进程不会被打断。', modelToken:'Token', modelTokenPlaceholder:'输入当前模型的 token', modelTokenPlaceholderConfigured:'已内置，无需填写；填写会覆盖', modelTokenHelpConfigured:'此模型的 SK 已由安装包内置/服务器预置，不需要再次填写。', modelTokenHelpEmpty:'未检测到内置 SK；如需使用此模型，请填写一次 token。', gardenerProgress:'工作进展', gardenerWorking:'正在工作', gardenerProgressEmpty:'等待下一步进展', stage:'阶段', subtask:'子任务', file:'文件', resumeTask:'继续任务', resumeTaskHint:'任务已暂停。如未完成，可点击“继续任务”，Gardener 会检查当前进度后接着处理。', resumeFailed:'继续失败：', fileEncodingHint:'已自动尝试文本编码识别。', binaryFile:'文件可能不是文本，无法预览', statusQuerySafe:'查看进度不会中断任务。', collapseOverview:'收起概览', expandOverview:'展开概览', overview:'概览', recentMessagesOnly:'仅显示最近 %d 条消息。', previewTruncated:'文件较大，已仅预览前 %d 个字符。', downloadFile:'下载文件', powerWarningTitle:'远程访问提醒', powerWarningPrefix:'这台电脑的电源设置可能导致 Gardener 离线：', dashboard:'任务驾驶舱', askProgressSafe:'询问进度不会中断任务', diagnosis:'诊断提示', collapseChat:'收起对话', expandChat:'展开对话', taskNow:'当前状态', taskNext:'是否需要操作', workingNormally:'正在正常处理，你可以等待；如果想了解进展，直接发消息询问，不会中断任务。', checkingResults:'子任务已返回，Gardener 正在检查结果并决定下一步。', planningTask:'Gardener 正在把目标拆成可执行的小任务。', finishedTaskHint:'任务已完成。如需补充或继续迭代，可以点击继续任务。', awaitingUserInput:'Gardener 正在等你补充需求。请直接在对话框回答它的问题。', jumpToLatest:'跳到最新'
   },
   en: {
-    newTask:'New task', taskLabel:'Task', homeTitle:'What do you want to get done?', garden:'Workspace', taskPlaceholder:'Tell Gardener your goal, requirements, and deliverables', saveLocation:'Save location', defaultSave:'Default save location', create:'Create', tasks:'Tasks', refresh:'Refresh', back:'Back', messagePlaceholder:'Message Gardener', send:'Send', taskPlan:'Plan', workRecord:'Activity', stop:'Stop', workProcess:'Activity', viewResult:'View report', settings:'Settings', close:'Close', defaultSaveLocation:'Default save location', autoSave:'Leave blank to save automatically', saveLocationHelp:'You can use Gardener without setting this.', showSaveLocation:'Show save location when creating a task', showPlanRecord:'Show plan and activity inside a task', language:'Language', logDetail:'Activity detail', logQuiet:'Simple', logNormal:'Standard', logDetailed:'Detailed', logHelp:'Simple is recommended. Use Detailed only when troubleshooting.', save:'Save', copy:'Copy', result:'Report', noTasks:'No tasks', newTaskShort:'New task', genericTask:'Task', inProgress:'Running', done:'Done', waitingForest:'Waiting for stage', noForest:'No stage', gardenerWillContinue:'I will keep working on it.', resultNotReady:'Report is not ready yet.', openingResult:'Opening report', emptyResult:'Empty content', openFailed:'Unable to open: ', stopConfirm:'Stop this task?', team:'Subtask', validationTeam:'Validation', files:'Files', recentForests:'Tasks', noRecent:'No tasks yet', openForest:'Open', allFiles:'All files', allTreeFiles:'All subtasks', noFiles:'No files', loadingFiles:'Loading files', selectFile:'Select a file to preview', fileTooLarge:'File cannot be previewed', treeStatus:'Subtask status', noTreesInForest:'No subtasks in this stage', browse:'Choose', chooseFolder:'Choose folder', parentFolder:'Parent', useFolder:'Use this folder', folderEmpty:'No folders', tokenUsage:'Token usage', tokenEstimate:'Token usage', tokenMaxEstimate:'', tokenNoData:'No token records yet', delete:'Delete', deleteConfirm:'Delete this task and clear its data?', deleteFailed:'Delete failed: ', viewStatus:'View status', hideStatus:'Hide status', rename:'Rename', renamePrompt:'Enter a new task name', renameFailed:'Rename failed: ', model:'Model', modelDefault:'CLI default model', cliEngine:'Base CLI', cliCodex:'Codex CLI', cliClaude:'Claude Code', cliHelp:'A task keeps the selected CLI after creation.', modelToken:'Token', modelTokenPlaceholder:'Enter the token for the selected model', gardenerProgress:'Work progress', gardenerWorking:'Working', gardenerProgressEmpty:'Waiting for updates', stage:'Stage', subtask:'Subtask', file:'File', resumeTask:'Continue task', resumeTaskHint:'This task is paused. If it is not done, click Continue task and Gardener will inspect the current progress before continuing.', resumeFailed:'Continue failed: ', fileEncodingHint:'Text encoding was detected automatically.', binaryFile:'This file may not be text and cannot be previewed', noOutputYet:'Waiting for files or reports.', noOutputStale:'No new output for a while. The base CLI may still be working. You can ask for progress without interrupting the task.', statusQuerySafe:'Checking progress will not interrupt the task.', noOutputMinutes:'No output for %dm', collapseOverview:'Collapse', expandOverview:'Expand', overview:'Overview', recentMessagesOnly:'Showing latest %d messages only.', previewTruncated:'Large file: only first %d characters are shown.', downloadFile:'Download file', powerWarningTitle:'Remote access warning', powerWarningPrefix:'This computer may go offline because of its power settings: ', dashboard:'Task dashboard', duration:'Duration', idle:'Idle', askProgressSafe:'Asking progress will not interrupt the task', diagnosis:'Diagnostic cue', collapseChat:'Hide chat', expandChat:'Show chat', taskNow:'Current status', taskNext:'Do I need to act?', subtaskProgress:'Subtask progress', currentStage:'Current stage', progressDone:'Done', progressRunning:'Working', progressPending:'Waiting', progressExplain:'Blue means working, green means done, purple means validation.', allSubtasksDone:'All subtasks in this stage have returned; Gardener is summarizing results.', noRunningSubtasks:'No subtask is currently running', runningSubtasksNamed:'Working on: ', finishedCount:'Done %d / %d', workingNormally:'Gardener is working normally. You can wait or ask for progress without interrupting the task.', checkingResults:'Subtasks have returned. Gardener is checking results and deciding next steps.', planningTask:'Gardener is breaking the goal into executable subtasks.', finishedTaskHint:'The task is finished. Click Continue task if you want to add more work.', awaitingUserInput:'Gardener is waiting for your clarification. Reply directly in the chat box.'
+    newTask:'New task', taskLabel:'Task', homeTitle:'What do you want to get done?', garden:'Workspace', taskPlaceholder:'Tell Gardener your goal, requirements, and deliverables', saveLocation:'Save location', defaultSave:'Default save location', create:'Create', tasks:'Tasks', refresh:'Refresh', back:'Back', messagePlaceholder:'Message Gardener', clarificationReplyPlaceholder:'Reply to Gardener’s question', send:'Send', taskPlan:'Plan', workRecord:'Activity', stop:'Stop', workProcess:'Activity', viewResult:'View report', settings:'Settings', close:'Close', defaultSaveLocation:'Default save location', autoSave:'Leave blank to save automatically', saveLocationHelp:'You can use Gardener without setting this.', showSaveLocation:'Show save location when creating a task', showPlanRecord:'Show plan and activity inside a task', language:'Language', logDetail:'Activity detail', logQuiet:'Simple', logNormal:'Standard', logDetailed:'Detailed', logHelp:'Simple is recommended. Use Detailed only when troubleshooting.', save:'Save', copy:'Copy', result:'Report', noTasks:'No tasks', newTaskShort:'New task', genericTask:'Task', inProgress:'Running', done:'Done', waitingForest:'Waiting for stage', noForest:'No stage', gardenerWillContinue:'I will keep working on it.', resultNotReady:'Report is not ready yet.', openingResult:'Opening report', emptyResult:'Empty content', openFailed:'Unable to open: ', stopConfirm:'Stop this task?', team:'Subtask', validationTeam:'Validation', files:'Files', recentForests:'Tasks', taskSearchPlaceholder:'Search title, ID, status, or model', noTaskSearchResults:'No matching tasks', noRecent:'No tasks yet', openForest:'Open', allFiles:'All files', allTreeFiles:'All subtasks', noFiles:'No files', loadingFiles:'Loading files', selectFile:'Select a file to preview', fileTooLarge:'File cannot be previewed', treeStatus:'Subtask status', noTreesInForest:'No subtasks', browse:'Choose', chooseFolder:'Choose folder', parentFolder:'Parent', useFolder:'Use this folder', folderEmpty:'No folders', tokenUsage:'Token usage', tokenEstimate:'Token usage', tokenMaxEstimate:'', tokenNoData:'No token records yet', delete:'Delete', cancel:'Cancel', deleteConfirm:'Delete this task and clear its data?', deleteConfirmTitle:'Delete this task?', deleteConfirmDescription:'The task record, conversation, and local task data will be removed.', deleteConfirmNote:'This action cannot be undone.', deleteFailed:'Delete failed: ', viewStatus:'View status', hideStatus:'Hide status', rename:'Rename', renamePrompt:'Enter a new task name', renameFailed:'Rename failed: ', model:'Model', modelDefault:'CLI default model', cliEngine:'Base CLI', cliCodex:'Codex CLI', cliClaude:'Claude Code', cliHelp:'Changes sync to existing tasks; already-running CLI processes are not interrupted.', modelToken:'Token', modelTokenPlaceholder:'Enter the token for the selected model', modelTokenPlaceholderConfigured:'Bundled; optional override', modelTokenHelpConfigured:'This model key is bundled by the installer/server, so no extra token is required.', modelTokenHelpEmpty:'No bundled key was detected; enter a token to use this model.', gardenerProgress:'Work progress', gardenerWorking:'Working', gardenerProgressEmpty:'Waiting for updates', stage:'Stage', subtask:'Subtask', file:'File', resumeTask:'Continue task', resumeTaskHint:'This task is paused. If it is not done, click Continue task and Gardener will inspect the current progress before continuing.', resumeFailed:'Continue failed: ', fileEncodingHint:'Text encoding was detected automatically.', binaryFile:'This file may not be text and cannot be previewed', statusQuerySafe:'Checking progress will not interrupt the task.', collapseOverview:'Collapse', expandOverview:'Expand', overview:'Overview', recentMessagesOnly:'Showing latest %d messages only.', previewTruncated:'Large file: only first %d characters are shown.', downloadFile:'Download file', powerWarningTitle:'Remote access warning', powerWarningPrefix:'This computer may go offline because of its power settings: ', dashboard:'Task dashboard', askProgressSafe:'Asking progress will not interrupt the task', diagnosis:'Diagnostic cue', collapseChat:'Hide chat', expandChat:'Show chat', taskNow:'Current status', taskNext:'Do I need to act?', workingNormally:'Gardener is working normally. You can wait or ask for progress without interrupting the task.', checkingResults:'Subtasks have returned. Gardener is checking results and deciding next steps.', planningTask:'Gardener is breaking the goal into executable subtasks.', finishedTaskHint:'The task is finished. Click Continue task if you want to add more work.', awaitingUserInput:'Gardener is waiting for your clarification. Reply directly in the chat box.', jumpToLatest:'Jump to latest'
   }
 };
 
@@ -33,6 +35,10 @@ function saveChatCollapsed() {
 }
 
 function t(key) { return (I18N[state.settings?.language || 'zh-CN'] || I18N['zh-CN'])[key] || I18N['zh-CN'][key] || key; }
+function isCompactViewport() {
+  try { return window.matchMedia && window.matchMedia('(max-width: 820px)').matches; }
+  catch { return (window.innerWidth || 0) <= 820; }
+}
 function applyI18n() {
   document.documentElement.lang = state.settings.language || 'zh-CN';
   document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
@@ -274,6 +280,8 @@ async function loadServerSettings() {
     state.settings.modelMode = normalizeModelModeValue(data.settings?.modelMode || normalizeModelModeValue(state.settings.modelMode || 'default'));
     state.settings.minimaxToken = data.settings?.minimaxToken || state.settings.minimaxToken || '';
     state.settings.kimiToken = data.settings?.kimiToken || state.settings.kimiToken || '';
+    state.settings.minimaxTokenConfigured = !!data.settings?.minimaxTokenConfigured;
+    state.settings.kimiTokenConfigured = !!data.settings?.kimiTokenConfigured;
     applySettings();
   } catch (err) { console.error(err); }
 }
@@ -282,7 +290,10 @@ async function saveSettings() {
   normalizeSettingsCompatibility();
   localStorage.setItem('autoGardenerSettings', JSON.stringify(persistedClientSettings(state.settings)));
   applySettings();
-  try { await api('/api/settings', { method: 'PUT', body: JSON.stringify({ logLevel: state.settings.logLevel || 'quiet', cliEngine: normalizeCLIEngineValue(state.settings.cliEngine || 'codex'), modelMode: normalizeModelModeValue(state.settings.modelMode || 'default'), minimaxToken: state.settings.minimaxToken || '', kimiToken: state.settings.kimiToken || '' }) }); } catch (err) { console.error(err); }
+  try {
+    await api('/api/settings', { method: 'PUT', body: JSON.stringify({ logLevel: state.settings.logLevel || 'quiet', cliEngine: normalizeCLIEngineValue(state.settings.cliEngine || 'codex'), modelMode: normalizeModelModeValue(state.settings.modelMode || 'default'), minimaxToken: state.settings.minimaxToken || '', kimiToken: state.settings.kimiToken || '' }) });
+    await loadTasks();
+  } catch (err) { console.error(err); }
 }
 
 function applySettings() {
@@ -319,19 +330,37 @@ function currentModelToken() {
   return '';
 }
 
+function currentModelTokenConfigured() {
+  const mode = normalizeModelModeValue(state.settings.modelMode || 'default');
+  if (mode === 'MiniMax-M3') return !!state.settings.minimaxTokenConfigured || !!state.settings.minimaxToken;
+  if (mode === 'kimi-k2.7-code') return !!state.settings.kimiTokenConfigured || !!state.settings.kimiToken;
+  return false;
+}
+
 function setCurrentModelToken(token) {
   const mode = normalizeModelModeValue(state.settings.modelMode || 'default');
-  if (mode === 'MiniMax-M3') state.settings.minimaxToken = token;
-  if (mode === 'kimi-k2.7-code') state.settings.kimiToken = token;
+  if (mode === 'MiniMax-M3') {
+    state.settings.minimaxToken = token;
+    if (token) state.settings.minimaxTokenConfigured = true;
+  }
+  if (mode === 'kimi-k2.7-code') {
+    state.settings.kimiToken = token;
+    if (token) state.settings.kimiTokenConfigured = true;
+  }
 }
 
 function applyModelTokenField() {
   const mode = normalizeModelModeValue(state.settings.modelMode || 'default');
   const section = $('modelTokenSection');
   const input = $('modelTokenInput');
+  const help = $('modelTokenHelp');
   if (!section || !input) return;
-  section.classList.toggle('hidden', mode === 'default');
+  const hidden = mode === 'default';
+  const configured = currentModelTokenConfigured();
+  section.classList.toggle('hidden', hidden);
   input.value = currentModelToken();
+  input.placeholder = configured ? t('modelTokenPlaceholderConfigured') : t('modelTokenPlaceholder');
+  if (help) help.textContent = hidden ? '' : (configured ? t('modelTokenHelpConfigured') : t('modelTokenHelpEmpty'));
 }
 
 
@@ -398,6 +427,80 @@ function messageSignature(messages, task) {
   const { all, visibleMessages, maxMessages } = visibleMessagesForViewport(messages);
   const rows = visibleMessages.map(m => [m.id || '', m.role || '', m.createdAt || '', String(m.content || '').length, String(m.content || '').slice(0, 80)].join('~')).join('|');
   return [task?.status || '', all.length, maxMessages, rows].join('::');
+}
+
+function isMessagesNearBottom(el = $('messages')) {
+  if (!el) return true;
+  return el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+}
+
+function scrollMessagesToBottom(options = {}) {
+  const el = $('messages');
+  if (!el) return;
+  const behavior = options.smooth ? 'smooth' : 'auto';
+  try { el.scrollTo({ top: el.scrollHeight, behavior }); }
+  catch { el.scrollTop = el.scrollHeight; }
+  updateJumpToLatestButton();
+}
+
+function updateJumpToLatestButton() {
+  const btn = $('jumpToLatestBtn');
+  const el = $('messages');
+  if (!btn || !el) return;
+  btn.classList.toggle('hidden', isMessagesNearBottom(el));
+}
+
+function messageRoleClass(role) {
+  const value = String(role || '').toLowerCase();
+  if (value === 'user') return 'user';
+  if (value === 'system') return 'system';
+  return 'gardener';
+}
+
+function renderMessages(messages, task) {
+  const box = $('messages');
+  if (!box) return;
+  const wasNearBottom = isMessagesNearBottom(box);
+  const { all, visibleMessages, maxMessages } = visibleMessagesForViewport(messages);
+  const rows = [];
+  if (all.length > visibleMessages.length) {
+    rows.push(`<div class="chat-message system"><div class="bubble">${escapeHTML(t('recentMessagesOnly').replace('%d', String(maxMessages)))}</div></div>`);
+  }
+  visibleMessages.forEach(msg => {
+    const role = messageRoleClass(msg.role);
+    const content = String(msg.content || '').trim();
+    if (!content) return;
+    if (shouldHideStatusTipMessage(content)) return;
+    const displayContent = sanitizeRuntimeConceptText(content);
+    const time = msg.createdAt ? formatMessageTime(msg.createdAt) : '';
+    rows.push(`
+      <div class="chat-message ${role}">
+        ${role === 'gardener' ? '<div class="avatar gardener">G</div>' : ''}
+        <div class="bubble">${escapeHTML(displayContent)}${time ? `<span class="message-time">${escapeHTML(time)}</span>` : ''}</div>
+        ${role === 'user' ? '<div class="avatar user-avatar">我</div>' : ''}
+      </div>
+    `);
+  });
+  box.innerHTML = rows.join('');
+  if (wasNearBottom || task?.status === 'Running') scrollMessagesToBottom();
+  else updateJumpToLatestButton();
+}
+
+function shouldHideStatusTipMessage(content) {
+  const text = String(content || '');
+  return text.includes('【任务状态提示】') ||
+    text.includes('没有新的输出。底层 CLI 可能仍在运行') ||
+    text.includes('no new output') && text.includes('underlying CLI');
+}
+
+function sanitizeRuntimeConceptText(content) {
+  return String(content || '').replaceAll('当前阶段', '接下来');
+}
+
+function formatMessageTime(value) {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return '';
+  return date.toLocaleString(state.settings?.language || 'zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
 }
 
 const MAX_PROGRESS_SIGNATURE_CHARS = 200;
@@ -543,11 +646,46 @@ function treeSpriteHTML(seed, size = 'mini') {
   return `<span class="forest-tree ${size} ${variant}"><span class="tree-shadow"></span><span class="tree-trunk"></span><span class="tree-crown c1"></span><span class="tree-crown c2"></span><span class="tree-crown c3"></span></span>`;
 }
 
+function normalizeTaskSearchText(value) {
+  return String(value || '').normalize('NFKC').toLowerCase();
+}
+
+function taskSearchHaystack(task) {
+  const forests = getForests(task?.trees || []);
+  const treeValues = (task?.trees || []).flatMap(tree => [tree?.id, tree?.name, tree?.status, tree?.forest, tree?.isValidation ? t('validationTeam') : '']);
+  return normalizeTaskSearchText([
+    task?.id,
+    task?.title,
+    task?.status,
+    statusText(task?.status),
+    task?.cliEngine,
+    task?.modelMode,
+    task?.createdAt,
+    task?.updatedAt,
+    forests.length ? `${t('stage')} ${forests.length}` : '',
+    ...treeValues
+  ].filter(Boolean).join(' '));
+}
+
+function homeVisibleTasks(tasks) {
+  const query = normalizeTaskSearchText(state.homeTaskSearch).trim();
+  if (!query) return (tasks || []).slice(0, 12);
+  const terms = query.split(/\s+/).filter(Boolean);
+  return (tasks || []).filter(task => {
+    const haystack = taskSearchHaystack(task);
+    return terms.every(term => haystack.includes(term));
+  });
+}
+
 function renderHomeGarden() {
   const list = $('homeForestList');
   if (!list) return;
   const tasks = state.tasks || [];
-  const sig = `${state.settings.language || ''}::${taskListSignature(tasks.slice(0, 12))}`;
+  const searchInput = $('homeTaskSearchInput');
+  if (searchInput && searchInput.value !== state.homeTaskSearch) searchInput.value = state.homeTaskSearch || '';
+  const query = normalizeTaskSearchText(state.homeTaskSearch).trim();
+  const visibleTasks = homeVisibleTasks(tasks);
+  const sig = `${state.settings.language || ''}::${state.homeTaskSearch || ''}::${tasks.length}::${taskListSignature(visibleTasks)}`;
   if (state.lastHomeSig === sig && list.childNodes.length) return;
   state.lastHomeSig = sig;
   list.innerHTML = '';
@@ -555,16 +693,22 @@ function renderHomeGarden() {
     list.innerHTML = `<div class="home-forest-empty">${t('noRecent')}</div>`;
     return;
   }
-  tasks.slice(0, 12).forEach(task => {
+  if (query && !visibleTasks.length) {
+    list.innerHTML = `<div class="home-forest-empty">${t('noTaskSearchResults')}</div>`;
+    return;
+  }
+  visibleTasks.forEach(task => {
     const item = document.createElement('div');
     item.className = 'home-forest-item';
     item.setAttribute('role', 'button');
     item.tabIndex = 0;
     const forests = getForests(task.trees || []);
     item.innerHTML = `
-      <button type="button" class="home-forest-delete" title="${t('delete')}" aria-label="${t('delete')}">×</button>
       <span class="home-forest-title">${escapeHTML(task.title || t('genericTask'))}</span>
       <span class="home-forest-meta"><b>${statusText(task.status)}</b>${forests.length ? ` · ${t('stage')} ${forests.length}` : ''}</span>
+      <div class="home-forest-actions">
+        <button type="button" class="home-forest-delete" title="${t('delete')}" aria-label="${t('delete')}">${t('delete')}</button>
+      </div>
     `;
     item.onclick = () => selectTask(task.id);
     item.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectTask(task.id); } };
@@ -573,10 +717,29 @@ function renderHomeGarden() {
   });
 }
 
+function resetFileViewerForTask(taskId) {
+  if (!taskId) return;
+  state.fileViewerToken++;
+  state.previewToken++;
+  delete state.selectedFilePath[taskId];
+  state.selectedFileTree[taskId] = '';
+  state.selectedFileManual[taskId] = false;
+  delete state.fileListFingerprint[taskId];
+  delete state.lastFileRefreshAt[taskId];
+  const fileList = $('fileList');
+  const preview = $('filePreview');
+  const fileTitle = $('fileTitle');
+  if (fileList) fileList.innerHTML = '';
+  if (preview) preview.textContent = t('selectFile');
+  if (fileTitle) fileTitle.textContent = t('files');
+}
+
 function renderTask(task, options = {}) {
   $('emptyState').classList.add('hidden');
   $('forestView').classList.remove('hidden');
   applyChatCollapsed();
+  const messageInput = $('messageInput');
+  if (messageInput) messageInput.placeholder = task?.awaitingUserInput ? t('clarificationReplyPlaceholder') : t('messagePlaceholder');
   ensureSelectedForest(task);
   const cache = state.renderCache[task.id] || (state.renderCache[task.id] = {});
   const chromeSig = [taskChromeSignatureTitle(task.title), task.status || '', state.settings.language || ''].join('::');
@@ -618,7 +781,7 @@ function renderTask(task, options = {}) {
     cache.overviewSig = overviewSig;
     applyOverviewCollapsed(task);
   }
-  renderUsage(task);
+  hideUsagePanel();
   if (!options.skipFileViewer && !document.hidden) renderFileViewer(task);
 }
 
@@ -641,6 +804,232 @@ function fileRefreshSignature(task) {
   return [task.id, fileRefreshSignaturePath(task.workspacePath), task.status || '', trees].join('::');
 }
 
+async function renderFileViewer(task) {
+  const treeFilter = $('fileTreeFilter');
+  const fileSelect = $('fileSelect');
+  const preview = $('filePreview');
+  if (!task?.id || !treeFilter || !fileSelect || !preview) return;
+  const token = ++state.fileViewerToken;
+  fileSelect.disabled = true;
+  fileSelect.innerHTML = `<option>${t('loadingFiles')}</option>`;
+  if (!preview.textContent.trim()) setFilePreviewPlain(t('loadingFiles'));
+  try {
+    const data = await api(taskAPIPath(task.id, '/files'));
+    if (token !== state.fileViewerToken) return;
+    const allFiles = enrichFilesWithTreeIDs(task, Array.isArray(data.files) ? data.files : []);
+    state.lastFileRefreshAt[task.id] = Date.now();
+    state.fileListFingerprint[task.id] = allFiles.map(f => `${f.path}:${f.size}:${f.modTime || ''}:${(f.treeIds || []).join(',')}`).join('|');
+    const fileForests = fileForestsForTask(task, allFiles);
+    renderFileForestFilter(task, fileForests);
+    const forestNo = state.selectedForests[task.id];
+    if (!fileForests.length || !forestNo) {
+      renderFileTreeFilter(task, forestNo, []);
+      fileSelect.innerHTML = `<option>${t('noFiles')}</option>`;
+      setFilePreviewEmpty(t('noFiles'), state.settings?.language === 'en' ? 'No stage has visible files yet.' : '当前还没有任何阶段产出可查看文件。');
+      return;
+    }
+    const stageFiles = filesForForest(task, allFiles, forestNo);
+    renderFileTreeFilter(task, forestNo, stageFiles);
+    const treeId = state.selectedFileTree[task.id] || '';
+    const files = treeId ? stageFiles.filter(file => (file.treeIds || []).includes(treeId)) : stageFiles;
+    fileSelect.innerHTML = '';
+    if (!files.length) {
+      fileSelect.disabled = true;
+      fileSelect.innerHTML = `<option>${t('noFiles')}</option>`;
+      setFilePreviewEmpty(t('noFiles'), state.settings?.language === 'en' ? 'This selection has no visible files.' : '当前选择没有产出文件，因此无需查看。');
+      return;
+    }
+    files.forEach(file => {
+      const opt = document.createElement('option');
+      opt.value = file.path;
+      opt.textContent = file.path;
+      fileSelect.appendChild(opt);
+    });
+    const previous = state.selectedFilePath[task.id];
+    const selected = files.some(f => f.path === previous) ? previous : files[0].path;
+    state.selectedFilePath[task.id] = selected;
+    fileSelect.value = selected;
+    fileSelect.disabled = false;
+    fileSelect.onchange = () => {
+      state.selectedFilePath[task.id] = fileSelect.value;
+      state.selectedFileManual[task.id] = true;
+      loadFilePreview(task, fileSelect.value);
+    };
+    await loadFilePreview(task, selected, token);
+  } catch (err) {
+    if (token !== state.fileViewerToken) return;
+    fileSelect.disabled = true;
+    fileSelect.innerHTML = `<option>${t('noFiles')}</option>`;
+    setFilePreviewEmpty(t('noFiles'), `${t('openFailed')}${err.message}`);
+  }
+}
+
+function isValidationLikeTree(tree) {
+  return !!tree?.isValidation || /^\s*验证/.test(String(tree?.name || '')) || /validation/i.test(String(tree?.name || ''));
+}
+
+function treeCodeTokens(tree) {
+  const text = [tree?.id, tree?.name, tree?.objective, tree?.prompt].join(' ');
+  const out = new Set();
+  for (const m of text.matchAll(/\b(\d{6})[._-]?(SH|SZ)\b/gi)) {
+    const code = m[1];
+    const market = m[2].toUpperCase();
+    out.add(`${code}_${market}`);
+    out.add(`${code}.${market}`);
+    out.add(`${market.toLowerCase()}${code}`);
+  }
+  return out;
+}
+
+function enrichFilesWithTreeIDs(task, files) {
+  const treeTokens = (task.trees || []).filter(tree => !isValidationLikeTree(tree)).map(tree => ({ tree, tokens: treeCodeTokens(tree) }));
+  return files.map(file => {
+    const ids = new Set(Array.isArray(file.treeIds) ? file.treeIds : []);
+    const haystack = String(file.path || '').toLowerCase();
+    treeTokens.forEach(({ tree, tokens }) => {
+      for (const token of tokens) {
+        if (haystack.includes(token.toLowerCase())) {
+          ids.add(tree.id);
+          break;
+        }
+      }
+    });
+    return { ...file, treeIds: [...ids] };
+  });
+}
+
+function fileForestsForTask(task, files) {
+  const treeForest = new Map((task.trees || []).filter(tree => !isValidationLikeTree(tree)).map(tree => [tree.id, Number(tree.forest || 1)]));
+  const forestSet = new Set();
+  files.forEach(file => (file.treeIds || []).forEach(id => {
+    const no = treeForest.get(id);
+    if (no) forestSet.add(no);
+  }));
+  return getForests(task.trees || []).filter(forest => forestSet.has(Number(forest.no)));
+}
+
+function filesForForest(task, files, forestNo) {
+  const treeIDs = new Set((task.trees || []).filter(tree => !isValidationLikeTree(tree) && Number(tree.forest || 1) === Number(forestNo)).map(tree => tree.id));
+  return files.filter(file => (file.treeIds || []).some(id => treeIDs.has(id)));
+}
+
+function renderFileForestFilter(task, fileForests) {
+  const select = $('forestSelect');
+  const prev = $('prevForestBtn');
+  const next = $('nextForestBtn');
+  if (!select) return;
+  select.innerHTML = '';
+  if (!fileForests.length) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = t('noFiles');
+    select.appendChild(opt);
+    select.disabled = true;
+    if (prev) prev.disabled = true;
+    if (next) next.disabled = true;
+    delete state.selectedForests[task.id];
+    return;
+  }
+  const current = state.selectedForests[task.id];
+  if (!fileForests.some(forest => Number(forest.no) === Number(current))) {
+    state.selectedForests[task.id] = fileForests[fileForests.length - 1].no;
+  }
+  select.disabled = false;
+  fileForests.forEach(forest => {
+    const opt = document.createElement('option');
+    opt.value = String(forest.no);
+    opt.textContent = `${t('stage')} ${forest.no}`;
+    select.appendChild(opt);
+  });
+  select.value = String(state.selectedForests[task.id]);
+  const currentIndex = Math.max(0, fileForests.findIndex(o => String(o.no) === select.value));
+  if (prev) {
+    prev.disabled = currentIndex <= 0;
+    prev.onclick = () => setSelectedForest(task, fileForests[Math.max(0, currentIndex - 1)].no);
+  }
+  if (next) {
+    next.disabled = currentIndex >= fileForests.length - 1;
+    next.onclick = () => setSelectedForest(task, fileForests[Math.min(fileForests.length - 1, currentIndex + 1)].no);
+  }
+  select.onchange = () => setSelectedForest(task, Number(select.value));
+}
+
+function setFilePreviewPlain(text) {
+  const preview = $('filePreview');
+  if (!preview) return;
+  preview.classList.remove('file-preview-empty');
+  preview.textContent = text || '';
+}
+
+function setFilePreviewEmpty(title, detail = '') {
+  const preview = $('filePreview');
+  if (!preview) return;
+  preview.classList.add('file-preview-empty');
+  preview.innerHTML = `
+    <div class="file-empty-card" role="status">
+      <div class="file-empty-icon" aria-hidden="true">⌁</div>
+      <strong>${escapeHTML(title || t('noFiles'))}</strong>
+      ${detail ? `<p>${escapeHTML(detail)}</p>` : ''}
+    </div>
+  `;
+}
+
+function renderFileTreeFilter(task, forestNo, stageFiles = []) {
+  const treeFilter = $('fileTreeFilter');
+  if (!treeFilter) return;
+  const fileTreeIDs = new Set(stageFiles.flatMap(file => file.treeIds || []));
+  const trees = (task.trees || []).filter(tree => !isValidationLikeTree(tree) && (!forestNo || Number(tree.forest || 1) === Number(forestNo)) && fileTreeIDs.has(tree.id));
+  treeFilter.innerHTML = '';
+  if (!trees.length) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = t('noFiles');
+    treeFilter.appendChild(opt);
+    treeFilter.disabled = true;
+    state.selectedFileTree[task.id] = '';
+    return;
+  }
+  treeFilter.disabled = false;
+  const all = document.createElement('option');
+  all.value = '';
+  all.textContent = t('allTreeFiles');
+  treeFilter.appendChild(all);
+  trees.forEach(tree => {
+    const opt = document.createElement('option');
+    opt.value = tree.id;
+    opt.textContent = tree.name || tree.id;
+    treeFilter.appendChild(opt);
+  });
+  const current = state.selectedFileTree[task.id] || '';
+  treeFilter.value = trees.some(tree => tree.id === current) ? current : '';
+  state.selectedFileTree[task.id] = treeFilter.value;
+  treeFilter.onchange = () => {
+    state.selectedFileTree[task.id] = treeFilter.value;
+    delete state.selectedFilePath[task.id];
+    renderFileViewer(task);
+  };
+}
+
+async function loadFilePreview(task, relPath, parentToken = 0) {
+  const preview = $('filePreview');
+  if (!preview || !task?.id || !relPath) return;
+  const token = parentToken || ++state.previewToken;
+  setFilePreviewPlain(t('loadingFiles'));
+  try {
+    const text = await fetchText(taskAPIPath(task.id, `/files?path=${encodeURIComponent(relPath)}`));
+    if (parentToken && token !== state.fileViewerToken) return;
+    if (!parentToken && token !== state.previewToken) return;
+    const chars = Array.from(text || '');
+    const max = 120_000;
+    setFilePreviewPlain(chars.length > max
+      ? chars.slice(0, max).join('') + `\n\n${t('previewTruncated').replace('%d', String(max))}`
+      : (text || t('emptyResult')));
+  } catch (err) {
+    if (parentToken && token !== state.fileViewerToken) return;
+    if (!parentToken && token !== state.previewToken) return;
+    setFilePreviewEmpty(t('fileTooLarge'), `${t('openFailed')}${err.message}`);
+  }
+}
 
 function applyOverviewCollapsed(task) {
   const card = document.querySelector('.forest-summary');
@@ -679,36 +1068,16 @@ function renderTaskDashboard(task) {
   const panel = $('taskDashboardPanel');
   if (!panel || !task) return;
   const rt = task.runtime || {};
-  const forests = getForests(task.trees || []);
-  const totalTrees = Number(rt.totalTrees ?? (task.trees || []).length);
   const runningTrees = Number(rt.runningTrees ?? (task.trees || []).filter(tr => tr.status !== 'Finished').length);
-  const finishedTrees = Number(rt.finishedTrees ?? Math.max(0, totalTrees - runningTrees));
   const severity = severityClass(rt.severity);
   const cue = String(rt.cue || '').trim();
   const phase = humanizePhase(rt.phase || (task.status === 'Finished' ? 'finished' : 'running'));
-  const selectedForest = ensureSelectedForest(task);
-  const donePct = totalTrees > 0 ? Math.max(0, Math.min(100, Math.round((finishedTrees / totalTrees) * 100))) : (task.status === 'Finished' ? 100 : 0);
   const actionCue = taskActionCue(task, rt, cue, runningTrees);
-  const countText = t('finishedCount').replace('%d', String(finishedTrees)).replace('%d', String(totalTrees));
   panel.className = `task-dashboard-panel ${severity}`;
   panel.innerHTML = `
     <div class="task-dashboard-head">
       <strong>${t('taskNow')}</strong>
       <span class="dashboard-cue-pill ${severity}">${escapeHTML(phase)}</span>
-    </div>
-    <div class="dashboard-readable">
-      <div class="dashboard-status-card ${severity}">
-        <div>
-          <span>${t('subtaskProgress')}</span>
-          <strong>${escapeHTML(countText)}</strong>
-        </div>
-        <div class="task-progress-bar" aria-label="${escapeHTML(countText)}"><span style="width:${donePct}%"></span></div>
-      </div>
-      <div class="dashboard-mini-metrics">
-        <span>${t('duration')} ${formatDuration(rt.durationSeconds || 0)}</span>
-        <span>${t('idle')} ${formatDuration(rt.idleSeconds || 0)}</span>
-        <span>${t('currentStage')} ${selectedForest || forests.length || task.forest || 0}</span>
-      </div>
     </div>
     <div class="dashboard-cue ${severity}">
       <span>${t('taskNext')}</span>
@@ -759,21 +1128,10 @@ function renderOverviewMini(task) {
     panel.innerHTML = '';
     return;
   }
-  const forests = getForests(task.trees || []);
-  const selected = ensureSelectedForest(task);
-  const forest = forests.find(o => o.no === selected) || forests[forests.length - 1];
-  const items = forest?.items || [];
-  const finished = items.filter(tree => tree.status === 'Finished').length;
-  const usage = state.usage[task.id];
-  const tokens = Number(usage?.totalTokens || 0);
   const progressLabel = task.status === 'Finished' ? statusText('Finished') : t('gardenerWorking');
-  const tokenLabel = tokens ? formatTokenCount(tokens) : '—';
-  const subtaskLabel = items.length ? `${finished}/${items.length}` : '—';
   panel.innerHTML = `
     <span class="overview-mini-title">${t('overview')}</span>
     <span class="overview-mini-chip ${task.status || 'Running'}"><small>${t('gardenerProgress')}</small><b>${progressLabel}</b></span>
-    <span class="overview-mini-chip"><small>${t('tokenUsage')}</small><b>${tokenLabel}</b></span>
-    <span class="overview-mini-chip"><small>${t('subtaskProgress')}</small><b>${subtaskLabel}</b></span>
   `;
 }
 
@@ -897,7 +1255,7 @@ function renderForest(task) {
     next.disabled = currentIndex >= forests.length - 1;
     next.onclick = () => setSelectedForest(task, forests[Math.min(forests.length - 1, currentIndex + 1)].no);
   }
-  $('treeSummaryText').textContent = `${t('stage')} ${select.value}`;
+  $('treeSummaryText').textContent = '';
   select.onchange = () => setSelectedForest(task, Number(select.value));
 }
 
@@ -906,14 +1264,49 @@ function setSelectedForest(task, forestNo) {
   delete state.selectedFilePath[task.id];
   state.selectedFileTree[task.id] = '';
   renderForest(task);
-  renderUsage(task);
+  hideUsagePanel();
   renderTreeStatus(task);
   renderFileViewer(task);
 }
 
 
+
+function confirmDeleteTask(task) {
+  closeDeleteConfirm(false);
+  const overlay = $('deleteConfirmOverlay');
+  const name = $('deleteConfirmTaskName');
+  const confirmBtn = $('confirmDeleteTaskBtn');
+  if (!overlay || !confirmBtn) return Promise.resolve(window.confirm(t('deleteConfirm')));
+  pendingDeleteTaskId = task?.id || '';
+  if (name) {
+    name.textContent = task?.title || task?.id || t('genericTask');
+    name.title = name.textContent;
+  }
+  overlay.classList.remove('hidden');
+  overlay.setAttribute('aria-hidden', 'false');
+  confirmBtn.disabled = false;
+  setTimeout(() => confirmBtn.focus(), 0);
+  return new Promise(resolve => { pendingDeleteResolve = resolve; });
+}
+
+function closeDeleteConfirm(result = false) {
+  const overlay = $('deleteConfirmOverlay');
+  if (overlay) {
+    overlay.classList.add('hidden');
+    overlay.setAttribute('aria-hidden', 'true');
+  }
+  pendingDeleteTaskId = '';
+  if (pendingDeleteResolve) {
+    const resolve = pendingDeleteResolve;
+    pendingDeleteResolve = null;
+    resolve(!!result);
+  }
+}
+
 async function deleteTask(taskId) {
-  if (!confirm(t('deleteConfirm'))) return;
+  const task = state.tasks.find(t => t.id === taskId) || { id: taskId, title: taskId };
+  const confirmed = await confirmDeleteTask(task);
+  if (!confirmed) return;
   try {
     await api(taskAPIPath(taskId), { method:'DELETE' });
     state.tasks = state.tasks.filter(task => task.id !== taskId);
@@ -923,6 +1316,11 @@ async function deleteTask(taskId) {
   } catch (err) {
     alert((t('deleteFailed') || 'Delete failed: ') + err.message);
   }
+}
+
+function hideUsagePanel() {
+  const panel = $('usagePanel');
+  if (panel) { panel.classList.add('hidden'); panel.innerHTML = ''; }
 }
 
 async function renderUsage(task) {
@@ -1002,23 +1400,19 @@ function renderGardenerProgress(task) {
     return;
   }
   panel.className = `gardener-progress-panel${running ? ' running' : ''}`;
-  const idleMinutes = running ? inactiveMinutes(task) : 0;
-  const stale = running && idleMinutes >= 5;
-  const staleLabel = t('noOutputMinutes').replace('%d', idleMinutes);
-  const status = running ? `<span class="gardener-progress-live${stale ? ' stale' : ''}"><span></span>${stale ? staleLabel : t('gardenerWorking')}</span>` : `<span class="status-pill Finished">${statusText('Finished')}</span>`;
+  const status = running ? `<span class="gardener-progress-live"><span></span>${t('gardenerWorking')}</span>` : `<span class="status-pill Finished">${statusText('Finished')}</span>`;
   const items = rows.length
     ? rows.map(line => {
         const parsed = parseProgressDisplayLine(line);
         return `<li><time>${escapeHTML(parsed.time)}</time><span>${escapeHTML(humanizeText(parsed.text))}</span></li>`;
       }).join('')
     : `<li class="empty-progress"><span>${t('gardenerProgressEmpty')}</span></li>`;
-  const staleHint = stale ? `<li class="empty-progress progress-stale-hint"><span>${escapeHTML(t('noOutputStale'))}</span></li>` : '';
   panel.innerHTML = `
     <div class="gardener-progress-head">
       <strong>${t('gardenerProgress')}</strong>
       ${status}
     </div>
-    <ol class="gardener-progress-list">${items}${staleHint}</ol>
+    <ol class="gardener-progress-list">${items}</ol>
   `;
 }
 
@@ -1097,416 +1491,8 @@ function isLowValueGardenerProgress(text) {
 function renderTreeStatus(task) {
   const panel = $('treeStatusPanel');
   if (!panel) return;
-  const forests = getForests(task.trees || []);
-  const selected = ensureSelectedForest(task);
-  const forest = forests.find(o => o.no === selected);
-  if (!forest || !forest.items.length) {
-    panel.classList.add('hidden');
-    panel.innerHTML = '';
-    return;
-  }
-  const key = `${task.id}:${forest.no}`;
-  const expanded = !!state.treeStatusExpanded[key];
-  const running = forest.items.filter(tree => tree.status !== 'Finished').length;
-  const finished = forest.items.length - running;
-  const total = forest.items.length;
-  const donePct = total ? Math.max(0, Math.min(100, Math.round((finished / total) * 100))) : 0;
-  const runningNames = forest.items
-    .filter(tree => tree.status !== 'Finished')
-    .slice(0, 2)
-    .map(tree => humanizeText(tree.name || (tree.isValidation ? t('validationTeam') : t('subtask'))));
-  const nameSeparator = state.settings?.language === 'en' ? ', ' : '、';
-  const runningText = runningNames.length
-    ? `${t('runningSubtasksNamed')}${runningNames.join(nameSeparator)}${running > runningNames.length ? ` +${running - runningNames.length}` : ''}`
-    : (finished === total ? t('allSubtasksDone') : t('noRunningSubtasks'));
-  const dots = forest.items.slice(0, 24).map(tree => `<span class="tree-mini-dot ${tree.status || 'Running'}${tree.isValidation ? ' validation' : ''}" title="${escapeHTML(humanizeText(tree.name || t('subtask')))}"></span>`).join('');
-  const countText = t('finishedCount').replace('%d', String(finished)).replace('%d', String(total));
-  panel.className = `tree-status-panel compact novice${expanded ? ' expanded' : ''}`;
-  panel.innerHTML = `
-    <div class="tree-status-main">
-      <div class="tree-progress-copy">
-        <span class="tree-status-title">${t('subtaskProgress')}</span>
-        <strong>${escapeHTML(countText)}</strong>
-        <p>${escapeHTML(runningText)}</p>
-      </div>
-      <div class="tree-progress-visual">
-        <div class="task-progress-bar"><span style="width:${donePct}%"></span></div>
-        <div class="tree-status-dots" aria-hidden="true">${dots}</div>
-        <small>${escapeHTML(t('progressExplain'))}</small>
-      </div>
-      <button type="button" class="tree-status-toggle">${expanded ? t('hideStatus') : t('viewStatus')}</button>
-    </div>
-    <div class="tree-status-list"></div>`;
-  panel.querySelector('.tree-status-toggle').onclick = () => { state.treeStatusExpanded[key] = !expanded; renderTreeStatus(task); };
-  const list = panel.querySelector('.tree-status-list');
-  if (!expanded) return;
-  forest.items.forEach(tree => {
-    const item = document.createElement('div');
-    item.className = `tree-status-chip ${tree.status || 'Running'}${tree.isValidation ? ' validation' : ''}`;
-    const name = humanizeText(tree.name || (tree.isValidation ? t('validationTeam') : t('subtask')));
-    item.innerHTML = `<span class="tree-dot"></span><span class="tree-status-name">${escapeHTML(name)}</span><span class="tree-status-pill">${statusText(tree.status)}</span>`;
-    list.appendChild(item);
-  });
-}
-
-const MAX_RENDERED_FILE_ERROR_CHARS = 300;
-function renderedFileErrorMessage(err) {
-  const chars = Array.from(String(err?.message || err || ''));
-  return chars.length > MAX_RENDERED_FILE_ERROR_CHARS ? chars.slice(0, MAX_RENDERED_FILE_ERROR_CHARS).join('') + '…' : chars.join('');
-}
-
-function resetFileViewerForTask(taskId) {
-  state.fileViewerToken++;
-  state.previewToken++;
-  const fileSelect = $('fileSelect');
-  const preview = $('filePreview');
-  if (fileSelect) {
-    fileSelect.innerHTML = `<option value="">${t('loadingFiles')}</option>`;
-    fileSelect.disabled = true;
-  }
-  if (preview) {
-    preview.className = 'file-preview plain-preview';
-    preview.textContent = t('selectFile');
-  }
-}
-
-function isActiveFileRender(taskId, token) {
-  return state.activeTaskId === taskId && (!token || token === state.fileViewerToken);
-}
-
-const MAX_FILE_FINGERPRINT_PATH_CHARS = 400;
-function fileFingerprintPath(path) {
-  const chars = Array.from(String(path || ''));
-  return chars.length > MAX_FILE_FINGERPRINT_PATH_CHARS ? chars.slice(0, MAX_FILE_FINGERPRINT_PATH_CHARS).join('') : chars.join('');
-}
-
-function fileListFingerprint(files) {
-  return (files || []).map(f => `${fileFingerprintPath(f.path)}:${f.size || 0}:${f.modTime || ''}`).join('|');
-}
-
-const MAX_FILE_SORT_PATH_CHARS = 400;
-function fileSortPath(path) {
-  const chars = Array.from(String(path || ''));
-  return chars.length > MAX_FILE_SORT_PATH_CHARS ? chars.slice(0, MAX_FILE_SORT_PATH_CHARS).join('') : chars.join('');
-}
-
-function newestFile(files) {
-  return (files || []).slice().sort((a, b) => new Date(b.modTime || 0) - new Date(a.modTime || 0) || fileSortPath(a.path).localeCompare(fileSortPath(b.path)))[0] || null;
-}
-
-function latestFruitReport(task) {
-  const trees = (task?.trees || []).filter(tr => tr && tr.fruitPath);
-  trees.sort((a, b) => new Date(b.completedAt || b.updatedAt || 0) - new Date(a.completedAt || a.updatedAt || 0));
-  return trees[0] || null;
-}
-
-async function previewLatestReport(task, token) {
-  const preview = $('filePreview');
-  const fileSelect = $('fileSelect');
-  const tr = latestFruitReport(task);
-  if (!tr) {
-    if (preview && isActiveFileRender(task.id, token)) preview.textContent = task.status === 'Running' ? t('noOutputYet') : t('noFiles');
-    return;
-  }
-  if (fileSelect && isActiveFileRender(task.id, token)) {
-    fileSelect.innerHTML = `<option value="__report__">${t('result')}</option>`;
-    fileSelect.disabled = true;
-  }
-  if (preview && isActiveFileRender(task.id, token)) {
-    preview.className = 'file-preview markdown-preview';
-    preview.textContent = t('loadingFiles');
-  }
-  try {
-    const text = await fetchText(taskAPIPath(task.id, `/trees/${tr.id}/fruit.md`));
-    if (!isActiveFileRender(task.id, token)) return;
-    preview.className = 'file-preview markdown-preview';
-    preview.innerHTML = renderMarkdown(text || t('emptyResult'));
-  } catch (err) {
-    if (!isActiveFileRender(task.id, token)) return;
-    preview.className = 'file-preview plain-preview';
-    preview.textContent = `${t('openFailed')}${err.message}`;
-  }
-}
-
-async function renderFileViewer(task) {
-  const filter = $('fileTreeFilter');
-  const fileSelect = $('fileSelect');
-  const list = $('fileList');
-  const preview = $('filePreview');
-  if (!filter || !fileSelect || !preview || !task) return;
-  const token = ++state.fileViewerToken;
-  state.lastFileRefreshAt[task.id] = Date.now();
-
-  const allTrees = (task.trees || []).filter(tree => !tree.isValidation);
-  const currentFilter = state.selectedFileTree[task.id] || '';
-  const prevValue = filter.value;
-
-  filter.innerHTML = `<option value="">${t('allTreeFiles')}</option>`;
-  allTrees.forEach(tree => {
-    const opt = document.createElement('option');
-    opt.value = tree.id;
-    opt.textContent = humanizeText(tree.name || tree.id);
-    filter.appendChild(opt);
-  });
-  const nextFilter = currentFilter || prevValue || '';
-  filter.value = allTrees.some(t => t.id === nextFilter) ? nextFilter : '';
-  state.selectedFileTree[task.id] = filter.value;
-  filter.disabled = allTrees.length === 0;
-  filter.onchange = () => {
-    state.selectedFileTree[task.id] = filter.value;
-    delete state.selectedFilePath[task.id];
-    state.selectedFileManual[task.id] = false;
-    renderFileViewer(task);
-  };
-
-  if (list) list.innerHTML = '';
-  fileSelect.innerHTML = `<option value="">${t('loadingFiles')}</option>`;
-  fileSelect.disabled = true;
-  preview.className = 'file-preview plain-preview';
-  preview.textContent = task.status === 'Running' ? t('noOutputYet') : t('selectFile');
-  try {
-    const params = new URLSearchParams();
-    if (filter.value) params.set('treeId', filter.value);
-    const qs = params.toString() ? `?${params.toString()}` : '';
-    const data = await api(taskAPIPath(task.id, `/files${qs}`));
-    if (!isActiveFileRender(task.id, token)) return;
-    const files = data.files || [];
-    fileSelect.innerHTML = '';
-    if (!files.length) {
-      const opt = document.createElement('option');
-      opt.value = '';
-      opt.textContent = t('noFiles');
-      fileSelect.appendChild(opt);
-      fileSelect.disabled = true;
-      await previewLatestReport(task, token);
-      return;
-    }
-    const fingerprint = fileListFingerprint(files);
-    const previousFingerprint = state.fileListFingerprint[task.id] || '';
-    state.fileListFingerprint[task.id] = fingerprint;
-    const manual = !!state.selectedFileManual[task.id];
-    let selected = state.selectedFilePath[task.id];
-    const exists = selected && files.some(f => f.path === selected);
-    if (!exists || (!manual && fingerprint !== previousFingerprint)) {
-      const latest = newestFile(files);
-      selected = latest ? latest.path : files[0].path;
-    }
-    state.selectedFilePath[task.id] = selected;
-    files.forEach(file => {
-      const opt = document.createElement('option');
-      opt.value = file.path;
-      opt.textContent = displayFilePath(file.path);
-      opt.title = `${displayFilePath(file.path)} · ${formatBytes(file.size || 0)}`;
-      fileSelect.appendChild(opt);
-    });
-    fileSelect.value = selected;
-    fileSelect.disabled = files.length <= 1;
-    fileSelect.onchange = () => {
-      state.selectedFilePath[task.id] = fileSelect.value;
-      state.selectedFileManual[task.id] = true;
-      previewFile(task.id, fileSelect.value, token);
-    };
-    await previewFile(task.id, selected, token);
-  } catch (err) {
-    if (!isActiveFileRender(task.id, token)) return;
-    const message = renderedFileErrorMessage(err);
-    fileSelect.innerHTML = `<option value="">${t('openFailed')}${escapeHTML(message)}</option>`;
-    fileSelect.disabled = true;
-    preview.textContent = `${t('openFailed')}${message}`;
-  }
-}
-
-async function previewFile(taskId, path, renderToken = 0) {
-  const preview = $('filePreview');
-  const previewToken = ++state.previewToken;
-  if (!preview || state.activeTaskId !== taskId) return;
-  preview.className = 'file-preview plain-preview';
-  preview.textContent = t('loadingFiles');
-  try {
-    if (isBinaryPreviewPath(path)) {
-      const href = `${taskAPIPath(taskId, '/files')}?path=${encodeURIComponent(path)}&download=1`;
-      if (state.activeTaskId !== taskId || previewToken !== state.previewToken || (renderToken && renderToken !== state.fileViewerToken)) return;
-      preview.className = 'file-preview plain-preview';
-      preview.innerHTML = `<div class="file-empty">${escapeHTML(t('binaryFile'))}<br><br><a class="primary small" href="${escapeHTML(href)}" target="_blank" rel="noopener">${escapeHTML(t('downloadFile'))}</a></div>`;
-      return;
-    }
-    const rawText = await fetchText(`${taskAPIPath(taskId, '/files')}?path=${encodeURIComponent(path)}`);
-    const { text, notice } = trimPreviewText(rawText, path);
-    const withNotice = html => notice ? `<div class="preview-note">${escapeHTML(notice)}</div>${html}` : html;
-    if (state.activeTaskId !== taskId || previewToken !== state.previewToken || (renderToken && renderToken !== state.fileViewerToken)) return;
-    if (isMarkdownPath(path)) {
-      preview.className = 'file-preview markdown-preview';
-      preview.innerHTML = withNotice(renderMarkdown(text));
-    } else if (isCSVPath(path)) {
-      preview.className = 'file-preview csv-preview';
-      preview.innerHTML = withNotice(renderCSV(text));
-    } else if (isJSONPath(path)) {
-      preview.className = 'file-preview code-preview json-preview';
-      preview.innerHTML = withNotice(renderJSON(text));
-    } else if (isHTMLPath(path)) {
-      preview.className = 'file-preview code-preview html-preview';
-      preview.innerHTML = withNotice(renderCode(text, 'html'));
-    } else if (isPythonPath(path)) {
-      preview.className = 'file-preview code-preview python-preview';
-      preview.innerHTML = withNotice(renderCode(text, 'python'));
-    } else {
-      preview.className = 'file-preview plain-preview';
-      preview.innerHTML = withNotice(`<pre>${escapeHTML(text)}</pre>`);
-    }
-  } catch (err) {
-    if (state.activeTaskId !== taskId || previewToken !== state.previewToken || (renderToken && renderToken !== state.fileViewerToken)) return;
-    preview.className = 'file-preview plain-preview';
-    preview.textContent = `${t('fileTooLarge')}：${renderedFileErrorMessage(err)}`;
-  }
-}
-
-
-function isCompactViewport() {
-  return typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 820px)').matches;
-}
-
-function trimPreviewText(text, path = '') {
-  const raw = String(text || '');
-  const isStructured = isMarkdownPath(path) || isJSONPath(path) || isHTMLPath(path) || isPythonPath(path) || isCSVPath(path);
-  const limit = isCompactViewport() ? (isStructured ? 180000 : 260000) : (isStructured ? 420000 : 700000);
-  if (raw.length <= limit) return { text: raw, notice: '' };
-  return { text: raw.slice(0, limit), notice: t('previewTruncated').replace('%d', limit) };
-}
-
-function isBinaryPreviewPath(path) {
-  return /(^|\/)[^/]+\.(pdf|zip|7z|rar|gz|tar|tgz|png|jpg|jpeg|gif|webp|doc|docx|xls|xlsx|ppt|pptx)$/i.test(String(path || ''));
-}
-
-function isMarkdownPath(path) {
-  return /(^|\/)[^/]+\.(md|markdown|mdown|mkd)$/i.test(String(path || ''));
-}
-
-function isCSVPath(path) {
-  return /(^|\/)[^/]+\.csv$/i.test(String(path || ''));
-}
-
-function isJSONPath(path) {
-  return /(^|\/)[^/]+\.(json|jsonc|jsonl)$/i.test(String(path || ''));
-}
-
-function isHTMLPath(path) {
-  return /(^|\/)[^/]+\.(html|htm|xhtml)$/i.test(String(path || ''));
-}
-
-function isPythonPath(path) {
-  return /(^|\/)[^/]+\.(py|pyw)$/i.test(String(path || ''));
-}
-
-const MAX_RENDERED_FILE_PATH_CHARS = 500;
-function renderedFilePathText(path) {
-  const chars = Array.from(String(path || ''));
-  return chars.length > MAX_RENDERED_FILE_PATH_CHARS ? chars.slice(0, MAX_RENDERED_FILE_PATH_CHARS).join('') + '…' : chars.join('');
-}
-
-function displayFilePath(path) {
-  let out = String(path || '').replace(/^\/+/, '');
-  const removablePrefixes = ['tree_outputs/', 'outputs/', 'output/', 'reports/', 'report/'];
-  for (const prefix of removablePrefixes) {
-    if (out.startsWith(prefix)) {
-      out = out.slice(prefix.length);
-      break;
-    }
-  }
-  if (/^fruit\.md$/i.test(out) || /\/fruit\.md$/i.test(out)) return t('result');
-  return renderedFilePathText(out || String(path || ''));
-}
-
-function formatBytes(n) {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / 1024 / 1024).toFixed(1)} MB`;
-}
-
-function renderMessages(messages, task) {
-  const box = $('messages'); box.innerHTML = '';
-  const { all, visibleMessages, maxMessages } = visibleMessagesForViewport(messages);
-  if (all.length > visibleMessages.length) {
-    const note = document.createElement('div');
-    note.className = 'chat-message system';
-    note.innerHTML = `<div class="bubble"><div>${escapeHTML(t('recentMessagesOnly').replace('%d', maxMessages))}</div></div>`;
-    box.appendChild(note);
-  }
-  visibleMessages.forEach(m => {
-    const isUser = m.role === 'user';
-    const isSystem = m.role === 'system';
-    const el = document.createElement('div');
-    el.className = `chat-message ${isUser ? 'user' : (isSystem ? 'system' : 'gardener')}`;
-    const bubble = document.createElement('div');
-    bubble.className = 'bubble';
-    bubble.innerHTML = `<div>${escapeHTML(humanizeText(m.content))}</div>`;
-    if (!isUser && m.createdAt) {
-      const timeEl = document.createElement('time');
-      timeEl.className = 'message-time';
-      timeEl.dateTime = m.createdAt;
-      timeEl.textContent = formatMessageDateTime(m.createdAt);
-      bubble.appendChild(timeEl);
-    }
-    if (isSystem) {
-      el.appendChild(bubble);
-    } else {
-      const avatar = document.createElement('div');
-      avatar.className = `avatar ${isUser ? 'user-avatar' : 'gardener'}`;
-      avatar.textContent = isUser ? (state.settings.language === 'en' ? 'U' : '我') : 'G';
-      if (isUser) { el.appendChild(bubble); el.appendChild(avatar); }
-      else { el.appendChild(avatar); el.appendChild(bubble); }
-    }
-    box.appendChild(el);
-  });
-  if (task?.status === 'Finished') {
-    const hint = document.createElement('div');
-    hint.className = 'chat-message system resume-hint-row';
-    hint.innerHTML = `<div class="bubble"><div>${escapeHTML(t('resumeTaskHint'))}</div><button type="button" class="soft-btn inline-resume-btn">${escapeHTML(t('resumeTask'))}</button></div>`;
-    const btn = hint.querySelector('.inline-resume-btn');
-    if (btn) btn.onclick = () => resumeActiveTask();
-    box.appendChild(hint);
-  }
-  if (task?.status === 'Running') {
-    const typing = document.createElement('div');
-    typing.className = 'chat-message gardener typing-row';
-    typing.innerHTML = '<div class="avatar gardener">G</div><div class="typing-bubble"><span></span><span></span><span></span></div>';
-    box.appendChild(typing);
-  }
-  box.scrollTop = box.scrollHeight;
-}
-
-function formatMessageDateTime(value) {
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return '';
-  const pad = n => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function renderTrees(task) {
-  const list = $('treeList'); const template = $('treeTemplate'); list.innerHTML = '';
-  const forests = getForests(task.trees || []);
-  const selected = ensureSelectedForest(task);
-  const forest = forests.find(o => o.no === selected);
-  if (!forest) { $('treeSummaryText').textContent = ''; $('treePanelMeta').textContent = ''; list.innerHTML = `<div class="empty-list large">${t('waitingForest')}</div>`; return; }
-
-  $('treeSummaryText').textContent = `${t('stage')} ${forest.no}`;
-  $('treePanelTitle').textContent = `${t('stage')} ${forest.no}`;
-  $('treePanelMeta').textContent = '';
-
-  forest.items.forEach(tree => {
-    const node = template.content.firstElementChild.cloneNode(true);
-    node.dataset.treeId = tree.id;
-    node.classList.toggle('validation', !!tree.isValidation);
-    node.querySelector('.tree-badge').textContent = tree.isValidation ? 'V' : 'T';
-    node.querySelector('h4').textContent = humanizeText(tree.name);
-    node.querySelector('p').textContent = tree.isValidation ? t('validationTeam') : t('team');
-    const pill = node.querySelector('.status-pill'); pill.textContent = statusText(tree.status); pill.className = 'status-pill ' + tree.status;
-    const scopeText = [(tree.scope || []).join(' / '), tree.objective || ''].filter(Boolean).join('\n');
-    node.querySelector('.scope').textContent = humanizeText(scopeText || '等待 Gardener 分配范围');
-    const ul = node.querySelector('ul');
-    (tree.progress || []).slice(-8).forEach(p => { const li = document.createElement('li'); li.textContent = humanizeText(p); ul.appendChild(li); });
-    setFruitLink(node.querySelector('.fruit-btn'), task.id, tree);
-    list.appendChild(node);
-  });
+  panel.classList.add('hidden');
+  panel.innerHTML = '';
 }
 
 function setTaskReportLink(anchor, url, title) {
@@ -1797,6 +1783,7 @@ async function resumeActiveTask() {
       stopRequested: false,
       messages: [...(originalTask.messages || []), { id: `local_resume_${Date.now()}`, role: 'user', content: t('resumeTask'), createdAt: new Date().toISOString() }]
     };
+    forceNextChatScrollToBottom();
     upsertTask(optimistic);
     renderTask(optimistic, { skipFileViewer: true });
   }
@@ -1836,8 +1823,10 @@ $('sendMessageBtn').onclick = async () => {
       ...originalTask,
       status: 'Running',
       gardenerStatus: 'Running',
+      awaitingUserInput: false,
       messages: [...(originalTask.messages || []), { id: `local_${Date.now()}`, role: 'user', content, createdAt: new Date().toISOString() }]
     };
+    forceNextChatScrollToBottom();
     upsertTask(optimistic);
     renderTask(optimistic, { skipFileViewer: true });
   }
@@ -1856,7 +1845,7 @@ $('sendMessageBtn').onclick = async () => {
 };
 $('resumeTaskBtn').onclick = resumeActiveTask;
 $('stopTaskBtn').onclick = async () => { if (!state.activeTaskId) return; if (!confirm(t('stopConfirm'))) return; $('stopTaskBtn').disabled = true; try { await api(taskAPIPath(state.activeTaskId, '/stop'), { method:'POST', body:'{}' }); } catch(err){ alert(err.message); } };
-$('deleteTaskBtn').onclick = async () => { if (!state.activeTaskId) return; if (!confirm(t('deleteConfirm'))) return; const deleted = state.activeTaskId; $('deleteTaskBtn').disabled = true; try { await api(taskAPIPath(deleted), { method:'DELETE' }); state.tasks = state.tasks.filter(t => t.id !== deleted); backToList({ replaceRoute: true }); renderTaskList(); renderHomeGarden(); } catch(err){ alert((t('deleteFailed') || 'Delete failed: ') + err.message); } finally { $('deleteTaskBtn').disabled = false; } };
+
 $('renameTaskBtn').addEventListener('mousedown', e => { if (state.editingTitle) e.preventDefault(); });
 $('renameTaskBtn').onclick = () => { state.editingTitle ? commitTitleEdit() : beginTitleEdit(); };
 $('pageTitle').ondblclick = beginTitleEdit;
@@ -1867,6 +1856,9 @@ $('titleEditInput').addEventListener('keydown', e => {
 $('titleEditInput').addEventListener('blur', () => { if (state.editingTitle) commitTitleEdit(); });
 $('messageInput').addEventListener('input', autoResizeMessageInput);
 $('messageInput').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('sendMessageBtn').click(); } });
+if ($('messages')) $('messages').addEventListener('scroll', updateJumpToLatestButton, { passive: true });
+if ($('jumpToLatestBtn')) $('jumpToLatestBtn').onclick = () => scrollMessagesToBottom({ smooth: true });
+window.addEventListener('resize', updateJumpToLatestButton);
 function autoResizeMessageInput() {
   const el = $('messageInput');
   if (!el) return;
@@ -1879,6 +1871,18 @@ function autoResizeMessageInput() {
 autoResizeMessageInput();
 $('refreshBtn').onclick = loadTasks;
 if ($('homeRefreshBtn')) $('homeRefreshBtn').onclick = loadTasks;
+if ($('homeTaskSearchInput')) {
+  $('homeTaskSearchInput').addEventListener('input', e => {
+    state.homeTaskSearch = e.target.value || '';
+    state.lastHomeSig = '';
+    renderHomeGarden();
+  });
+  $('homeTaskSearchInput').addEventListener('search', e => {
+    state.homeTaskSearch = e.target.value || '';
+    state.lastHomeSig = '';
+    renderHomeGarden();
+  });
+}
 $('backBtn').onclick = backToList;
 $('settingsBtn').onclick = openSettings;
 if ($('homeSettingsBtn')) $('homeSettingsBtn').onclick = openSettings;
@@ -1915,8 +1919,11 @@ $('modelTokenInput').oninput = () => setCurrentModelToken($('modelTokenInput').v
 $('closeReportBtn').onclick = closeReport;
 $('reportOverlay').onclick = e => { if (e.target === $('reportOverlay')) closeReport(); };
 $('settingsOverlay').onclick = e => { if (e.target === $('settingsOverlay')) closeSettings(); };
+if ($('deleteConfirmOverlay')) $('deleteConfirmOverlay').onclick = e => { if (e.target === $('deleteConfirmOverlay')) closeDeleteConfirm(false); };
+if ($('cancelDeleteConfirmBtn')) $('cancelDeleteConfirmBtn').onclick = () => closeDeleteConfirm(false);
+if ($('confirmDeleteTaskBtn')) $('confirmDeleteTaskBtn').onclick = () => closeDeleteConfirm(true);
 $('copyReportBtn').onclick = async () => { if (!state.activeReportText) return; try { await navigator.clipboard.writeText(state.activeReportText); } catch {} };
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeReport(); closeSettings(); closeDirectoryPicker(); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeDeleteConfirm(false); closeReport(); closeSettings(); closeDirectoryPicker(); } });
 window.addEventListener('popstate', () => syncFromRoute());
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && state.activeTaskId) loadActiveTask(true);

@@ -333,6 +333,7 @@ go build -o auto_gardener ./cmd/server
 - 普通用户界面避免展示工程术语。默认不展示保存位置、任务安排、工作记录等高级信息；这些入口由设置控制。
 - Gardener 在聊天中的回复必须面向普通用户，不应出现 workspace、Codex CLI、Tree、log.md、fruit.md 等工程化表达。前端也需要对历史技术词做用户化转换。
 - Gardener 推理或任务运行期间，聊天框需要展示“输入中”动画，让用户知道系统仍在工作。
+- 当新任务或后续阶段缺少必要信息、存在多个高风险解释、需要用户选择方向/范围/风格，或必须补充凭据时，Gardener 必须暂停并向用户反问；用户在聊天框回答后，应带着“原始任务 + 上一次问题 + 用户补充”继续，而不是把补充当作全新任务。
 - 首页不应是空洞提示页，应聚合所有任务形成 Garden 总览；每个任务以园圃/树林形式展示，可点击进入。
 - Forest 详情页中右上角 Forest/Forest 概览应为小型悬浮窗。概览只粗略展示 Forest，不直接铺开全部 Tree；点击某个 Forest 后再展示其下具体 Tree。
 - 点击成果报告时不能跳转到纯文本新页面，应在站内阅读器/浮层中展示，并提供复制能力。
@@ -342,20 +343,20 @@ go build -o auto_gardener ./cmd/server
 ## 16. 外部模型兼容补充
 
 - 设置页必须允许用户在 Codex CLI 和 Claude Code 两种底层 CLI 之间切换。
-- 一个 Forest 创建后必须固定底层 CLI；该 Forest 内的 Gardener、Tree、Validation Tree 要么全部使用 Claude Code，要么全部使用 Codex CLI，不能混用。
+- 一个 Forest 保存当前 `cliEngine` / `modelMode`；设置页切换模型或底层 CLI 后必须同步更新已有 Forest，使后续继续任务、Gardener、Tree、Validation Tree 使用新的选择。已在运行中的底层 CLI 进程不被强制中断。
 - 设置页必须允许用户在 CLI 默认模型、MiniMax、Kimi 之间切换。
 - CLI 默认模型使用用户本机所选底层 CLI 的原生配置，不注入外部 provider。
-- MiniMax / Kimi 对普通用户应尽量无感：用户只选择模型并填写 token，不需要手动编辑 `~/.codex/config.toml`。
+- MiniMax / Kimi 对普通用户应尽量无感：nginx/relay 安装可以随 provision 预置 provider key；未预置时用户只选择模型并填写一次 token，不需要手动编辑 `~/.codex/config.toml`。
 - MiniMax / Kimi 通过 Gardener 内置兼容层接入。Codex CLI 仍然面向本机 Responses API endpoint；兼容层负责转发到上游 OpenAI Compatible Chat Completions API。
 - MiniMax 默认上游为 `https://api.minimaxi.com/v1`，默认模型为 `MiniMax-M3`。
 - Kimi 默认上游为 `https://api.kimi.com/coding/v1`，默认模型为 `kimi-k2.7-code`，可通过 `AUTO_GARDENER_KIMI_MODEL` 覆盖。
-- 当底层 CLI 为 Claude Code 且模型选择 Kimi 时，Gardener 按 Kimi 官方 Claude Code 接入方式注入 `ANTHROPIC_BASE_URL=https://api.kimi.com/coding/` 和 `ANTHROPIC_API_KEY`。
-- token 只保存在本地 `forest_data/settings.json`，不得写入日志、报告或需求文档。
+- 当底层 CLI 为 Claude Code 且模型选择 Kimi 时，Gardener 按 Kimi 官方 Claude Code 接入方式注入 `ANTHROPIC_BASE_URL=https://api.moonshot.ai/anthropic`、`ANTHROPIC_AUTH_TOKEN` 和 `ANTHROPIC_MODEL=kimi-k2.7-code`，并保留 `ANTHROPIC_API_KEY` 作为旧版兼容兜底。
+- token 只允许来自本地 owner-only `forest_data/settings.json`、运行环境变量或 nginx/relay 的一次性 provision；不得写入日志、报告或公开需求文档。
 
 ## 25. Codex / Claude 数据兼容要求
 
 - Forest/Tree 数据必须采用 CLI 中立格式保存，不能把 Codex 或 Claude 的私有实现细节写成必须字段。
-- 每个 Forest 仍然固定一个底层 CLI：Codex CLI 或 Claude Code；同一 Forest 内不得混用。
-- 切换全局底层 CLI 后，历史 Forest 仍按自身 `cliEngine` 字段继续运行，但其 `schedule.md`、`log.md`、Tree `fruit.md`、workspace 文件、usage 记录和前端文件预览必须继续可读。
+- 每个 Forest 保存当前底层 CLI：Codex CLI 或 Claude Code；设置页切换全局底层 CLI / 模型时，历史 Forest 的 `cliEngine` / `modelMode` 必须同步改为新选择，供后续继续任务和新启动的 Gardener/Tree 使用。
+- 已完成的 `schedule.md`、`log.md`、Tree `fruit.md`、workspace 文件、usage 记录和前端文件预览必须继续可读；已经启动的底层 CLI 进程不因设置切换被强杀。
 - `cliEngine` 允许兼容历史/误写别名：`codex`、`codex-cli`、`openai` 归一为 `codex`；`claude`、`claude-code`、`claude-cli`、`anthropic`、`cloud` 归一为 `claude`。
 - 新生成的内部执行输出文件应使用中立命名，例如 `agent_last_message.md`，不要再使用 `codex_last_message.md` 这类绑定某一 CLI 的新文件名；旧文件仍允许保留并可由历史数据继续引用。

@@ -69,6 +69,36 @@ func TestUpdateSettingsPreservesTokensWhenOmitted(t *testing.T) {
 	}
 }
 
+func TestPublicSettingsReportsConfiguredTokensWithoutLeakingValues(t *testing.T) {
+	settings := publicSettings(AppSettings{LogLevel: LogLevelQuiet, ModelMode: ModelModeMiniMax, MiniMaxToken: "minimax-secret", KimiToken: "kimi-secret"})
+	if !settings.MiniMaxTokenConfigured || !settings.KimiTokenConfigured {
+		t.Fatalf("configured flags = minimax %v kimi %v, want both true", settings.MiniMaxTokenConfigured, settings.KimiTokenConfigured)
+	}
+	if settings.MiniMaxToken != "" || settings.KimiToken != "" {
+		t.Fatalf("public settings leaked token values: %#v", settings)
+	}
+}
+
+func TestEnvProviderTokensSeedSettingsWhenMissing(t *testing.T) {
+	t.Setenv("AUTO_GARDENER_MINIMAX_TOKEN", "minimax-env-secret")
+	t.Setenv("AUTO_GARDENER_KIMI_TOKEN", "kimi-env-secret")
+	store, err := NewStore(t.TempDir(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings := store.GetSettings()
+	if settings.MiniMaxToken != "minimax-env-secret" || settings.KimiToken != "kimi-env-secret" {
+		t.Fatalf("settings tokens were not seeded from environment")
+	}
+	public := store.GetPublicSettings()
+	if !public.MiniMaxTokenConfigured || !public.KimiTokenConfigured {
+		t.Fatalf("public configured flags = minimax %v kimi %v, want both true", public.MiniMaxTokenConfigured, public.KimiTokenConfigured)
+	}
+	if public.MiniMaxToken != "" || public.KimiToken != "" {
+		t.Fatalf("public settings leaked env tokens")
+	}
+}
+
 func TestUpdateSettingsEnforcesPrivateFileMode(t *testing.T) {
 	dataDir := t.TempDir()
 	store, err := NewStore(dataDir, nil)

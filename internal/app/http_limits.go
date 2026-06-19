@@ -10,7 +10,6 @@ const (
 	maxTaskJSONBodyBytes     int64 = 256 * 1024
 	maxSettingsJSONBodyBytes int64 = 64 * 1024
 	maxMessageJSONBodyBytes  int64 = 128 * 1024
-	maxDingTalkJSONBodyBytes int64 = 64 * 1024
 )
 
 func decodeLimitedJSON(w http.ResponseWriter, r *http.Request, dst any, maxBytes int64, badMessage string) bool {

@@ -244,6 +244,28 @@ relay={
 relay_path=root/'gardener.relay.json'
 relay_path.write_text(json.dumps(relay, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
 relay_path.chmod(0o600)
+
+tokens=j.get('providerTokens') or {}
+minimax=str(tokens.get('minimaxToken') or '').strip()
+kimi=str(tokens.get('kimiToken') or '').strip()
+if minimax or kimi:
+  data_dir=pathlib.Path.home()/'Desktop'/'forest_data'
+  data_dir.mkdir(parents=True, exist_ok=True)
+  settings_path=data_dir/'settings.json'
+  settings={'logLevel':'quiet','modelMode':'default','cliEngine':'codex'}
+  if settings_path.exists():
+    try:
+      existing=json.loads(settings_path.read_text(encoding='utf-8'))
+      if isinstance(existing, dict):
+        settings.update(existing)
+    except Exception:
+      pass
+  if minimax and not str(settings.get('minimaxToken') or '').strip():
+    settings['minimaxToken']=minimax
+  if kimi and not str(settings.get('kimiToken') or '').strip():
+    settings['kimiToken']=kimi
+  settings_path.write_text(json.dumps(settings, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
+  settings_path.chmod(0o600)
 PY
 fi
 

@@ -73,6 +73,44 @@ function Protect-GardenerSecretFile([string]$Path) {
   }
 }
 
+
+function Write-GardenerProviderSettings($Provision) {
+  if (-not $Provision -or -not $Provision.providerTokens) { return }
+  $Tokens = $Provision.providerTokens
+  $MiniMaxToken = ""
+  $KimiToken = ""
+  if ($Tokens.PSObject.Properties.Name -contains "minimaxToken") { $MiniMaxToken = [string]$Tokens.minimaxToken }
+  if ($Tokens.PSObject.Properties.Name -contains "kimiToken") { $KimiToken = [string]$Tokens.kimiToken }
+  if ([string]::IsNullOrWhiteSpace($MiniMaxToken) -and [string]::IsNullOrWhiteSpace($KimiToken)) { return }
+
+  $DataDir = Join-Path ([Environment]::GetFolderPath('Desktop')) "forest_data"
+  New-Item -ItemType Directory -Force -Path $DataDir | Out-Null
+  $SettingsPath = Join-Path $DataDir "settings.json"
+  $Settings = [ordered]@{
+    logLevel = "quiet"
+    modelMode = "default"
+    cliEngine = "codex"
+  }
+  if (Test-Path -LiteralPath $SettingsPath -PathType Leaf) {
+    try {
+      $Existing = Get-Content -Raw -Path $SettingsPath | ConvertFrom-Json
+      foreach ($Name in $Existing.PSObject.Properties.Name) {
+        $Settings[$Name] = $Existing.$Name
+      }
+    } catch {
+      Write-Host "Warning: existing settings.json could not be parsed; provider keys will be seeded into fresh settings." -ForegroundColor Yellow
+    }
+  }
+  if (-not [string]::IsNullOrWhiteSpace($MiniMaxToken) -and [string]::IsNullOrWhiteSpace([string]$Settings["minimaxToken"])) {
+    $Settings["minimaxToken"] = $MiniMaxToken
+  }
+  if (-not [string]::IsNullOrWhiteSpace($KimiToken) -and [string]::IsNullOrWhiteSpace([string]$Settings["kimiToken"])) {
+    $Settings["kimiToken"] = $KimiToken
+  }
+  [IO.File]::WriteAllText($SettingsPath, (ConvertTo-PlainJson $Settings), [Text.UTF8Encoding]::new($false))
+  Protect-GardenerSecretFile -Path $SettingsPath
+}
+
 function Unblock-GardenerPath([string]$Path) {
   if (-not $Path -or -not (Test-Path $Path)) { return }
   try {
@@ -200,6 +238,8 @@ if ($Provision) {
   $RelayJsonPath = Join-Path $InstallDir "gardener.relay.json"
   [IO.File]::WriteAllText($RelayJsonPath, (ConvertTo-PlainJson $RelayConfig), [Text.UTF8Encoding]::new($false))
   Protect-GardenerSecretFile -Path $RelayJsonPath
+
+  Write-GardenerProviderSettings -Provision $Provision
 }
 
 [IO.File]::WriteAllText((Join-Path $InstallDir "gardener.config.ps1"), $ConfigText, [Text.UTF8Encoding]::new($false))

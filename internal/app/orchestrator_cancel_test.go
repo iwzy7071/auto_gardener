@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -103,8 +104,8 @@ func TestTreeSummaryLimitsPromptContext(t *testing.T) {
 	longName := strings.Repeat("x", maxTreeSummaryFieldRunes+20)
 	for i := 0; i < maxTreeSummaryEntries+5; i++ {
 		task.Trees = append(task.Trees, &Tree{
-			ID:        newID("tree"),
-			Name:      longName,
+			ID:        fmt.Sprintf("tree_%02d", i),
+			Name:      fmt.Sprintf("%s_%02d", longName, i),
 			Forest:    i + 1,
 			Status:    StatusFinished,
 			FruitPath: strings.Repeat("/tmp/report", 30),
@@ -118,6 +119,12 @@ func TestTreeSummaryLimitsPromptContext(t *testing.T) {
 	}
 	if !strings.Contains(summary, "已省略") {
 		t.Fatalf("expected omitted marker, got %q", summary)
+	}
+	if strings.Contains(summary, "tree_00") {
+		t.Fatalf("summary should omit earliest tasks, got %q", summary)
+	}
+	if !strings.Contains(summary, "tree_44") {
+		t.Fatalf("summary should keep latest tasks, got %q", summary)
 	}
 	if strings.Contains(summary, longName) {
 		t.Fatalf("long tree field was not truncated")

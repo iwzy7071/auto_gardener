@@ -46,9 +46,9 @@ func TestAllowReverseProxyHostWithoutPublicPort(t *testing.T) {
 		t.Fatal(err)
 	}
 	server := NewServer(store, nil, t.TempDir(), hub)
-	req := httptest.NewRequest(http.MethodPut, "http://8.137.101.238/api/settings", strings.NewReader(`{"logLevel":"quiet"}`))
-	req.Host = "8.137.101.238"
-	req.Header.Set("Origin", "http://8.137.101.238:28081")
+	req := httptest.NewRequest(http.MethodPut, "http://203.0.113.10/api/settings", strings.NewReader(`{"logLevel":"quiet"}`))
+	req.Host = "203.0.113.10"
+	req.Header.Set("Origin", "http://203.0.113.10:28081")
 	rr := httptest.NewRecorder()
 	server.Routes().ServeHTTP(rr, req)
 	if rr.Code != http.StatusOK {
@@ -106,8 +106,8 @@ func TestAllowDocumentedRelayForwardedHostAPIWrite(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPut, "http://127.0.0.1:8080/api/settings", strings.NewReader(`{"logLevel":"quiet"}`))
 	req.Host = "127.0.0.1:8080"
 	req.RemoteAddr = "127.0.0.1:45678"
-	req.Header.Set("Origin", "http://8.137.101.238:28081")
-	req.Header.Set("X-Forwarded-Host", "8.137.101.238:28081")
+	req.Header.Set("Origin", "http://203.0.113.10:28081")
+	req.Header.Set("X-Forwarded-Host", "203.0.113.10:28081")
 	rr := httptest.NewRecorder()
 	server.Routes().ServeHTTP(rr, req)
 	if rr.Code != http.StatusOK {
@@ -136,7 +136,7 @@ func TestAllowConfiguredTrustedProxyForwardedHostAPIWrite(t *testing.T) {
 }
 
 func TestAllowConfiguredOriginAPIWrite(t *testing.T) {
-	t.Setenv("AUTO_GARDENER_ALLOWED_ORIGINS", "http://8.137.101.238:28081")
+	t.Setenv("AUTO_GARDENER_ALLOWED_ORIGINS", "http://203.0.113.10:28081")
 	hub := NewEventHub()
 	store, err := NewStore(t.TempDir(), hub)
 	if err != nil {
@@ -144,7 +144,7 @@ func TestAllowConfiguredOriginAPIWrite(t *testing.T) {
 	}
 	server := NewServer(store, nil, t.TempDir(), hub)
 	req := httptest.NewRequest(http.MethodPut, "http://127.0.0.1:8080/api/settings", strings.NewReader(`{"logLevel":"quiet"}`))
-	req.Header.Set("Origin", "http://8.137.101.238:28081")
+	req.Header.Set("Origin", "http://203.0.113.10:28081")
 	rr := httptest.NewRecorder()
 	server.Routes().ServeHTTP(rr, req)
 	if rr.Code != http.StatusOK {
@@ -158,20 +158,5 @@ func TestRejectSameHostDifferentExplicitPort(t *testing.T) {
 	req.Header.Set("Origin", "http://gardener.local:9999")
 	if requestHasSameOrigin(req) {
 		t.Fatal("same host with different explicit ports should not be considered same-origin")
-	}
-}
-
-func TestAllowDingTalkRobotWithoutBrowserOrigin(t *testing.T) {
-	called := false
-	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		called = true
-		w.WriteHeader(http.StatusNoContent)
-	})
-	req := httptest.NewRequest(http.MethodPost, "http://gardener.local/api/dingtalk/robot", strings.NewReader(`{}`))
-	req.Header.Set("Origin", "https://oapi.dingtalk.com")
-	rr := httptest.NewRecorder()
-	rejectCrossOriginAPIWrites(next).ServeHTTP(rr, req)
-	if !called || rr.Code != http.StatusNoContent {
-		t.Fatalf("DingTalk route should bypass browser CSRF guard; called=%v status=%d", called, rr.Code)
 	}
 }

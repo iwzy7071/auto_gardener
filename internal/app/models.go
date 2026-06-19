@@ -33,11 +33,13 @@ const (
 )
 
 type AppSettings struct {
-	LogLevel     LogLevel  `json:"logLevel"`
-	ModelMode    ModelMode `json:"modelMode"`
-	CLIEngine    CLIEngine `json:"cliEngine"`
-	MiniMaxToken string    `json:"minimaxToken,omitempty"`
-	KimiToken    string    `json:"kimiToken,omitempty"`
+	LogLevel               LogLevel  `json:"logLevel"`
+	ModelMode              ModelMode `json:"modelMode"`
+	CLIEngine              CLIEngine `json:"cliEngine"`
+	MiniMaxToken           string    `json:"minimaxToken,omitempty"`
+	KimiToken              string    `json:"kimiToken,omitempty"`
+	MiniMaxTokenConfigured bool      `json:"minimaxTokenConfigured,omitempty"`
+	KimiTokenConfigured    bool      `json:"kimiTokenConfigured,omitempty"`
 }
 
 type ModelPrice struct {
@@ -141,6 +143,7 @@ type Task struct {
 	Messages           []Message    `json:"messages"`
 	GardenerProgress   []string     `json:"gardenerProgress"`
 	LastProgressAt     *time.Time   `json:"lastProgressAt,omitempty"`
+	LastWatchdogAt     *time.Time   `json:"lastWatchdogAt,omitempty"`
 	Runtime            *TaskRuntime `json:"runtime,omitempty"`
 	CreatedAt          time.Time    `json:"createdAt"`
 	UpdatedAt          time.Time    `json:"updatedAt"`

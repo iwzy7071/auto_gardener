@@ -61,7 +61,29 @@ func NewStore(dataDir string, events *EventHub) (*Store, error) {
 func (s *Store) DataDir() string { return s.dataDir }
 
 func defaultSettings() AppSettings {
-	return AppSettings{LogLevel: LogLevelQuiet, ModelMode: ModelModeDefault, CLIEngine: CLIEngineCodex}
+	return applyBundledProviderTokens(AppSettings{LogLevel: LogLevelQuiet, ModelMode: ModelModeDefault, CLIEngine: CLIEngineCodex})
+}
+
+func applyBundledProviderTokens(settings AppSettings) AppSettings {
+	if strings.TrimSpace(settings.MiniMaxToken) == "" {
+		settings.MiniMaxToken = firstNonEmpty(
+			os.Getenv("AUTO_GARDENER_MINIMAX_TOKEN"),
+			os.Getenv("AUTO_GARDENER_MINIMAX_API_KEY"),
+			os.Getenv("GARDENER_MINIMAX_API_KEY"),
+			os.Getenv("MINIMAX_API_KEY"),
+		)
+	}
+	if strings.TrimSpace(settings.KimiToken) == "" {
+		settings.KimiToken = firstNonEmpty(
+			os.Getenv("AUTO_GARDENER_KIMI_TOKEN"),
+			os.Getenv("AUTO_GARDENER_KIMI_API_KEY"),
+			os.Getenv("GARDENER_KIMI_API_KEY"),
+			os.Getenv("KIMI_API_KEY"),
+			os.Getenv("MOONSHOT_API_KEY"),
+			os.Getenv("ANTHROPIC_AUTH_TOKEN"),
+		)
+	}
+	return settings
 }
 
 func normalizeLogLevel(level LogLevel) LogLevel {
@@ -104,9 +126,12 @@ func normalizeCLIEngine(engine CLIEngine) CLIEngine {
 func compatibleCLIEngine(engine CLIEngine, mode ModelMode) CLIEngine {
 	engine = normalizeCLIEngine(engine)
 	mode = normalizeModelMode(mode)
-	if mode == ModelModeKimi && engine == CLIEngineCodex {
+	if (mode == ModelModeKimi || mode == ModelModeMiniMax) && engine == CLIEngineCodex {
 		// Kimi Coding rejects generic OpenAI/Codex-compatible requests and supports
-		// coding agents such as Claude Code. Prefer a working, user-invisible path.
+		// coding agents such as Claude Code. MiniMax-M3 can answer through the Codex
+		// compatibility path, but recent long-running tasks hit tool-call protocol
+		// mismatches there (for example unsupported read_file calls). Prefer Claude
+		// Code while keeping the selected supplier MiniMax/Kimi.
 		return CLIEngineClaude
 	}
 	return engine
@@ -122,6 +147,7 @@ func (s *Store) loadSettings() error {
 		}
 		return err
 	}
+	settings = applyBundledProviderTokens(settings)
 	settings.LogLevel = normalizeLogLevel(settings.LogLevel)
 	settings.ModelMode = normalizeModelMode(settings.ModelMode)
 	settings.CLIEngine = compatibleCLIEngine(settings.CLIEngine, settings.ModelMode)
@@ -153,10 +179,35 @@ func (s *Store) UpdateSettings(settings AppSettings) (AppSettings, error) {
 	if err := s.persistSettingsLocked(); err != nil {
 		return s.settings, err
 	}
+	if err := s.applySettingsRuntimeToTasksLocked(settings); err != nil {
+		return s.settings, err
+	}
 	return s.settings, nil
 }
 
+func (s *Store) applySettingsRuntimeToTasksLocked(settings AppSettings) error {
+	settings = normalizeSettings(settings)
+	now := time.Now()
+	for id, task := range s.tasks {
+		if task == nil {
+			continue
+		}
+		if normalizeCLIEngine(task.CLIEngine) == settings.CLIEngine && normalizeModelMode(task.ModelMode) == settings.ModelMode {
+			continue
+		}
+		task.CLIEngine = settings.CLIEngine
+		task.ModelMode = settings.ModelMode
+		task.UpdatedAt = now
+		if err := s.persistTaskLocked(task); err != nil {
+			return err
+		}
+		s.publishLocked(id)
+	}
+	return nil
+}
+
 func normalizeSettings(settings AppSettings) AppSettings {
+	settings = applyBundledProviderTokens(settings)
 	settings.LogLevel = normalizeLogLevel(settings.LogLevel)
 	settings.ModelMode = normalizeModelMode(settings.ModelMode)
 	settings.CLIEngine = compatibleCLIEngine(settings.CLIEngine, settings.ModelMode)

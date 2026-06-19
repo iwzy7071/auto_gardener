@@ -18,6 +18,8 @@ import (
 
 const maxUserTextBytes = 64 << 10
 
+const maxGardenerJSONRetryAttempts = 1
+
 func validateUserTextSize(label, value string) error {
 	if len([]byte(value)) > maxUserTextBytes {
 		return fmt.Errorf("%s过长，请控制在 %d KB 内", label, maxUserTextBytes/1024)
@@ -97,6 +99,74 @@ outputPath: %s
 scratchPath: %s
 当前阶段: %d
 `, t.ID, t.Title, t.WorkspacePath, taskWorkDir(t), t.Forest)
+}
+
+func buildClarificationReplyInstruction(t *Task, userReply string) string {
+	question := latestGardenerQuestion(t)
+	if question == "" {
+		question = defaultClarificationQuestion()
+	}
+	return fmt.Sprintf(`用户正在回答 Gardener 上一次的澄清问题。请结合原始任务、澄清问题和用户补充重新判断下一步。
+
+要求：
+- 不要把这条补充当成全新的独立任务；它是对原始任务的补充。
+- 如果用户补充已经足够，请继续规划并派发后续子任务。
+- 如果仍然缺少继续前必须确认的信息，可以再次反问；但最多问 3 个关键问题，并尽量给出用户可直接选择/回答的选项。
+- 如果用户补充与原始任务冲突，请优先反问确认，不要自行猜测。
+
+任务 ID: %s
+任务标题: %s
+原始任务: %s
+上一次澄清问题: %s
+用户补充: %s
+outputPath: %s
+scratchPath: %s
+当前阶段: %d
+`, t.ID, t.Title, t.Prompt, question, userReply, t.WorkspacePath, taskWorkDir(t), t.Forest)
+}
+
+func latestGardenerQuestion(t *Task) string {
+	if t == nil {
+		return ""
+	}
+	for i := len(t.Messages) - 1; i >= 0; i-- {
+		msg := t.Messages[i]
+		if msg.Role != RoleGardener {
+			continue
+		}
+		content := strings.TrimSpace(msg.Content)
+		if content != "" && !isAwaitingClarificationStatusMessage(content) {
+			return content
+		}
+	}
+	return ""
+}
+
+func isAwaitingClarificationStatusMessage(content string) bool {
+	content = strings.TrimSpace(content)
+	return strings.Contains(content, "正等你补充需求") || strings.Contains(content, "请直接回答上面的问题") || strings.Contains(content, "waiting for your clarification")
+}
+
+const silentWatchdogInstructionPrefix = "[[GARDENER_SILENT_WATCHDOG]]"
+
+func buildWatchdogInstruction(t *Task, idleMinutes int64, severity string) string {
+	return silentWatchdogInstructionPrefix + "\n" + fmt.Sprintf(`系统检测到这个任务已经约 %d 分钟没有新的输出。请作为 Gardener 在后台自查，而不是直接打扰用户。
+
+要求：
+- 先检查交付目录、schedule、已有子任务报告、验证报告、progress.log 和当前文件状态。
+- 如果底层 CLI 可能只是长时间运行但已有进展，请判断是否需要拆分、续跑或等待；不要给用户发送普通状态提醒。
+- 如果已有成果足够完成，请设置 forest_finished=true，并把 message_to_user 留空。
+- 如果仍有缺口、失败、冲突、半成品或未交付内容，请继续派出新的子任务完成剩余工作，message_to_user 留空。
+- 只有当继续前必须由用户确认取舍、补充缺失信息、提供凭据或选择方向时，才设置 needs_clarification=true 并写 clarification_question。
+- 除非 needs_clarification=true，否则 message_to_user 必须为空字符串，避免用普通状态提示打扰用户。
+
+任务 ID: %s
+任务标题: %s
+outputPath: %s
+scratchPath: %s
+当前阶段: %d
+运行时严重级别: %s
+`, idleMinutes, t.ID, t.Title, t.WorkspacePath, taskWorkDir(t), t.Forest, severity)
 }
 
 func (o *Orchestrator) CreateTask(prompt, workspacePath string) (*Task, error) {
@@ -245,6 +315,9 @@ func (o *Orchestrator) SendMessage(taskID, content string) (*Task, error) {
 		}
 		o.store.AppendGardenerLog(taskID, "用户查询进度：当前正在等待用户补充需求，未启动新任务。")
 		return t, nil
+	}
+	if snapshot, ok := o.store.GetTask(taskID); ok && snapshot.AwaitingUserInput {
+		return o.sendMessageWithInstruction(taskID, content, buildClarificationReplyInstruction(snapshot, content))
 	}
 	return o.sendMessageWithInstruction(taskID, content, content)
 }
@@ -463,6 +536,11 @@ func (o *Orchestrator) startForestRun(taskID, instruction string) {
 }
 
 func (o *Orchestrator) runForest(ctx context.Context, taskID, instruction, runID string) {
+	silentWatchdog := false
+	if strings.HasPrefix(instruction, silentWatchdogInstructionPrefix) {
+		silentWatchdog = true
+		instruction = strings.TrimSpace(strings.TrimPrefix(instruction, silentWatchdogInstructionPrefix))
+	}
 	if _, ok := o.store.GetTask(taskID); !ok {
 		return
 	}
@@ -493,7 +571,7 @@ func (o *Orchestrator) runForest(ctx context.Context, taskID, instruction, runID
 			}
 			return
 		}
-		if strings.TrimSpace(plan.MessageToUser) != "" {
+		if !silentWatchdog && strings.TrimSpace(plan.MessageToUser) != "" {
 			_, _ = o.store.UpdateTask(taskID, func(t *Task) {
 				t.Messages = append(t.Messages, Message{ID: newID("msg"), Role: RoleGardener, Content: userFacingMessage(plan.MessageToUser), CreatedAt: time.Now()})
 			})
@@ -552,7 +630,7 @@ func (o *Orchestrator) runForest(ctx context.Context, taskID, instruction, runID
 				}
 				return
 			}
-			if strings.TrimSpace(decision.MessageToUser) != "" {
+			if !silentWatchdog && strings.TrimSpace(decision.MessageToUser) != "" {
 				_, _ = o.store.UpdateTask(taskID, func(t *Task) {
 					t.Messages = append(t.Messages, Message{ID: newID("msg"), Role: RoleGardener, Content: codex.Truncate(userFacingMessage(decision.MessageToUser), 900), CreatedAt: time.Now()})
 				})
@@ -618,46 +696,105 @@ func (o *Orchestrator) runGardenerPlan(ctx context.Context, taskID, instruction 
 		return GardenerPlan{ForestFinished: true}
 	}
 	outFile := filepath.Join(o.dataDir, "forests", taskID, "gardener", fmt.Sprintf("gardener_plan_forest_%d.md", t.Forest+1))
-	prompt := buildGardenerPlanPrompt(t, instruction)
-	usage := o.newUsageRecorder(taskID, newID("agent"), "gardener", "", "Gardener Plan")
-	result := o.runner.Run(ctx, codex.RunRequest{
-		Role:       "gardener",
-		CLI:        string(normalizeCLIEngine(t.CLIEngine)),
-		Prompt:     prompt,
-		WorkDir:    taskWorkDir(t),
-		OutputFile: outFile,
-		Model:      o.modelConfigForTask(t),
-		OnLine: func(line string) {
-			usage.Record(line)
-			if cleaned, ok := o.codexLogLine(line); ok {
-				o.store.AppendGardenerLog(taskID, "规划："+cleaned)
+	basePrompt := buildGardenerPlanPrompt(t, instruction)
+	prompt := basePrompt
+	var lastOutput string
+	var lastParseErr error
+	for attempt := 0; attempt <= maxGardenerJSONRetryAttempts; attempt++ {
+		if attempt > 0 {
+			o.store.AppendGardenerLog(taskID, fmt.Sprintf("Gardener 规划输出不是有效 JSON，正在自动重试第 %d 次。", attempt))
+			prompt = buildGardenerJSONRepairPrompt("规划", basePrompt, lastOutput, lastParseErr)
+		}
+		usage := o.newUsageRecorder(taskID, newID("agent"), "gardener", "", gardenerUsageName("Gardener Plan", attempt))
+		result := o.runner.Run(ctx, codex.RunRequest{
+			Role:       "gardener",
+			CLI:        string(normalizeCLIEngine(t.CLIEngine)),
+			Prompt:     prompt,
+			WorkDir:    taskWorkDir(t),
+			OutputFile: gardenerRetryOutputFile(outFile, attempt),
+			Model:      o.modelConfigForTask(t),
+			OnLine: func(line string) {
+				usage.Record(line)
+				if cleaned, ok := o.codexLogLine(line); ok {
+					o.store.AppendGardenerLog(taskID, "规划："+cleaned)
+				}
+			},
+		})
+		if result.Err != nil {
+			msg := "Gardener 规划失败，未创建任何子任务：" + result.Err.Error()
+			if ctx.Err() != nil {
+				o.store.AppendGardenerLog(taskID, msg+"；该 run 已被新的用户指令或继续任务请求取消，不向用户显示模型失败。")
+				return GardenerPlan{ForestFinished: true}
 			}
-		},
-	})
-	if result.Err != nil {
-		msg := "Gardener 规划失败，未创建任何子任务：" + result.Err.Error()
-		if ctx.Err() != nil {
-			o.store.AppendGardenerLog(taskID, msg+"；该 run 已被新的用户指令或继续任务请求取消，不向用户显示模型失败。")
+			o.store.AppendGardenerLog(taskID, msg)
+			o.appendSystemMessage(taskID, "本次请求没有完成：底层 CLI 或模型连接失败。请检查设置中的 CLI / 模型配置后，点击“继续任务”重试。")
 			return GardenerPlan{ForestFinished: true}
 		}
-		o.store.AppendGardenerLog(taskID, msg)
-		o.appendSystemMessage(taskID, "本次请求没有完成：底层 CLI 或模型连接失败。请检查设置中的 CLI / 模型配置后，点击“继续任务”重试。")
-		return GardenerPlan{ForestFinished: true}
-	}
-	o.store.AppendGardenerLog(taskID, "Gardener 规划原始输出已保存。")
-	plan, err := parsePlan(result.Output)
-	if err != nil {
+		o.store.AppendGardenerLog(taskID, gardenerAttemptSavedLog("Gardener 规划", attempt))
+		plan, err := parsePlan(result.Output)
+		if err == nil {
+			return normalizePlan(plan, t, instruction)
+		}
 		if ctx.Err() != nil {
 			o.store.AppendGardenerLog(taskID, "Gardener 规划输出解析前 run 已取消，不向用户显示格式异常。")
 			return GardenerPlan{ForestFinished: true}
 		}
-		msg := "Gardener 输出不是有效调度 JSON，未创建任何子任务：" + err.Error()
-		o.store.AppendGardenerLog(taskID, msg)
+		lastOutput = result.Output
+		lastParseErr = err
+		o.store.AppendGardenerLog(taskID, "Gardener 输出不是有效调度 JSON："+err.Error())
 		o.store.AppendGardenerLog(taskID, "无效 Gardener 输出摘要："+codexLogSummary(result.Output, 1200))
-		o.appendSystemMessage(taskID, "规划结果格式异常，任务已暂停。通常点击“继续任务”即可让 Gardener 重新检查当前文件并继续。")
-		return GardenerPlan{ForestFinished: true}
 	}
-	return normalizePlan(plan, t, instruction)
+	o.appendSystemMessage(taskID, "规划结果格式异常，已自动重试但仍未恢复。你可以点击“继续任务”，Gardener 会重新检查当前文件并继续。")
+	return GardenerPlan{ForestFinished: true}
+}
+
+func gardenerRetryOutputFile(path string, attempt int) string {
+	if attempt <= 0 || strings.TrimSpace(path) == "" {
+		return path
+	}
+	ext := filepath.Ext(path)
+	base := strings.TrimSuffix(path, ext)
+	return fmt.Sprintf("%s_retry_%d%s", base, attempt, ext)
+}
+
+func gardenerUsageName(base string, attempt int) string {
+	if attempt <= 0 {
+		return base
+	}
+	return fmt.Sprintf("%s Retry %d", base, attempt)
+}
+
+func gardenerAttemptSavedLog(prefix string, attempt int) string {
+	if attempt <= 0 {
+		return prefix + "原始输出已保存。"
+	}
+	return fmt.Sprintf("%s自动重试第 %d 次输出已保存。", prefix, attempt)
+}
+
+func buildGardenerJSONRepairPrompt(kind, originalPrompt, invalidOutput string, parseErr error) string {
+	errText := "未知解析错误"
+	if parseErr != nil {
+		errText = parseErr.Error()
+	}
+	return fmt.Sprintf(`上一次 Gardener %s输出不是合法 JSON，系统将自动重试一次，避免任务因为格式问题暂停。
+
+你必须重新完成同一个 Gardener %s任务，并且只输出一个合法 JSON 对象：
+- 不要输出 Markdown。
+- 不要输出代码块。
+- 不要输出解释性文字。
+- JSON 顶层字段必须包含 message_to_user、forest_finished、needs_clarification、clarification_question、trees。
+- 如果要继续执行，trees 必须是子任务数组。
+- 如果需要反问用户，needs_clarification=true、clarification_question 写问题、forest_finished=true、trees=[]。
+- 如果已经完成，forest_finished=true、trees=[]。
+
+上一次解析错误：%s
+
+上一次无效输出摘要：
+%s
+
+原始 Gardener %s任务如下：
+%s
+`, kind, kind, errText, codexLogSummary(invalidOutput, 2000), kind, originalPrompt)
 }
 
 func (o *Orchestrator) runGardenerDecision(ctx context.Context, taskID string, forest int) GardenerPlan {
@@ -666,41 +803,54 @@ func (o *Orchestrator) runGardenerDecision(ctx context.Context, taskID string, f
 		return GardenerPlan{ForestFinished: true}
 	}
 	outFile := filepath.Join(o.dataDir, "forests", taskID, "gardener", fmt.Sprintf("gardener_decision_forest_%d.md", forest))
-	usage := o.newUsageRecorder(taskID, newID("agent"), "gardener", "", fmt.Sprintf("Gardener Decision O%d", forest))
-	result := o.runner.Run(ctx, codex.RunRequest{
-		Role:       "gardener",
-		CLI:        string(normalizeCLIEngine(t.CLIEngine)),
-		Prompt:     buildGardenerDecisionPrompt(t, forest),
-		WorkDir:    taskWorkDir(t),
-		OutputFile: outFile,
-		Model:      o.modelConfigForTask(t),
-		OnLine: func(line string) {
-			usage.Record(line)
-			if cleaned, ok := o.codexLogLine(line); ok {
-				o.store.AppendGardenerLog(taskID, "判断："+cleaned)
+	basePrompt := buildGardenerDecisionPrompt(t, forest)
+	prompt := basePrompt
+	var lastOutput string
+	var lastParseErr error
+	for attempt := 0; attempt <= maxGardenerJSONRetryAttempts; attempt++ {
+		if attempt > 0 {
+			o.store.AppendGardenerLog(taskID, fmt.Sprintf("Gardener 决策输出不是有效 JSON，正在自动重试第 %d 次。", attempt))
+			prompt = buildGardenerJSONRepairPrompt("后续判断", basePrompt, lastOutput, lastParseErr)
+		}
+		usage := o.newUsageRecorder(taskID, newID("agent"), "gardener", "", gardenerUsageName(fmt.Sprintf("Gardener Decision O%d", forest), attempt))
+		result := o.runner.Run(ctx, codex.RunRequest{
+			Role:       "gardener",
+			CLI:        string(normalizeCLIEngine(t.CLIEngine)),
+			Prompt:     prompt,
+			WorkDir:    taskWorkDir(t),
+			OutputFile: gardenerRetryOutputFile(outFile, attempt),
+			Model:      o.modelConfigForTask(t),
+			OnLine: func(line string) {
+				usage.Record(line)
+				if cleaned, ok := o.codexLogLine(line); ok {
+					o.store.AppendGardenerLog(taskID, "判断："+cleaned)
+				}
+			},
+		})
+		if result.Err != nil {
+			if ctx.Err() != nil {
+				o.store.AppendGardenerLog(taskID, "Gardener 决策 run 已被新的用户指令或继续任务请求取消："+result.Err.Error())
+				return GardenerPlan{ForestFinished: true}
 			}
-		},
-	})
-	if result.Err != nil {
-		if ctx.Err() != nil {
-			o.store.AppendGardenerLog(taskID, "Gardener 决策 run 已被新的用户指令或继续任务请求取消："+result.Err.Error())
+			o.store.AppendGardenerLog(taskID, "Gardener 决策失败："+result.Err.Error())
+			o.appendSystemMessage(taskID, "后续判断没有完成：底层 CLI 或模型连接失败。请检查设置中的 CLI / 模型配置后，点击“继续任务”重试。")
 			return GardenerPlan{ForestFinished: true}
 		}
-		o.store.AppendGardenerLog(taskID, "Gardener 决策失败："+result.Err.Error())
-		o.appendSystemMessage(taskID, "后续判断没有完成：底层 CLI 或模型连接失败。请检查设置中的 CLI / 模型配置后，点击“继续任务”重试。")
-		return GardenerPlan{ForestFinished: true}
-	}
-	plan, err := parsePlan(result.Output)
-	if err != nil {
+		plan, err := parsePlan(result.Output)
+		if err == nil {
+			return normalizePlan(plan, t, "验证后续决策")
+		}
 		if ctx.Err() != nil {
 			o.store.AppendGardenerLog(taskID, "Gardener 决策输出解析前 run 已取消，不向用户显示格式异常。")
 			return GardenerPlan{ForestFinished: true}
 		}
-		o.store.AppendGardenerLog(taskID, "解析 Gardener 决策 JSON 失败，默认任务 Finished："+err.Error())
-		o.appendSystemMessage(taskID, "后续判断结果格式异常，任务已暂停。你可以点击“继续任务”，Gardener 会重新检查当前进度并继续。")
-		return GardenerPlan{ForestFinished: true}
+		lastOutput = result.Output
+		lastParseErr = err
+		o.store.AppendGardenerLog(taskID, "解析 Gardener 决策 JSON 失败："+err.Error())
+		o.store.AppendGardenerLog(taskID, "无效 Gardener 决策输出摘要："+codexLogSummary(result.Output, 1200))
 	}
-	return normalizePlan(plan, t, "验证后续决策")
+	o.appendSystemMessage(taskID, "后续判断结果格式异常，已自动重试但仍未恢复。你可以点击“继续任务”，Gardener 会重新检查当前进度并继续。")
+	return GardenerPlan{ForestFinished: true}
 }
 
 func (o *Orchestrator) runTreeForest(ctx context.Context, taskID string, forest int, plans []TreePlan) {
@@ -1210,6 +1360,7 @@ func buildGardenerPlanPrompt(t *Task, instruction string) string {
 - 子任务可以实际修改文件、运行命令。
 - 底层 CLI 被允许自主执行所有命令。
 - 如果用户目标缺少必要信息，导致无法判断要做什么、改哪里、交付什么或验收标准是什么，必须先反问用户，不要派子任务硬做。
+- 如果继续前必须由用户选择方向/风格/范围、确认高风险或不可逆操作、补充访问凭据/外部账号信息，或多个合理解释会导致明显不同交付，也必须先反问。
 - 反问时设置 needs_clarification=true、clarification_question 写给用户的问题、forest_finished=true、trees=[]。
 - 反问最多问 3 个最关键问题，尽量给出用户可直接回答的选项；不要要求用户理解内部实现。
 - 如果任务虽然简短但可以通过检查当前 workspace 安全推断下一步，则可以继续规划；只有真正不明确或多种方向风险很高时才反问。
@@ -1333,7 +1484,7 @@ func buildGardenerDecisionPrompt(t *Task, forest int) string {
 - 如果验证子任务发现冲突、测试失败、明显缺口，你应该派新的修复子任务，并明确范围。
 - 如果任务已经足够完成，forest_finished=true 且 trees=[]。
 - 如果任何子任务/验证报告标记 blocked/partial 且原因是需要用户补充信息，请优先向用户反问，而不是继续派子任务猜测。
-- 如果验证后发现继续工作前必须让用户补充需求、确认取舍、提供缺失信息或选择方向，请设置 needs_clarification=true、clarification_question 写给用户的问题、forest_finished=true、trees=[]，不要继续派子任务猜测。
+- 如果验证后发现继续工作前必须让用户补充需求、确认取舍、提供缺失信息、访问凭据或选择方向，请设置 needs_clarification=true、clarification_question 写给用户的问题、forest_finished=true、trees=[]，不要继续派子任务猜测。
 - 状态字段只有 Running 和 Finished；失败/停止/风险只写文本。
 - 请仅输出 JSON 对象，不要 Markdown，不要代码块。
 
@@ -1481,14 +1632,14 @@ func treeSummary(t *Task) string {
 		return "暂无子任务。"
 	}
 	var b strings.Builder
-	shown := 0
-	for _, tr := range t.Trees {
+	start := 0
+	if len(t.Trees) > maxTreeSummaryEntries {
+		start = len(t.Trees) - maxTreeSummaryEntries
+		b.WriteString(fmt.Sprintf("- ... 前面另有 %d 个较早子任务已省略。\n", start))
+	}
+	for _, tr := range t.Trees[start:] {
 		if tr == nil {
 			continue
-		}
-		if shown >= maxTreeSummaryEntries {
-			b.WriteString(fmt.Sprintf("- ... 另有 %d 个子任务已省略。\n", len(t.Trees)-shown))
-			break
 		}
 		b.WriteString(fmt.Sprintf("- %s / %s / 阶段 %d / Status %s / report: %s / scope: %s\n",
 			trimTreeSummaryField(tr.ID),
@@ -1498,7 +1649,6 @@ func treeSummary(t *Task) string {
 			trimTreeSummaryField(tr.FruitPath),
 			trimTreeSummaryField(strings.Join(tr.Scope, ", ")),
 		))
-		shown++
 	}
 	return b.String()
 }
@@ -1538,6 +1688,17 @@ func (o *Orchestrator) cancelTaskProcesses(taskID string) {
 			cancel()
 		}
 	}
+}
+
+func (o *Orchestrator) hasTaskProcesses(taskID string) bool {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	for key := range o.cancels {
+		if key == taskID || strings.HasPrefix(key, taskID+":") {
+			return true
+		}
+	}
+	return false
 }
 
 func (o *Orchestrator) registerCancel(key string, cancel context.CancelFunc) {

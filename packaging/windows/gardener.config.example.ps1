@@ -9,6 +9,3 @@ $env:AUTO_GARDENER_ADDR = "127.0.0.1:8080"
 # Optional: CLI commands.
 # $env:AUTO_GARDENER_CODEX_CMD = "$env:APPDATA\npm\codex.cmd"
 # $env:AUTO_GARDENER_CLAUDE_CMD = "$env:APPDATA\npm\claude.cmd"
-
-# Optional: DingTalk incoming signature secret.
-# $env:AUTO_GARDENER_DINGTALK_INCOMING_SECRET = "your_dingtalk_app_secret"

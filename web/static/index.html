@@ -67,6 +67,9 @@
             <h3 data-i18n="recentForests">已有任务</h3>
             <button id="homeRefreshBtn" class="ghost-mini" data-i18n="refresh">刷新</button>
           </div>
+          <div class="home-task-search" role="search">
+            <input id="homeTaskSearchInput" class="home-task-search-input" type="search" autocomplete="off" data-i18n-placeholder="taskSearchPlaceholder" placeholder="搜索任务标题、ID、状态或模型" />
+          </div>
           <div id="homeForestList" class="home-forest-list"></div>
         </section>
       </section>
@@ -78,6 +81,7 @@
             <div><h3>Gardener</h3></div>
           </div>
           <div id="messages" class="messages phone-messages"></div>
+          <button id="jumpToLatestBtn" class="jump-to-latest hidden" type="button" data-i18n="jumpToLatest">跳到最新</button>
           <div class="chat-box phone-input">
             <textarea id="messageInput" class="chat-textarea" data-i18n-placeholder="messagePlaceholder" placeholder="给 Gardener 发消息" rows="1"></textarea>
             <button id="sendMessageBtn" class="primary-btn" data-i18n="send">发送</button>
@@ -98,7 +102,6 @@
                 <a id="logLink" class="soft-btn" data-i18n="workRecord">工作记录</a>
                 <button id="resumeTaskBtn" class="soft-btn resume-btn" data-i18n="resumeTask">继续任务</button>
                 <button id="stopTaskBtn" class="danger-btn" data-i18n="stop">停止</button>
-                <button id="deleteTaskBtn" class="danger-btn subtle" data-i18n="delete">删除</button>
               </div>
             </div>
 
@@ -192,6 +195,7 @@
         <div id="modelTokenSection" class="model-token-section">
           <label for="modelTokenInput"><span data-i18n="modelToken">Token</span></label>
           <input id="modelTokenInput" type="password" autocomplete="off" data-i18n-placeholder="modelTokenPlaceholder" placeholder="输入当前模型的 token" />
+          <p id="modelTokenHelp" class="settings-note model-token-help"></p>
         </div>
         <button id="saveSettingsBtn" class="primary-btn" data-i18n="save">保存</button>
       </div>
@@ -211,6 +215,23 @@
           <button id="useDirectoryBtn" type="button" class="primary-btn use-directory-btn" data-i18n="useFolder">使用此目录</button>
         </div>
         <div id="directoryList" class="directory-list"></div>
+      </div>
+    </section>
+  </div>
+
+
+  <div id="deleteConfirmOverlay" class="settings-overlay delete-confirm-overlay hidden" aria-hidden="true">
+    <section class="delete-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="deleteConfirmTitle" aria-describedby="deleteConfirmDescription">
+      <div class="delete-confirm-icon" aria-hidden="true">!</div>
+      <div class="delete-confirm-copy">
+        <h3 id="deleteConfirmTitle" data-i18n="deleteConfirmTitle">删除这个任务？</h3>
+        <p id="deleteConfirmDescription" class="delete-confirm-description" data-i18n="deleteConfirmDescription">任务记录、对话和本地任务数据将被移除。</p>
+        <div id="deleteConfirmTaskName" class="delete-confirm-task-name"></div>
+        <p class="delete-confirm-note" data-i18n="deleteConfirmNote">此操作无法撤销。</p>
+      </div>
+      <div class="delete-confirm-actions">
+        <button id="cancelDeleteConfirmBtn" type="button" class="soft-btn" data-i18n="cancel">取消</button>
+        <button id="confirmDeleteTaskBtn" type="button" class="danger-btn" data-i18n="delete">删除</button>
       </div>
     </section>
   </div>

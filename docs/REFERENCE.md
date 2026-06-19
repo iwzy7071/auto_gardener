@@ -61,8 +61,8 @@ Windows 支持范围包括：
 ## 主要能力
 
 - 一个任务对应一片 Forest。
-- Gardener 可按 Forest 固定使用 Codex CLI 或 Claude Code 进行规划、调度和后续判断。
-- Tree 使用该 Forest 创建时固定的底层 CLI，可在用户指定目录中实际修改文件。
+- Gardener 可按 Forest 当前保存的 Codex CLI 或 Claude Code 设置进行规划、调度和后续判断。
+- Tree 使用该 Forest 当前保存的底层 CLI，可在用户指定目录中实际修改文件；设置页切换模型/CLI 会同步到已有 Forest，供后续继续任务和新启动的子任务使用。
 - 用户创建 Forest 时可以选择目标目录；Gardener 和 Tree 都会在该目录中执行。
 - 每一轮执行称为 Forest；任务详情页通过 Forest / Tree / 文件选择器查看产物。
 - 每个 Tree 完成后生成 `fruit.md`；前端以站内阅读器打开，不跳转到纯文本页面。
@@ -72,7 +72,7 @@ Windows 支持范围包括：
 - 任务详情页拥有独立 URL：`/forests/{forest_id}`，支持刷新和直达。
 - 支持简体中文和英文界面。
 - 支持日志/工作记录详细程度配置：简洁、标准、详细。
-- 支持在设置中切换底层 CLI：Codex CLI / Claude Code。一个 Forest 创建后会固定使用其中一种，不会混用；两种 CLI 共享同一套 Forest/Tree/fruit 数据格式。
+- 支持在设置中切换底层 CLI：Codex CLI / Claude Code。切换设置会同步更新已有 Forest 的 `cliEngine` / `modelMode`，后续继续任务和新启动的子任务会使用新选择；两种 CLI 共享同一套 Forest/Tree/fruit 数据格式。
 - 支持在设置中切换 CLI 默认模型、`MiniMax-M3`、`kimi-k2.7-code`（兼容旧值 `kimi-coding` / `kimik2.6`），并为外部模型保存本地 token。
 - MiniMax / Kimi 通过 Gardener 内置兼容层接入，用户不需要手动修改 `~/.codex/config.toml`。
 - 数据全部保存在本地文件中，不使用数据库。
@@ -273,13 +273,13 @@ Web 顶部齿轮进入设置：
 - 底层 CLI：
   - Codex CLI：使用 Codex CLI 执行 Gardener、Tree、Validation Tree。
   - Claude Code：使用 Claude Code 执行 Gardener、Tree、Validation Tree。
-  - 创建 Forest 后会固定当时选择的底层 CLI；之后即使修改设置，该 Forest 也不会混用另一种 CLI。
+  - 设置页切换模型或底层 CLI 后，会同步更新已有 Forest；后续继续任务和新启动的 Gardener/Tree 会使用新的 `cliEngine` / `modelMode`。已经在运行的底层 CLI 进程不会被强制中断。
   - Forest 数据是 CLI 中立格式：`schedule.md`、`log.md`、Tree `fruit.md`、workspace 文件、token 记录和前端预览均不绑定 Codex 或 Claude。`cloud`、`claude-code` 等历史/误写值会自动归一为 `claude`。
 - 模型：
   - CLI 默认模型：不注入外部模型参数，使用当前底层 CLI 的原生默认配置。
   - `MiniMax-M3`：Gardener/Tree 调用 Codex CLI 时自动接入 Gardener 内置兼容层，再由兼容层转发到 MiniMax OpenAI Compatible Chat Completions API。
-  - `kimi-k2.7-code`（兼容旧值 `kimi-coding` / `kimik2.6`）：Codex CLI 会通过 Gardener 内置兼容层转发到 Kimi Coding API；Claude Code 会按 Kimi 官方方式注入 `ANTHROPIC_BASE_URL=https://api.kimi.com/coding/` 和 `ANTHROPIC_API_KEY`。
-- Token：只在选择外部模型时显示。Token 会保存到本机 `forest_data/settings.json`，不会写入 Forest 报告或前端日志。
+  - `kimi-k2.7-code`（兼容旧值 `kimi-coding` / `kimik2.6`）：Codex CLI 会通过 Gardener 内置兼容层转发到 Kimi Coding API；Claude Code 会按 Kimi 官方方式注入 `ANTHROPIC_BASE_URL=https://api.moonshot.ai/anthropic`、`ANTHROPIC_AUTH_TOKEN` 和 `ANTHROPIC_MODEL=kimi-k2.7-code`（同时保留 `ANTHROPIC_API_KEY` 作为旧版兼容兜底）。
+- Token：只在选择外部模型时显示。若 nginx/relay 安装 provision 已内置 MiniMax/Kimi key，设置页会提示“已内置/已配置”，用户无需再次填写；填写新 token 会覆盖本机设置。Token 会保存到本机 owner-only `forest_data/settings.json`，不会写入 Forest 报告或前端日志。
 - 记录详细程度：
   - 简洁：默认，尽量少记录过程噪音。
   - 标准：记录关键进展。
@@ -289,15 +289,19 @@ Web 顶部齿轮进入设置：
 
 ```bash
 AUTO_GARDENER_MINIMAX_MODEL=MiniMax-M3
+AUTO_GARDENER_MINIMAX_TOKEN=sk-...   # 可选：本地设置没有 MiniMax key 时使用
 
 AUTO_GARDENER_KIMI_MODEL=kimi-k2.7-code
+AUTO_GARDENER_KIMI_TOKEN=sk-...      # 可选：本地设置没有 Kimi key 时使用
 ```
 
 默认情况下不要覆盖 `AUTO_GARDENER_MINIMAX_BASE_URL` 或 `AUTO_GARDENER_KIMI_BASE_URL`。Gardener 会自动把 Codex CLI 指向本机兼容层，由兼容层负责把 Codex Responses API 转换为上游 Chat Completions API。
 
+nginx/relay 安装若要让新用户自带 MiniMax/Kimi SK，请在中转服务器使用被 git 忽略的本地环境变量或文件：`GARDENER_RELAY_MINIMAX_TOKEN_FILE`、`GARDENER_RELAY_KIMI_TOKEN_FILE`（也支持 `GARDENER_RELAY_MINIMAX_TOKEN`、`GARDENER_RELAY_KIMI_TOKEN`）。新增用户时，这些 key 会进入该用户的一次性 provision，安装脚本会写入本机 `forest_data/settings.json` 并设置 owner-only 权限。
+
 ## 删除 Forest
 
-- 可以在首页或 Forest 详情页删除已有 Forest。
+- 可以在首页的已有任务卡片中删除 Forest；详情页不再放置删除按钮，避免误点。
 - 删除后会清理该 Forest 在 `forest_data/forests/{forestID}` 下的全部数据。
 - 如果该 Forest 使用的是 Gardener 自动创建的内部 workspace，也会一并清理对应 workspace。
 - 如果用户手动选择了外部项目目录，Gardener 不会主动删除该外部目录，以避免误删用户自己的项目代码。
@@ -307,14 +311,12 @@ AUTO_GARDENER_KIMI_MODEL=kimi-k2.7-code
 - 进入 Forest 详情页后，点击顶部标题旁的编辑按钮即可重命名。
 - 重命名只改变 Forest 标题，不会移动 workspace，也不会改动 Tree、fruit 或已有文件。
 
-## Token 消耗统计
+## Token 消耗
 
-任务详情页会显示当前 Forest 的底层 CLI token 消耗和使用模型，不展示费用估算。
+普通任务详情页不展示 Token 消耗统计；用户只需要关注任务进度、对话和产出文件。
 
-- Gardener 和 Tree 的底层 CLI 输出会被实时抽取到 `forest_data/forests/{forestID}/usage.jsonl`。
-- 旧任务如果没有 `usage.jsonl`，会回退解析 `gardener/log.md` 和 Tree 的 `progress.log`。
-- 如果底层 CLI 只输出 `tokens used` 总数，则展示 total tokens。
-- 如果日志包含 input/output/cached input token 明细，后端会保留这些明细供后续扩展，但当前界面只展示 token 消耗。
+- 后端仍可保留底层 CLI 的 usage 解析能力，供排障或后续内部扩展使用。
+- 前端默认不主动展示或强调 Token 消耗，避免把普通用户引导到成本/计量细节上。
 
 ## 并发配置
 
@@ -361,77 +363,18 @@ $env:AUTO_GARDENER_MAX_CONCURRENT_TREES = "3"
 - 来源：`https://raw.githubusercontent.com/googlefonts/noto-emoji/main/svg/emoji_u1f9d1_200d_1f33e.svg`
 - 授权：Noto Emoji 项目主要图像资源采用 Apache License 2.0。
 
-## 钉钉机器人远程控制
+## 网页端远程控制
 
-Gardener 支持通过钉钉应用机器人 Webhook 接收消息，实现手机端远程创建、查看、继续和停止任务。
+Gardener 后续统一使用网页端作为远程创建、查看、继续和停止任务的入口。通过 relay/frp 暴露公网 URL 后，用户直接在浏览器中打开对应地址即可操作。
 
-### Gardener 端地址
-
-启动 Gardener 后，钉钉机器人消息接收地址为：
-
-```text
-http://<你的公网域名或内网穿透地址>/api/dingtalk/robot
-```
-
-本机调试时仍可使用：
-
-```text
-http://localhost:8080/api/dingtalk/robot
-```
-
-但钉钉云端回调需要能访问到该地址，因此真实手机端使用通常需要公网域名、反向代理或内网穿透。
-
-### 环境变量
-
-接收钉钉应用机器人消息时，建议配置应用机器人 App Secret，用于校验钉钉回调签名：
-
-```bash
-AUTO_GARDENER_DINGTALK_INCOMING_SECRET=你的钉钉机器人AppSecret go run ./cmd/server
-```
-
-兼容别名：
-
-```bash
-AUTO_GARDENER_DINGTALK_APP_SECRET=你的钉钉机器人AppSecret
-```
-
-如果没有 `sessionWebhook`，也可以配置一个普通钉钉群机器人 webhook 作为回复通道：
-
-```bash
-AUTO_GARDENER_DINGTALK_WEBHOOK='https://oapi.dingtalk.com/robot/send?access_token=xxx'
-AUTO_GARDENER_DINGTALK_OUTGOING_SECRET='群机器人加签密钥'
-```
-
-兼容别名：
-
-```bash
-AUTO_GARDENER_DINGTALK_ROBOT_SECRET='群机器人加签密钥'
-```
-
-### 钉钉可用命令
-
-在钉钉里 @ 机器人后发送：
-
-```text
-新任务 <目标>
-状态 [任务ID]
-继续 [任务ID]
-停止 [任务ID]
-任务列表
-帮助
-```
-
-如果当前会话已绑定任务，发送普通消息会转发给该任务；如果还没有绑定任务，普通消息会被当作新任务创建。
-
-查询“状态/进度”不会中断正在运行的 Gardener 任务。
-当新任务或执行过程中的下一步缺少必要信息时，Gardener 会暂停并反问用户；用户直接在对话框或钉钉会话里补充需求后，任务会继续执行。
+当新任务或执行过程中的下一步缺少必要信息、存在多个高风险解释、需要用户选择方向/范围/风格，或必须补充凭据时，Gardener 会暂停并反问用户。用户直接在网页对话框里补充后，Gardener 会把“原始任务 + 上一次澄清问题 + 用户补充”一起交给规划器继续执行，而不是把补充误当成全新任务。
 
 ## 多用户多实例公网中转与自动升级
 
 如果多个用户电脑各自运行本地 Gardener，但共用一台 1C2G 公网 VPS 作为入口，推荐采用：
 
 ```text
-用户浏览器/钉钉 -> VPS HTTPS/Caddy/frps -> 用户电脑 frpc -> 本地 Gardener
+用户浏览器 -> VPS HTTPS/Caddy/frps -> 用户电脑 frpc -> 本地 Gardener
 ```
 
 每台用户电脑应使用独立子域名，例如：
@@ -457,4 +400,26 @@ VERSION=0.1.0 ./scripts/build-windows-package.sh
 
 ```text
 dist/Gardener-Windows.zip
+```
+
+## Linux / Ubuntu packaging
+
+Build Linux packages:
+
+```bash
+VERSION=0.1.0 ./scripts/build-linux-package.sh
+```
+
+The Linux package installs to `~/.local/share/Gardener` by default and uses systemd user services:
+
+```bash
+systemctl --user status gardener.local.service
+systemctl --user status gardener.relay.service
+```
+
+Relay install command shape:
+
+```bash
+curl -fsSL http://YOUR_RELAY_SERVER/downloads/install-gardener-linux.sh -o install-gardener-linux.sh \
+  && bash install-gardener-linux.sh --relay-base-url http://YOUR_RELAY_SERVER --setup-key YOUR_SETUP_KEY
 ```

@@ -56,6 +56,9 @@ func (o *Orchestrator) RunWatchdogOnce(now time.Time) {
 		if rt == nil || rt.IdleSeconds < int64(watchdogStaleAfter().Seconds()) {
 			continue
 		}
+		if t.LastWatchdogAt != nil && now.Sub(*t.LastWatchdogAt) < watchdogStaleAfter() {
+			continue
+		}
 		if hasRecentWatchdogCue(t, rt.LatestActivityAt) {
 			continue
 		}
@@ -63,11 +66,15 @@ func (o *Orchestrator) RunWatchdogOnce(now time.Time) {
 		if minutes < 1 {
 			minutes = 1
 		}
-		cue := fmt.Sprintf("【任务状态提示】这个任务已经约 %d 分钟没有新的输出。底层 CLI 可能仍在运行、等待模型响应，或已经卡住。你可以直接询问进度；查询进度不会中断任务。如果后续仍无变化，可以点击“继续任务”，Gardener 会重新检查当前文件和报告后接着处理。", minutes)
-		if rt.Severity == runtimeSeverityBlocked {
-			cue = fmt.Sprintf("【任务状态提示】这个任务已经约 %d 分钟没有新的输出，可能已卡住或底层 CLI/模型连接异常。建议点击“继续任务”，Gardener 会先诊断已有进度，再决定继续、拆分或给出失败原因。", minutes)
+		mark := now
+		_, _ = o.store.UpdateTask(t.ID, func(t *Task) {
+			t.LastWatchdogAt = &mark
+		})
+		if o.hasTaskProcesses(t.ID) {
+			o.store.AppendGardenerLog(t.ID, fmt.Sprintf("Watchdog 检测到任务约 %d 分钟无新输出，但底层 CLI 进程仍在运行；为避免主动中断，本轮仅记录并延后后台自查。", minutes))
+			continue
 		}
-		o.appendSystemMessage(t.ID, cue)
-		o.store.AppendGardenerLog(t.ID, "Watchdog 已提示用户：任务长时间无新输出。")
+		o.store.AppendGardenerLog(t.ID, fmt.Sprintf("Watchdog 检测到任务约 %d 分钟无新输出，且未发现仍受 Gardener 管理的底层进程，已交由 Gardener 后台自查，不直接通知用户。", minutes))
+		o.startForestRun(t.ID, buildWatchdogInstruction(t, minutes, rt.Severity))
 	}
 }

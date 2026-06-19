@@ -23,13 +23,20 @@ PACKAGE_URL = os.environ.get('GARDENER_RELAY_WINDOWS_PACKAGE_URL', f'{RELAY_PUBL
 PACKAGE_SHA256_URL = os.environ.get('GARDENER_RELAY_WINDOWS_PACKAGE_SHA256_URL', f'{PACKAGE_URL}.sha256')
 INSTALL_SCRIPT_URL = os.environ.get('GARDENER_RELAY_WINDOWS_INSTALL_SCRIPT_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/install-gardener.ps1')
 MAC_INSTALL_SCRIPT_URL = os.environ.get('GARDENER_RELAY_MAC_INSTALL_SCRIPT_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/install-gardener-macos.sh')
+LINUX_INSTALL_SCRIPT_URL = os.environ.get('GARDENER_RELAY_LINUX_INSTALL_SCRIPT_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/install-gardener-linux.sh')
 MAX_FRPC_CONFIG_BYTES = 64 * 1024
+MAX_PROVIDER_TOKEN_BYTES = 8192
 
 MAC_PACKAGE_URLS = {
     'arm64': os.environ.get('GARDENER_RELAY_MAC_ARM64_PACKAGE_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/Gardener-macOS-arm64.tar.gz'),
     'amd64': os.environ.get('GARDENER_RELAY_MAC_AMD64_PACKAGE_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/Gardener-macOS-amd64.tar.gz'),
 }
 MAC_PACKAGE_SHA256_URLS = {arch: os.environ.get(f'GARDENER_RELAY_MAC_{arch.upper()}_PACKAGE_SHA256_URL', f'{url}.sha256') for arch, url in MAC_PACKAGE_URLS.items()}
+LINUX_PACKAGE_URLS = {
+    'arm64': os.environ.get('GARDENER_RELAY_LINUX_ARM64_PACKAGE_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/Gardener-Linux-arm64.tar.gz'),
+    'amd64': os.environ.get('GARDENER_RELAY_LINUX_AMD64_PACKAGE_URL', f'{RELAY_PUBLIC_BASE_URL}/downloads/Gardener-Linux-amd64.tar.gz'),
+}
+LINUX_PACKAGE_SHA256_URLS = {arch: os.environ.get(f'GARDENER_RELAY_LINUX_{arch.upper()}_PACKAGE_SHA256_URL', f'{url}.sha256') for arch, url in LINUX_PACKAGE_URLS.items()}
 FRPS_CONF_MAX_BYTES = 64 * 1024
 
 
@@ -75,6 +82,52 @@ def read_text_limited(path, max_bytes, label):
     if path.stat().st_size > max_bytes:
         raise SystemExit(f'error: {label} file is too large')
     return path.read_text()
+
+
+def read_optional_secret_file(path_value, label):
+    path_value = (path_value or '').strip()
+    if not path_value:
+        return ''
+    path = Path(path_value)
+    if not path.exists():
+        raise SystemExit(f'error: {label} secret file does not exist')
+    value = read_text_limited(path, MAX_PROVIDER_TOKEN_BYTES, label).strip()
+    if not value:
+        raise SystemExit(f'error: {label} secret file is empty')
+    return value
+
+
+def first_secret_value(label, env_names, file_env_names=()):
+    for name in file_env_names:
+        value = read_optional_secret_file(os.environ.get(name), label)
+        if value:
+            return value
+    for name in env_names:
+        value = os.environ.get(name, '').strip()
+        if value:
+            if len(value.encode()) > MAX_PROVIDER_TOKEN_BYTES:
+                raise SystemExit(f'error: {label} token is too large')
+            return value
+    return ''
+
+
+def provider_tokens_from_env():
+    tokens = {}
+    minimax = first_secret_value(
+        'MiniMax',
+        ('GARDENER_RELAY_MINIMAX_TOKEN', 'GARDENER_RELAY_MINIMAX_API_KEY', 'AUTO_GARDENER_MINIMAX_TOKEN', 'MINIMAX_API_KEY'),
+        ('GARDENER_RELAY_MINIMAX_TOKEN_FILE', 'GARDENER_RELAY_MINIMAX_API_KEY_FILE'),
+    )
+    kimi = first_secret_value(
+        'Kimi',
+        ('GARDENER_RELAY_KIMI_TOKEN', 'GARDENER_RELAY_KIMI_API_KEY', 'AUTO_GARDENER_KIMI_TOKEN', 'KIMI_API_KEY', 'MOONSHOT_API_KEY'),
+        ('GARDENER_RELAY_KIMI_TOKEN_FILE', 'GARDENER_RELAY_KIMI_API_KEY_FILE'),
+    )
+    if minimax:
+        tokens['minimaxToken'] = minimax
+    if kimi:
+        tokens['kimiToken'] = kimi
+    return tokens
 
 
 def save_state(data):
@@ -326,6 +379,7 @@ def write_provision(instance, password, setup_key=None):
     if provision_dir.exists():
         raise SystemExit('error: setup key already exists; please choose another key')
     provision_dir.mkdir(parents=True, exist_ok=False)
+    provider_tokens = provider_tokens_from_env()
     provision = {
         'schemaVersion': 1,
         'user': instance['user'],
@@ -338,10 +392,15 @@ def write_provision(instance, password, setup_key=None):
         'macInstallScriptUrl': MAC_INSTALL_SCRIPT_URL,
         'macPackageUrls': MAC_PACKAGE_URLS,
         'macPackageSha256Urls': MAC_PACKAGE_SHA256_URLS,
+        'linuxInstallScriptUrl': LINUX_INSTALL_SCRIPT_URL,
+        'linuxPackageUrls': LINUX_PACKAGE_URLS,
+        'linuxPackageSha256Urls': LINUX_PACKAGE_SHA256_URLS,
         'frpcToml': read_text_limited(USERS / instance['user'] / 'frpc.toml', MAX_FRPC_CONFIG_BYTES, 'frpc config'),
         'createdAt': time.strftime('%Y-%m-%dT%H:%M:%S%z'),
         'note': 'Treat this setup key as a secret. Anyone with this URL can configure this Gardener relay client.',
     }
+    if provider_tokens:
+        provision['providerTokens'] = provider_tokens
     path = provision_dir / 'gardener.provision.json'
     path.write_text(json.dumps(provision, ensure_ascii=False, indent=2) + '\n')
     set_nginx_readable(provision_dir)
@@ -368,6 +427,12 @@ def mac_install_command(setup_key):
     relay_base_url = shlex.quote(RELAY_PUBLIC_BASE_URL)
     safe_setup_key = shlex.quote(setup_key)
     return f'curl -fsSL {script_url} -o install-gardener-macos.sh && bash install-gardener-macos.sh --relay-base-url {relay_base_url} --setup-key {safe_setup_key}'
+
+def linux_install_command(setup_key):
+    script_url = shlex.quote(LINUX_INSTALL_SCRIPT_URL)
+    relay_base_url = shlex.quote(RELAY_PUBLIC_BASE_URL)
+    safe_setup_key = shlex.quote(setup_key)
+    return f'curl -fsSL {script_url} -o install-gardener-linux.sh && bash install-gardener-linux.sh --relay-base-url {relay_base_url} --setup-key {safe_setup_key}'
 
 
 MAX_COMMAND_ERROR_CHARS = 4000
@@ -458,7 +523,7 @@ def add_user(args):
             shutil.rmtree(PROVISION_ROOT / setup_key, ignore_errors=True)
         conf_path.unlink(missing_ok=True)
         raise
-    result = {**instance, 'password': password, 'installCommand': install_command(setup_key), 'macInstallCommand': mac_install_command(setup_key)}
+    result = {**instance, 'password': password, 'installCommand': install_command(setup_key), 'macInstallCommand': mac_install_command(setup_key), 'linuxInstallCommand': linux_install_command(setup_key)}
     if not args.show_secrets:
         result = redact_add_result(result)
     print(json.dumps(result, ensure_ascii=False, indent=2))
