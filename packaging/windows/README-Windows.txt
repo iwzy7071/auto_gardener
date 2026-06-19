@@ -6,11 +6,13 @@ Ask the administrator for your SetupKey (starts with sk_). Then run this in Powe
 
   powershell -ExecutionPolicy Bypass -Command "iwr http://YOUR_RELAY_SERVER/downloads/install-gardener.ps1 -OutFile install-gardener.ps1; .\install-gardener.ps1 -RelayBaseUrl http://YOUR_RELAY_SERVER -SetupKey YOUR_SETUP_KEY -DesktopShortcut -StartMenuShortcut -StartAfterInstall"
 
-After installation, double click Gardener. It will:
-1. Start local Gardener at http://127.0.0.1:8080
-2. Start the relay tunnel automatically if frpc.exe and frpc.toml exist
-3. Open your assigned remote URL
-4. Keep the PowerShell window alive; if gardener.exe exits unexpectedly, start-gardener.ps1 will restart it automatically.
+After installation, Gardener will:
+1. Start local Gardener at http://127.0.0.1:8080.
+2. Start the relay tunnel automatically if frpc.exe and frpc.toml exist.
+3. Register a Windows Scheduled Task named "Gardener Remote Access" so Gardener starts again after Windows sign-in.
+4. Keep the PowerShell session awake while Gardener is running and set AC sleep/hibernate timeout to Never when possible.
+5. Open your assigned remote URL.
+6. Restart gardener.exe automatically if it exits unexpectedly.
 
 The remote URL requires the username/password shown during installation and saved in gardener.relay.json.
 
@@ -26,6 +28,7 @@ Windows security prompt note
 The installer/update script removes the Internet download mark from Gardener files and forces Gardener to listen on 127.0.0.1:8080 only. This prevents the common Windows Defender Firewall prompt such as "some features of this app have been blocked" while still allowing browser access and the relay tunnel. If you run the installer as Administrator, it also adds a firewall rule that blocks external inbound access to gardener.exe.
 
 Do not double click gardener.exe directly; use the Gardener shortcut or start-gardener.bat so the local-only configuration is loaded.
+If you do not want installer-managed startup or power settings, pass -NoAutoStart or -NoPreventSleep.
 
 Upgrade
 

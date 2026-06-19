@@ -74,6 +74,7 @@ fi
 INSTALL_PATH="$BASE_INSTALL_PATH:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:$HOME/.local/bin"
 CODEX_CMD="$(PATH="$INSTALL_PATH" command -v codex || true)"
 CLAUDE_CMD="$(PATH="$INSTALL_PATH" command -v claude || true)"
+CAFFEINATE_CMD="$(command -v caffeinate || true)"
 
 TMP="$(mktemp -d)"
 cleanup(){ rm -rf "$TMP"; }
@@ -293,13 +294,27 @@ plist_user="$(xml_escape "$(whoami)")"
 plist_codex_cmd="$(xml_escape "$CODEX_CMD")"
 plist_claude_cmd="$(xml_escape "$CLAUDE_CMD")"
 plist_log_dir="$(xml_escape "$LOG_DIR")"
+plist_caffeinate_cmd="$(xml_escape "$CAFFEINATE_CMD")"
 cat > "$HOME/Library/LaunchAgents/com.gardener.local.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
   <key>Label</key><string>com.gardener.local</string>
-  <key>ProgramArguments</key><array><string>$plist_install_dir/gardener</string></array>
+  <key>ProgramArguments</key>
+  <array>
+EOF
+if [[ -n "$CAFFEINATE_CMD" ]]; then
+cat >> "$HOME/Library/LaunchAgents/com.gardener.local.plist" <<EOF
+    <string>$plist_caffeinate_cmd</string><string>-dimsu</string><string>$plist_install_dir/gardener</string>
+EOF
+else
+cat >> "$HOME/Library/LaunchAgents/com.gardener.local.plist" <<EOF
+    <string>$plist_install_dir/gardener</string>
+EOF
+fi
+cat >> "$HOME/Library/LaunchAgents/com.gardener.local.plist" <<EOF
+  </array>
   <key>WorkingDirectory</key><string>$plist_install_dir</string>
   <key>EnvironmentVariables</key>
   <dict>
@@ -337,7 +352,20 @@ cat > "$HOME/Library/LaunchAgents/com.gardener.relay.plist" <<EOF
 <plist version="1.0">
 <dict>
   <key>Label</key><string>com.gardener.relay</string>
-  <key>ProgramArguments</key><array><string>$plist_install_dir/frpc</string><string>-c</string><string>$plist_install_dir/frpc.toml</string></array>
+  <key>ProgramArguments</key>
+  <array>
+EOF
+if [[ -n "$CAFFEINATE_CMD" ]]; then
+cat >> "$HOME/Library/LaunchAgents/com.gardener.relay.plist" <<EOF
+    <string>$plist_caffeinate_cmd</string><string>-dimsu</string><string>$plist_install_dir/frpc</string><string>-c</string><string>$plist_install_dir/frpc.toml</string>
+EOF
+else
+cat >> "$HOME/Library/LaunchAgents/com.gardener.relay.plist" <<EOF
+    <string>$plist_install_dir/frpc</string><string>-c</string><string>$plist_install_dir/frpc.toml</string>
+EOF
+fi
+cat >> "$HOME/Library/LaunchAgents/com.gardener.relay.plist" <<EOF
+  </array>
   <key>WorkingDirectory</key><string>$plist_install_dir</string>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>

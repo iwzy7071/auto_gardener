@@ -126,6 +126,25 @@ for name in gardener frpc web install-gardener.sh start-gardener.sh update-garde
 chmod +x "$INSTALL_DIR/gardener" "$INSTALL_DIR/start-gardener.sh" "$INSTALL_DIR/update-gardener.sh" "$INSTALL_DIR/install-gardener.sh" 2>/dev/null || true
 [[ -f "$INSTALL_DIR/frpc" ]] && chmod +x "$INSTALL_DIR/frpc" 2>/dev/null || true
 
+cat > "$INSTALL_DIR/run-gardener-service.sh" <<WRAP_EOF
+#!/usr/bin/env bash
+set -euo pipefail
+if command -v systemd-inhibit >/dev/null 2>&1; then
+  exec systemd-inhibit --what=sleep --mode=block --why=GardenerRemoteAccess "$INSTALL_DIR/gardener"
+fi
+exec "$INSTALL_DIR/gardener"
+WRAP_EOF
+
+cat > "$INSTALL_DIR/run-frpc-service.sh" <<WRAP_EOF
+#!/usr/bin/env bash
+set -euo pipefail
+if command -v systemd-inhibit >/dev/null 2>&1; then
+  exec systemd-inhibit --what=sleep --mode=block --why=GardenerRelayTunnel "$INSTALL_DIR/frpc" -c "$INSTALL_DIR/frpc.toml"
+fi
+exec "$INSTALL_DIR/frpc" -c "$INSTALL_DIR/frpc.toml"
+WRAP_EOF
+chmod +x "$INSTALL_DIR/run-gardener-service.sh" "$INSTALL_DIR/run-frpc-service.sh" 2>/dev/null || true
+
 if [[ -s "$PROVISION_JSON" ]]; then
   echo "Writing relay configuration..."
   python3 - "$PROVISION_JSON" "$INSTALL_DIR" "$DATA_DIR" <<'PY'
@@ -185,7 +204,7 @@ After=network-online.target
 Type=simple
 WorkingDirectory=$INSTALL_DIR
 EnvironmentFile=$INSTALL_DIR/gardener.env
-ExecStart=$INSTALL_DIR/gardener
+ExecStart=$INSTALL_DIR/run-gardener-service.sh
 Restart=always
 RestartSec=3
 StandardOutput=append:$INSTALL_DIR/logs/gardener.local.out.log
@@ -204,7 +223,7 @@ After=network-online.target gardener.local.service
 [Service]
 Type=simple
 WorkingDirectory=$INSTALL_DIR
-ExecStart=$INSTALL_DIR/frpc -c $INSTALL_DIR/frpc.toml
+ExecStart=$INSTALL_DIR/run-frpc-service.sh
 Restart=always
 RestartSec=3
 StandardOutput=append:$INSTALL_DIR/logs/gardener.relay.out.log
@@ -215,7 +234,17 @@ WantedBy=default.target
 SERVICE_EOF
 fi
 
+enable_gardener_linger() {
+  command -v loginctl >/dev/null 2>&1 || return 0
+  loginctl enable-linger "$USER" >/dev/null 2>&1 && return 0
+  if command -v sudo >/dev/null 2>&1; then
+    sudo -n loginctl enable-linger "$USER" >/dev/null 2>&1 && return 0
+  fi
+  printf '%s\n' "Warning: could not enable systemd lingering automatically. Run: loginctl enable-linger \"$USER\"" >&2
+}
+
 if [[ "$START_AFTER_INSTALL" == "1" ]]; then
+  enable_gardener_linger
   if command -v systemctl >/dev/null 2>&1; then
     systemctl --user daemon-reload >/dev/null 2>&1 || true
     systemctl --user enable --now gardener.local.service >/dev/null 2>&1 || true

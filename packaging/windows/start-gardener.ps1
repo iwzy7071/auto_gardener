@@ -30,6 +30,31 @@ function Convert-GardenerPowerIndex([string]$Value) {
   }
 }
 
+$script:GardenerSleepAssertionEnabled = $false
+function Enable-GardenerRuntimeAwake {
+  try {
+    if (-not ("Gardener.Power" -as [type])) {
+      Add-Type -Namespace Gardener -Name Power -MemberDefinition '[System.Runtime.InteropServices.DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint esFlags);'
+    }
+    $ES_CONTINUOUS = [uint32]0x80000000
+    $ES_SYSTEM_REQUIRED = [uint32]0x00000001
+    $ES_AWAYMODE_REQUIRED = [uint32]0x00000040
+    [void][Gardener.Power]::SetThreadExecutionState($ES_CONTINUOUS -bor $ES_SYSTEM_REQUIRED -bor $ES_AWAYMODE_REQUIRED)
+    $script:GardenerSleepAssertionEnabled = $true
+    Write-Host "Power: keeping this Windows session awake while Gardener is running." -ForegroundColor Green
+  } catch {
+    Write-Host "Warning: could not create Windows keep-awake assertion: $_" -ForegroundColor Yellow
+  }
+}
+
+function Disable-GardenerRuntimeAwake {
+  if (-not $script:GardenerSleepAssertionEnabled) { return }
+  try {
+    $ES_CONTINUOUS = [uint32]0x80000000
+    [void][Gardener.Power]::SetThreadExecutionState($ES_CONTINUOUS)
+  } catch {}
+}
+
 function Show-GardenerPowerWarning {
   try {
     $bad = @()
@@ -114,6 +139,7 @@ if ($Relay -and $Relay.publicUrl) {
 Write-Host "Data: configured"
 Write-Host "Static: configured"
 Show-GardenerPowerWarning
+Enable-GardenerRuntimeAwake
 
 $frpcProc = $null
 if (-not $NoRelay -and (Test-Path $FrpcConfig)) {
@@ -152,4 +178,5 @@ try {
   if ($frpcProc -and -not $frpcProc.HasExited) {
     Stop-Process -Id $frpcProc.Id -Force -ErrorAction SilentlyContinue
   }
+  Disable-GardenerRuntimeAwake
 }

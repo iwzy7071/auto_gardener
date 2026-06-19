@@ -9,7 +9,9 @@ param(
   [string]$ProvisionUrl,
   [switch]$StartMenuShortcut,
   [switch]$DesktopShortcut,
-  [switch]$StartAfterInstall
+  [switch]$StartAfterInstall,
+  [switch]$NoAutoStart,
+  [switch]$NoPreventSleep
 )
 
 $ErrorActionPreference = "Stop"
@@ -149,6 +151,39 @@ function Set-GardenerFirewallPolicy([string]$ExePath) {
   }
 }
 
+function Register-GardenerAutoStart([string]$StartScript) {
+  if (-not (Test-Path $StartScript)) { return }
+  try {
+    $taskName = "Gardener Remote Access"
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$StartScript`" -NoBrowser"
+    $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero)
+    Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Description "Keeps Gardener local service and relay tunnel running after Windows sign-in." -Force | Out-Null
+    Write-Host "Auto-start: registered Windows Scheduled Task '$taskName'." -ForegroundColor Green
+  } catch {
+    Write-Host "Warning: could not register Gardener auto-start task: $_" -ForegroundColor Yellow
+    Write-Host "You can still start Gardener from the desktop/start-menu shortcut." -ForegroundColor Yellow
+  }
+}
+
+function Set-GardenerNoSleepPolicy {
+  try {
+    powercfg /change standby-timeout-ac 0 | Out-Null
+    powercfg /change hibernate-timeout-ac 0 | Out-Null
+    Write-Host "Power: AC sleep and hibernate timeouts set to Never for reliable remote access." -ForegroundColor Green
+    if (Test-GardenerAdmin) {
+      powercfg /change standby-timeout-dc 0 | Out-Null
+      powercfg /change hibernate-timeout-dc 0 | Out-Null
+      Write-Host "Power: battery sleep and hibernate timeouts also set to Never." -ForegroundColor Green
+    } else {
+      Write-Host "Power: skipped battery timeout changes because PowerShell is not running as Administrator." -ForegroundColor Yellow
+    }
+  } catch {
+    Write-Host "Warning: could not update Windows power settings automatically: $_" -ForegroundColor Yellow
+    Write-Host "Set Windows Settings > System > Power & battery > Screen and sleep to Never for remote tasks." -ForegroundColor Yellow
+  }
+}
+
 $Provision = $null
 if (-not $ProvisionUrl -and $SetupKey) {
   if (Test-GardenerPlaceholderUrl $RelayBaseUrl) {
@@ -264,6 +299,9 @@ if ($DesktopShortcut -or $StartMenuShortcut) {
     $Shortcut.Save()
   }
 }
+
+if (-not $NoAutoStart) { Register-GardenerAutoStart -StartScript $StartScript }
+if (-not $NoPreventSleep) { Set-GardenerNoSleepPolicy }
 
 Write-Host "Gardener installed to $InstallDir" -ForegroundColor Green
 if ($Provision) {
