@@ -20,37 +20,28 @@ if (( ${#ARCHES} > 64 )); then
   exit 1
 fi
 
-normalize_arches() {
-  local normalized=()
-  local arch canonical existing
-  for arch in $ARCHES; do
-    case "$arch" in
-      arm64) canonical="arm64" ;;
-      amd64|x86_64) canonical="amd64" ;;
-      *) echo "Unsupported arch: $arch" >&2; exit 1 ;;
-    esac
-    for existing in "${normalized[@]}"; do
-      if [[ "$existing" == "$canonical" ]]; then
-        canonical=""
-        break
-      fi
-    done
-    if [[ -n "$canonical" ]]; then
-      normalized+=("$canonical")
-      if (( ${#normalized[@]} > 2 )); then
-        echo "Too many macOS architectures requested" >&2
-        exit 1
-      fi
-    fi
-  done
-  if (( ${#normalized[@]} == 0 )); then
-    echo "No macOS architectures requested" >&2
+BUILD_ARCHES=()
+seen_arches=""
+for arch in $ARCHES; do
+  case "$arch" in
+    arm64) canonical="arm64" ;;
+    amd64|x86_64) canonical="amd64" ;;
+    *) echo "Unsupported arch: $arch" >&2; exit 1 ;;
+  esac
+  case " $seen_arches " in
+    *" $canonical "*) continue ;;
+  esac
+  seen_arches="$seen_arches $canonical"
+  BUILD_ARCHES+=("$canonical")
+  if (( ${#BUILD_ARCHES[@]} > 2 )); then
+    echo "Too many macOS architectures requested" >&2
     exit 1
   fi
-  printf '%s\n' "${normalized[@]}"
-}
-
-mapfile -t BUILD_ARCHES < <(normalize_arches)
+done
+if (( ${#BUILD_ARCHES[@]} == 0 )); then
+  echo "No macOS architectures requested" >&2
+  exit 1
+fi
 mkdir -p "$OUT_DIR"
 
 write_sha256_file() {
