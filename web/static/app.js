@@ -414,7 +414,7 @@ function signatureText(value) {
 }
 
 function taskListSignature(tasks) {
-  return (tasks || []).map(t => [t.id, signatureText(t.title), t.status || '', (t.trees || []).length].join(':')).join('|');
+  return (tasks || []).map(t => [t.id, signatureText(t.title), signatureText(t.workspacePath), t.status || '', (t.trees || []).length].join(':')).join('|');
 }
 
 function visibleMessagesForViewport(messages) {
@@ -703,8 +703,10 @@ function renderHomeGarden() {
     item.setAttribute('role', 'button');
     item.tabIndex = 0;
     const forests = getForests(task.trees || []);
+    const workspacePath = String(task.workspacePath || '').trim();
     item.innerHTML = `
       <span class="home-forest-title">${escapeHTML(task.title || t('genericTask'))}</span>
+      <span class="home-forest-path" title="${escapeHTML(workspacePath)}">${escapeHTML(workspacePath)}</span>
       <span class="home-forest-meta"><b>${statusText(task.status)}</b>${forests.length ? ` · ${t('stage')} ${forests.length}` : ''}</span>
       <div class="home-forest-actions">
         <button type="button" class="home-forest-delete" title="${t('delete')}" aria-label="${t('delete')}">${t('delete')}</button>
